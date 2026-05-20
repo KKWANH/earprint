@@ -1,0 +1,68 @@
+import { geminiJson } from "./gemini";
+import { getLibraryStats } from "./library";
+
+/** Gemini 가 생성하는 음악 심리·취향 프로파일. */
+export interface AiProfile {
+  headline: string;
+  personality: string;
+  traits: string[];
+  favoriteGenres: string[];
+  avoidedGenres: string[];
+  unexploredGenres: string[];
+  moodProfile: string;
+  diggingScore: number;
+  diggingComment: string;
+  improvementTips: string[];
+}
+
+const SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    headline: { type: "STRING" },
+    personality: { type: "STRING" },
+    traits: { type: "ARRAY", items: { type: "STRING" } },
+    favoriteGenres: { type: "ARRAY", items: { type: "STRING" } },
+    avoidedGenres: { type: "ARRAY", items: { type: "STRING" } },
+    unexploredGenres: { type: "ARRAY", items: { type: "STRING" } },
+    moodProfile: { type: "STRING" },
+    diggingScore: { type: "INTEGER" },
+    diggingComment: { type: "STRING" },
+    improvementTips: { type: "ARRAY", items: { type: "STRING" } },
+  },
+  required: [
+    "headline", "personality", "traits", "favoriteGenres", "avoidedGenres",
+    "unexploredGenres", "moodProfile", "diggingScore", "diggingComment",
+    "improvementTips",
+  ],
+};
+
+/** 라이브러리 통계 → Gemini 심리분석. taste_profiles 저장은 호출측에서. */
+export async function generateProfile(userId: string): Promise<AiProfile> {
+  const s = await getLibraryStats(userId);
+  const diversity = s.total > 0 ? s.distinctArtists / s.total : 0;
+
+  const prompt = `당신은 통찰력 있는 음악 취향 분석가입니다. 한 리스너의 유튜브 뮤직 "좋아요" 라이브러리 통계를 보고 심리·취향 프로파일과 '취향 보강 가이드'를 작성하세요.
+
+[데이터]
+- 총 좋아요 곡: ${s.total}
+- 서로 다른 아티스트: ${s.distinctArtists} (다양성 비율 ${(diversity * 100).toFixed(0)}%)
+- 분석 완료(장르/무드 보유): ${s.enriched}곡
+- 자주 좋아한 아티스트: ${s.topArtists.map((a) => `${a.name}(${a.count})`).join(", ") || "데이터 없음"}
+- 장르 분포: ${s.topGenres.map((g) => `${g.name}(${g.count})`).join(", ") || "데이터 없음"}
+- 무드 분포: ${s.topMoods.map((m) => `${m.name}(${m.count})`).join(", ") || "데이터 없음"}
+
+[작성 지시]
+- 한국어로, 친근하면서도 날카롭게.
+- headline: 이 사람의 음악 취향을 한 줄로 압축.
+- personality: 음악 취향에서 드러나는 성격·정서를 2~3문장으로.
+- traits: 취향 특징 키워드 3~6개.
+- favoriteGenres: 데이터상 뚜렷한 선호 장르.
+- avoidedGenres: 의식적으로 피하는 듯한 주요 장르(데이터에 거의 없음).
+- unexploredGenres: 이 취향이면 좋아할 만한데 아직 안 들어본 장르 3~5개.
+- moodProfile: 무드 분포로 본 정서적 경향 1~2문장.
+- diggingScore: 0~100 정수. 아티스트 다양성·장르 폭·마이너/니치 장르 비중으로 '음악 디깅(탐험) 수준'을 평가.
+- diggingComment: diggingScore 의 근거 + 점수를 올리려면 무엇이 필요한지 한 문장으로.
+- improvementTips: 이 리스너의 취향에서 '보강하면 좋을 점' 4~6개. 각 항목은 한 문장으로 끝내지 말고 ① 무엇이 부족하거나 편향됐는지 ② 왜 그것을 보강하면 좋은지 ③ 구체적으로 어떤 하위장르·아티스트·곡부터 시작하면 좋은지 를 모두 담아 2~3문장으로 충실히 설명하세요. 막연한 조언이 아니라 실제 데이터(편중된 장르/무드, 낮은 다양성 등)에 근거해서.`;
+
+  return geminiJson<AiProfile>(prompt, SCHEMA);
+}

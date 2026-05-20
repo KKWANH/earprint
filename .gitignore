@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+.next/
+dist/
+.turbo/
+.open-next/
+.wrangler/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+.dev.vars
+client_secret*.json
+
+# misc
+*.log
+.DS_Store
+coverage/
