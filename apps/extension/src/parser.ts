@@ -24,6 +24,18 @@ export function extractTracks(node: unknown, out: Map<string, CapturedTrack>): v
   for (const key of Object.keys(obj)) extractTracks(obj[key], out);
 }
 
+/**
+ * True if the response still carries a continuation token — i.e. more pages
+ * remain. Used to detect the true end of the list instead of guessing from
+ * how fast new tracks arrive.
+ */
+export function hasContinuation(node: unknown): boolean {
+  return (
+    deepFindKey(node, "continuationItemRenderer") !== undefined ||
+    deepFindKey(node, "nextContinuationData") !== undefined
+  );
+}
+
 function parseItem(item: Json): CapturedTrack | null {
   const videoId = findVideoId(item);
   if (!videoId) return null;
