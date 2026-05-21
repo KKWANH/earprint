@@ -11,7 +11,8 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types",
-    "analyze:local": "node --env-file=.dev.vars scripts/analyze-local.mjs"
+    "analyze:local": "node --env-file=.dev.vars scripts/analyze-local.mjs",
+    "backfill:years": "node --env-file=.dev.vars scripts/backfill-mb-years.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

@@ -2,12 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { Locale } from "@/lib/i18n";
+import { dnaDict } from "@/lib/i18n/dna";
 
 /**
  * Foreground loop that backfills release years from Deezer, one batch at a
  * time, then refreshes the page so the reminiscence-bump chart appears.
  */
-export function YearBackfill({ missing }: { missing: boolean }) {
+export function YearBackfill({
+  missing,
+  locale,
+}: {
+  missing: boolean;
+  locale: Locale;
+}) {
+  const t = dnaDict(locale);
   const router = useRouter();
   const [state, setState] = useState<"idle" | "running" | "done">("idle");
   const [done, setDone] = useState(0);
@@ -16,14 +25,22 @@ export function YearBackfill({ missing }: { missing: boolean }) {
   async function run() {
     setState("running");
     let total = 0;
-    for (let i = 0; i < 600; i++) {
+    let lastRemaining = -1;
+    let stall = 0;
+    for (let i = 0; i < 800; i++) {
       try {
         const res = await fetch("/api/backfill-years", { method: "POST" });
         const d = (await res.json()) as { processed?: number; remaining?: number };
         total += d.processed ?? 0;
+        const rem = d.remaining ?? 0;
         setDone(total);
-        setRemaining(d.remaining ?? 0);
-        if (!d.processed || (d.remaining ?? 0) === 0) break;
+        setRemaining(rem);
+        if (!d.processed || rem === 0) break;
+        // remaining not shrinking ⇒ Deezer is throttling — give up gracefully
+        stall = rem === lastRemaining ? stall + 1 : 0;
+        if (stall >= 6) break;
+        lastRemaining = rem;
+        await new Promise((r) => setTimeout(r, 700)); // spaced — avoid Deezer rate limit
       } catch {
         break;
       }
@@ -35,9 +52,7 @@ export function YearBackfill({ missing }: { missing: boolean }) {
   if (state === "done") {
     return (
       <p className="text-xs text-emerald-400">
-        {done > 0
-          ? `✅ 발매연도 ${done}곡을 새로 불러왔습니다.`
-          : "✅ 발매연도가 모두 최신입니다 (Deezer 매칭된 곡은 모두 확인됨)."}
+        {done > 0 ? t.backfillDoneSome(done) : t.backfillDoneNone}
       </p>
     );
   }
@@ -50,14 +65,12 @@ export function YearBackfill({ missing }: { missing: boolean }) {
         className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
       >
         {state === "running"
-          ? `불러오는 중… ${done}곡 (남은 ${remaining})`
+          ? t.backfillRunning(done, remaining)
           : missing
-            ? "발매연도 불러오기"
-            : "발매연도 더 불러오기"}
+            ? t.backfillStart
+            : t.backfillMore}
       </button>
-      <span className="text-xs text-neutral-500">
-        Deezer 에서 곡별 발매연도를 가져옵니다 (1~2분, 창을 열어두세요).
-      </span>
+      <span className="text-xs text-neutral-500">{t.backfillHelp}</span>
     </div>
   );
 }

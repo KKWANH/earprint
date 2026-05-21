@@ -1,13 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { Locale } from "@/lib/i18n";
+import { libraryDict } from "@/lib/i18n/library";
 
 /**
  * 30-second preview button.
  * Deezer preview URLs expire, so a fresh URL is fetched from /api/preview
  * right before playback.
  */
-export function PreviewButton({ deezerId }: { deezerId: number | null }) {
+export function PreviewButton({
+  deezerId,
+  locale,
+}: {
+  deezerId: number | null;
+  locale: Locale;
+}) {
+  const t = libraryDict(locale);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -54,7 +63,7 @@ export function PreviewButton({ deezerId }: { deezerId: number | null }) {
     <button
       onClick={toggle}
       className="rounded px-1.5 text-xs text-neutral-400 hover:text-white"
-      title="30초 미리듣기"
+      title={t.previewTitle}
     >
       {loading ? "…" : playing ? "⏸" : "▶"}
     </button>

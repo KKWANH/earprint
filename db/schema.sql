@@ -345,6 +345,17 @@ CREATE TABLE IF NOT EXISTS excluded_artists (
   PRIMARY KEY (user_id, artist)
 );
 
+-- ── Per-artist preference weight (graduated "how much do you like them") ──
+-- weight: 1 = normal like (default, unstored) · 2 = 좋아함 · 3 = 최애.
+-- Feeds map node size and recommendation seed weighting.
+CREATE TABLE IF NOT EXISTS artist_affinity (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  artist     TEXT NOT NULL,
+  weight     REAL NOT NULL DEFAULT 1,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, artist)
+);
+
 -- ── taste_profiles: AI-generated psychology / taste profile ──
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_profile      jsonb;
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_generated_at TIMESTAMPTZ;

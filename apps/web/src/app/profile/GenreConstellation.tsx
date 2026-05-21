@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { GenreMapData } from "@/lib/genreMap";
+import type { Locale } from "@/lib/i18n";
+import { profileDict } from "@/lib/i18n/profile";
 
 interface Sim {
   x: number;
@@ -23,7 +25,14 @@ function genreHue(g: string): number {
  * co-occur on the same tracks. Drag / wheel to explore, tap a star to light
  * up the genres it blends with.
  */
-export function GenreConstellation({ data }: { data: GenreMapData }) {
+export function GenreConstellation({
+  data,
+  locale,
+}: {
+  data: GenreMapData;
+  locale: Locale;
+}) {
+  const t = profileDict(locale);
   const { nodes, edges } = data;
   const N = nodes.length;
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -308,7 +317,7 @@ export function GenreConstellation({ data }: { data: GenreMapData }) {
         style={{ cursor: "grab" }}
       />
       <p className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/60 px-2 py-1 text-[11px] text-neutral-400 backdrop-blur">
-        드래그·휠로 탐색 · 별을 눌러 함께 쓰는 장르 보기
+        {t.constellationHint}
       </p>
     </div>
   );

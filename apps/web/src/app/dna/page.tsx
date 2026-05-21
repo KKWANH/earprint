@@ -2,12 +2,20 @@ import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getImprintAnalysis, type ImprintAnalysis } from "@/lib/imprint";
 import { getNoveltyIndex, type NoveltyIndex } from "@/lib/novelty";
+import { getLocale } from "@/lib/i18n-server";
+import { dnaDict } from "@/lib/i18n/dna";
 import { BirthYearInput } from "./BirthYearInput";
 import { YearBackfill } from "./YearBackfill";
 
-export const metadata = { title: "취향 DNA — Playlist Analyzer" };
+export async function generateMetadata() {
+  const t = dnaDict(await getLocale());
+  return { title: t.metaTitle };
+}
 
 export default async function DnaPage() {
+  const locale = await getLocale();
+  const t = dnaDict(locale);
+
   const session = await auth();
   if (!session?.user) {
     return (
@@ -19,7 +27,7 @@ export default async function DnaPage() {
           }}
         >
           <button className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-900">
-            Google 로 로그인
+            {t.loginButton}
           </button>
         </form>
       </main>
@@ -35,44 +43,47 @@ export default async function DnaPage() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <header>
-        <h1 className="text-2xl font-bold">취향 DNA</h1>
+        <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
         <p className="text-sm text-neutral-400">
-          당신이 <em>무엇을</em> 듣는지가 아니라, <em>왜</em> 좋아하고 음악 인생의
-          어디쯤에 있는지를 봅니다.
+          {t.pageIntroLead} <em>{t.pageIntroWhy}</em> {t.pageIntroMid}{" "}
+          <em>{t.pageIntroEm}</em>
+          {t.pageIntroTail}
         </p>
       </header>
 
-      <ImprintSection a={imprint} />
-      <NoveltySection n={novelty} />
+      <ImprintSection a={imprint} t={t} locale={locale} />
+      <NoveltySection n={novelty} t={t} />
 
       <p className="text-[11px] leading-relaxed text-neutral-600">
-        근거 연구 · 회상 융기:{" "}
+        {t.citationPrefix}{" "}
         <a
           className="underline hover:text-neutral-400"
           href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2024.1472767/full"
         >
-          Frontiers in Psychology (2024)
+          {t.citationFrontiers}
         </a>
-        {" · "}예측과 보상:{" "}
+        {" · "}
+        {t.citationPredictionLabel}{" "}
         <a
           className="underline hover:text-neutral-400"
           href="https://www.jneurosci.org/content/39/47/9397"
         >
-          Gold et al., J. Neuroscience (2019)
+          {t.citationGold}
         </a>
         {" · "}
         <a
           className="underline hover:text-neutral-400"
           href="https://www.nature.com/articles/nn.2726"
         >
-          Salimpoor et al., Nature Neuroscience (2011)
+          {t.citationSalimpoor}
         </a>
-        {" · "}취향과 성격:{" "}
+        {" · "}
+        {t.citationPersonalityLabel}{" "}
         <a
           className="underline hover:text-neutral-400"
           href="https://gosling.psy.utexas.edu/wp-content/uploads/2014/09/JPSP03musicdimensions.pdf"
         >
-          Rentfrow &amp; Gosling (2003)
+          {t.citationRentfrow}
         </a>
       </p>
     </main>
@@ -81,81 +92,85 @@ export default async function DnaPage() {
 
 /* ─────────────────────────  Pillar B — Imprint  ───────────────────────── */
 
-const STAGE_TEXT: Record<ImprintAnalysis["stage"], { title: string; body: string }> = {
-  digging: {
-    title: "현재진행형 디깅형",
-    body: "최근 음악의 비중이 높습니다. 발견 욕구(개방성)가 여전히 강한 패턴 — 나이와 무관하게 새 사운드를 계속 탐색하는 취향입니다.",
-  },
-  imprint: {
-    title: "각인형",
-    body: "10대 후반~20대 초의 음악이 라이브러리의 뼈대를 이룹니다. 그 시절 강한 감정과 함께 신경망에 새겨진 곡들이 지금도 취향을 지배하고 있습니다.",
-  },
-  balanced: {
-    title: "균형형",
-    body: "각인기 음악과 새로운 음악이 고르게 섞여 있습니다. 뿌리를 유지하면서도 탐색을 멈추지 않는 상태입니다.",
-  },
-  unknown: {
-    title: "데이터 부족",
-    body: "발매연도가 있는 곡이 아직 적습니다. 곡 분석을 더 돌리면 정확해집니다.",
-  },
-};
+function stageText(
+  t: ReturnType<typeof dnaDict>,
+): Record<ImprintAnalysis["stage"], { title: string; body: string }> {
+  return {
+    digging: { title: t.stageDiggingTitle, body: t.stageDiggingBody },
+    imprint: { title: t.stageImprintTitle, body: t.stageImprintBody },
+    balanced: { title: t.stageBalancedTitle, body: t.stageBalancedBody },
+    unknown: { title: t.stageUnknownTitle, body: t.stageUnknownBody },
+  };
+}
 
-function ImprintSection({ a }: { a: ImprintAnalysis }) {
+function ImprintSection({
+  a,
+  t,
+  locale,
+}: {
+  a: ImprintAnalysis;
+  t: ReturnType<typeof dnaDict>;
+  locale: import("@/lib/i18n").Locale;
+}) {
+  const STAGE_TEXT = stageText(t);
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-6">
       <div>
-        <h2 className="text-lg font-semibold">🧬 각인 코어 — 회상 융기</h2>
-        <p className="mt-1 text-sm text-neutral-400">
-          15~25세(정서 정점 ≈ 17세)에 들은 음악은 사춘기 호르몬과 함께 뇌에 강하게
-          새겨집니다. 라이브러리의 발매연도에서 그 시기를 찾아봅니다.
-        </p>
+        <h2 className="text-lg font-semibold">{t.imprintHeading}</h2>
+        <p className="mt-1 text-sm text-neutral-400">{t.imprintIntro}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm text-neutral-400">
-          {a.birthYear ? `출생연도: ${a.birthYear}년` : "출생연도를 입력하면 각인 구간이 표시됩니다"}
+          {a.birthYear ? t.birthYearLabel(a.birthYear) : t.birthYearPrompt}
         </span>
-        <BirthYearInput current={a.birthYear} />
+        <BirthYearInput current={a.birthYear} locale={locale} />
       </div>
 
       {!a.hasYearData ? (
         <div className="flex flex-col gap-2 rounded-lg bg-amber-950/40 px-3 py-3">
-          <p className="text-sm text-amber-200">
-            아직 발매연도 데이터가 없습니다. 아래 버튼으로 Deezer 에서 곡별 발매연도를
-            불러오세요. (&ldquo;곡 분석&rdquo;은 장르·무드만 채우고, 발매연도는 별도입니다.)
-          </p>
-          <YearBackfill missing />
+          <p className="text-sm text-amber-200">{t.noYearDataWarning}</p>
+          <YearBackfill missing locale={locale} />
         </div>
       ) : (
         <>
-          <YearHistogram a={a} />
+          <YearHistogram a={a} t={t} />
           <p className="text-[11px] text-neutral-500">
-            발매연도가 확인된 곡 {a.totalWithYear.toLocaleString()}곡 · 전체 좋아요의{" "}
-            {Math.round(a.coverage * 100)}%
-            {a.coverage < 0.7 && " — Deezer 매칭이 안 된 곡은 연도를 알 수 없습니다"}
+            {t.yearCoverage(a.totalWithYear.toLocaleString())}
+            {Math.round(a.coverage * 100)}
+            {t.yearCoveragePctSuffix}
+            {a.coverage < 0.7 && t.yearCoverageLowNote}
           </p>
-          <YearBackfill missing={false} />
+          <YearBackfill missing={false} locale={locale} />
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat
-              label="각인기 비중"
+              label={t.statImprintShare}
               value={`${Math.round(a.imprintShare * 100)}%`}
-              sub={a.window ? `${a.window.start}~${a.window.end}년` : "출생연도 필요"}
+              sub={
+                a.window
+                  ? t.statImprintShareSub(a.window.start, a.window.end)
+                  : t.statImprintShareNoYear
+              }
             />
             <Stat
-              label="최근 3년"
+              label={t.statRecent}
               value={`${Math.round(a.recentShare * 100)}%`}
-              sub="현재진행형 디깅"
+              sub={t.statRecentSub}
             />
             <Stat
-              label="취향 무게중심"
-              value={a.medianYear ? `${a.medianYear}년` : "—"}
-              sub={a.medianAge != null ? `당신 ${a.medianAge}세 무렵` : "곡의 중앙값"}
+              label={t.statCentroid}
+              value={a.medianYear ? t.statCentroidYear(a.medianYear) : t.emDash}
+              sub={
+                a.medianAge != null
+                  ? t.statCentroidSub(a.medianAge)
+                  : t.statCentroidSubFallback
+              }
             />
             <Stat
-              label="최다 발매연도"
-              value={a.peakYear ? `${a.peakYear}년` : "—"}
-              sub={`${a.totalWithYear.toLocaleString()}곡 기준`}
+              label={t.statPeak}
+              value={a.peakYear ? t.statPeakYear(a.peakYear) : t.emDash}
+              sub={t.statPeakSub(a.totalWithYear.toLocaleString())}
             />
           </div>
 
@@ -174,7 +189,13 @@ function ImprintSection({ a }: { a: ImprintAnalysis }) {
 }
 
 /** Year-by-year bar chart with the 15–25 imprint window highlighted. */
-function YearHistogram({ a }: { a: ImprintAnalysis }) {
+function YearHistogram({
+  a,
+  t,
+}: {
+  a: ImprintAnalysis;
+  t: ReturnType<typeof dnaDict>;
+}) {
   const bars = a.histogram;
   if (bars.length === 0) return null;
   const first = bars[0].year;
@@ -209,25 +230,25 @@ function YearHistogram({ a }: { a: ImprintAnalysis }) {
               style={{ height: `${Math.max(y.count > 0 ? 3 : 0, (y.count / max) * 100)}%` }}
             />
             <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-black px-1.5 py-0.5 text-[11px] text-white group-hover:block">
-              {y.year} · {y.count}곡
+              {y.year} · {t.histTooltipUnit(y.count)}
             </span>
           </div>
         ))}
       </div>
       <div className="relative h-4 text-[10px] text-neutral-600">
-        {ticks.map((t) => (
+        {ticks.map((t2) => (
           <span
-            key={t.year}
+            key={t2.year}
             className="absolute -translate-x-1/2"
-            style={{ left: `${((t.year - first) / Math.max(1, last - first)) * 100}%` }}
+            style={{ left: `${((t2.year - first) / Math.max(1, last - first)) * 100}%` }}
           >
-            {t.year}
+            {t2.year}
           </span>
         ))}
       </div>
       {a.window && (
         <p className="text-[11px] text-emerald-300/80">
-          ■ 초록 막대 = {a.window.start}~{a.window.end}년 (당신의 15~25세 각인기)
+          {t.histLegend(a.window.start, a.window.end)}
         </p>
       )}
     </div>
@@ -236,15 +257,21 @@ function YearHistogram({ a }: { a: ImprintAnalysis }) {
 
 /* ──────────────────────  Pillar A — Novelty index  ────────────────────── */
 
-function NoveltySection({ n }: { n: NoveltyIndex }) {
+function NoveltySection({
+  n,
+  t,
+}: {
+  n: NoveltyIndex;
+  t: ReturnType<typeof dnaDict>;
+}) {
   const pct = (v: number) => Math.round(v * 100);
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-6">
       <div>
-        <h2 className="text-lg font-semibold">🎯 예측 · 신선함 지수</h2>
+        <h2 className="text-lg font-semibold">{t.noveltyHeading}</h2>
         <p className="mt-1 text-sm text-neutral-400">
-          음악의 쾌감은 <em>예측이 적당히 맞거나 기분 좋게 빗나갈 때</em> 정점에
-          닿습니다. 당신의 취향이 익숙함과 신선함 사이 어디에 있는지 봅니다.
+          {t.noveltyIntroLead} <em>{t.noveltyIntroEm}</em>
+          {t.noveltyIntroTail}
         </p>
       </div>
 
@@ -262,9 +289,9 @@ function NoveltySection({ n }: { n: NoveltyIndex }) {
           />
         </div>
         <div className="flex justify-between text-[11px] text-neutral-500">
-          <span>익숙함 · 예측 가능</span>
-          <span className="text-emerald-400">스위트 스폿</span>
-          <span>신선함 · 모험</span>
+          <span>{t.noveltyAxisFamiliar}</span>
+          <span className="text-emerald-400">{t.noveltyAxisSweet}</span>
+          <span>{t.noveltyAxisNovel}</span>
         </div>
       </div>
 
@@ -290,8 +317,12 @@ function NoveltySection({ n }: { n: NoveltyIndex }) {
         <p className="text-sm leading-relaxed text-neutral-200">{n.verdict}</p>
         {n.topGenre && (
           <p className="mt-2 text-xs text-neutral-500">
-            가장 비중 큰 장르: {n.topGenre.name} ({Math.round(n.topGenre.share * 100)}%) ·
-            서로 다른 장르 {n.distinctGenres}종 · 분석된 곡 {n.analyzed.toLocaleString()}곡
+            {t.noveltyTopGenre(
+              n.topGenre.name,
+              Math.round(n.topGenre.share * 100),
+              n.distinctGenres,
+              n.analyzed.toLocaleString(),
+            )}
           </p>
         )}
       </div>

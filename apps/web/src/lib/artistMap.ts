@@ -1,3 +1,4 @@
+import { getAffinities } from "./affinity";
 import { getSql } from "./db";
 import { getJson } from "./http";
 import { getExcludedArtists } from "./library";
@@ -6,6 +7,7 @@ import { getExcludedArtists } from "./library";
 export interface ArtistNode {
   name: string;
   count: number; // liked track count
+  affinity: number; // preference weight: 1 normal · 2 좋아함 · 3 최애
   /** Top genres for this artist, [genre, weight] sorted desc. */
   genres: [string, number][];
 }
@@ -34,11 +36,20 @@ export function canonArtist(name: string): string {
   return c || name.trim();
 }
 
-/** Obvious non-artist entries (compilations, playlist channels). */
+/**
+ * Obvious non-artist entries — karaoke / compilation / playlist channels.
+ * Arbitrary YouTuber channels with no tell-tale keyword can't be detected
+ * reliably; those are left to the manual "exclude" action on the map.
+ */
 function isLikelyNonArtist(name: string): boolean {
   const n = name.toLowerCase().trim();
   if (!n || n === "unknown") return true;
-  return /\b(various artists|various|v\.?\s?a\.?|playlist|플레이리스트)\b/.test(n);
+  return (
+    /\b(various artists|various|v\.?\s?a\.?)\b/.test(n) ||
+    /(노래방|가라오케|karaoke|금영|kumyoung|반주)/.test(n) ||
+    /(playlist|플레이리스트|lo-?fi|로파이)/.test(n) ||
+    /(노래\s?모음|곡\s?모음|music\s?box|뮤직박스)/.test(n)
+  );
 }
 
 /**
@@ -49,6 +60,7 @@ export async function getArtistMap(userId: string): Promise<ArtistMapData> {
   const sql = getSql();
   const excluded = await getExcludedArtists(userId);
   const excludedCanon = new Set(excluded.map((a) => canonArtist(a).toLowerCase()));
+  const affinities = await getAffinities(userId);
 
   // Per (artist, genre): how many of the artist's liked tracks carry that genre.
   const rows = await sql`
@@ -106,6 +118,7 @@ export async function getArtistMap(userId: string): Promise<ArtistMapData> {
     .map((v) => ({
       name: v.display,
       count: v.count,
+      affinity: affinities[v.display.toLowerCase()] ?? 1,
       genres: [...v.genres.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6),
     }))
     .sort((a, b) => b.count - a.count)
@@ -160,14 +173,18 @@ async function lastfmSimilarArtists(
  * map can draw edges and place it inside the right cluster.
  */
 export async function getGhostArtists(
+  userId: string,
   libraryArtists: ArtistNode[],
 ): Promise<GhostArtist[]> {
   const seeds = libraryArtists.slice(0, 14);
   if (seeds.length === 0) return [];
 
-  const libraryCanon = new Set(
-    libraryArtists.map((a) => canonArtist(a.name).toLowerCase()),
-  );
+  // Skip artists already liked OR explicitly excluded ("싫어해요").
+  const excluded = await getExcludedArtists(userId);
+  const libraryCanon = new Set([
+    ...libraryArtists.map((a) => canonArtist(a.name).toLowerCase()),
+    ...excluded.map((a) => canonArtist(a).toLowerCase()),
+  ]);
 
   const lists = await Promise.all(seeds.map((s) => lastfmSimilarArtists(s.name)));
 

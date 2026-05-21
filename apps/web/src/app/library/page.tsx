@@ -5,8 +5,13 @@ import { AnalyzePanel } from "./AnalyzePanel";
 import { PreviewButton } from "./PreviewButton";
 import { ExcludeButton } from "./ExcludeButton";
 import { ResendReportButton } from "./ResendReportButton";
+import { getLocale } from "@/lib/i18n-server";
+import { libraryDict } from "@/lib/i18n/library";
+import type { Locale } from "@/lib/i18n";
 
 export default async function LibraryPage() {
+  const locale = await getLocale();
+  const t = libraryDict(locale);
   const session = await auth();
   if (!session?.user) {
     return (
@@ -18,7 +23,7 @@ export default async function LibraryPage() {
           }}
         >
           <button className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-900">
-            Google 로 로그인
+            {t.loginGoogle}
           </button>
         </form>
       </main>
@@ -32,7 +37,7 @@ export default async function LibraryPage() {
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold">라이브러리 분석</h1>
+          <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
           <p className="truncate text-xs text-neutral-500">{session.user.email}</p>
         </div>
         <form
@@ -42,61 +47,66 @@ export default async function LibraryPage() {
           }}
         >
           <button className="shrink-0 rounded-md border border-white/10 px-3 py-1.5 text-xs text-neutral-400 hover:text-white">
-            로그아웃
+            {t.logout}
           </button>
         </form>
       </header>
 
-      <AnalyzePanel />
-      <ResendReportButton />
+      <AnalyzePanel locale={locale} />
+      <ResendReportButton locale={locale} />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="좋아요 곡" value={stats.total.toLocaleString()} />
-        <Stat label="분석 완료" value={stats.enriched.toLocaleString()} />
-        <Stat label="아티스트" value={stats.distinctArtists.toLocaleString()} />
+        <Stat label={t.statLikedTracks} value={stats.total.toLocaleString()} />
+        <Stat label={t.statAnalyzed} value={stats.enriched.toLocaleString()} />
+        <Stat label={t.statArtists} value={stats.distinctArtists.toLocaleString()} />
         <Stat
-          label="앨범 몰입도"
+          label={t.statAlbumDepth}
           value={`${Math.round(stats.albumDepth.concentration * 100)}%`}
         />
       </section>
 
       <BarCard
-        title="가장 많이 좋아한 아티스트"
+        title={t.topArtistsTitle}
         items={stats.topArtists}
         color="bg-amber-500"
-        empty="아직 데이터가 없습니다."
+        empty={t.topArtistsEmpty}
         excludable
+        locale={locale}
       />
       <BarCard
-        title="장르 분포"
+        title={t.genreTitle}
         items={stats.topGenres}
         color="bg-indigo-500"
-        empty="분석을 실행하면 장르가 채워집니다."
+        empty={t.genreEmpty}
+        locale={locale}
       />
       <BarCard
-        title="무드 분포"
+        title={t.moodTitle}
         items={stats.topMoods}
         color="bg-rose-500"
-        empty="분석을 실행하면 무드가 채워집니다."
+        empty={t.moodEmpty}
+        locale={locale}
       />
 
-      {stats.audioFeel && <FeelCard feel={stats.audioFeel} />}
+      {stats.audioFeel && <FeelCard feel={stats.audioFeel} t={t} />}
       <BarCard
-        title="자주 등장하는 악기"
+        title={t.instrumentsTitle}
         items={stats.topInstruments}
         color="bg-sky-500"
-        empty="오디오 특성 분석을 실행하면 채워집니다."
+        empty={t.instrumentsEmpty}
+        locale={locale}
       />
       <BarCard
-        title={`가장 깊게 판 앨범 — 앨범당 좋아요 곡 수 (3곡 이상 앨범 ${stats.albumDepth.deepAlbums}개)`}
+        title={`${t.albumsTitlePrefix} ${t.albumsTitleDeep(stats.albumDepth.deepAlbums)}`}
         items={stats.topAlbums}
         color="bg-fuchsia-500"
-        empty="여러 곡을 좋아한 앨범이 아직 없습니다."
+        empty={t.albumsEmpty}
+        locale={locale}
       />
 
       {stats.excludedArtists.length > 0 && (
         <section className="flex flex-col gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
-          <h2 className="font-semibold">제외된 아티스트 ({stats.excludedArtists.length})</h2>
+          <h2 className="font-semibold">{t.excludedTitle(stats.excludedArtists.length)}</h2>
           <div className="flex flex-wrap gap-2">
             {stats.excludedArtists.map((a) => (
               <span
@@ -104,7 +114,7 @@ export default async function LibraryPage() {
                 className="flex items-center gap-1 rounded-full bg-neutral-800 px-2.5 py-1 text-sm text-neutral-400"
               >
                 {a}
-                <ExcludeButton artist={a} restore />
+                <ExcludeButton artist={a} restore locale={locale} />
               </span>
             ))}
           </div>
@@ -112,15 +122,15 @@ export default async function LibraryPage() {
       )}
 
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
-        <h2 className="font-semibold">트랙 (최근 {stats.tracks.length}곡)</h2>
+        <h2 className="font-semibold">{t.tracksTitle(stats.tracks.length)}</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-800 text-left text-neutral-500">
-                <th className="py-2 pr-3 font-medium">제목</th>
-                <th className="py-2 pr-3 font-medium">아티스트</th>
-                <th className="py-2 pr-3 font-medium">장르</th>
-                <th className="py-2 pr-3 font-medium">무드</th>
+                <th className="py-2 pr-3 font-medium">{t.thTitle}</th>
+                <th className="py-2 pr-3 font-medium">{t.thArtist}</th>
+                <th className="py-2 pr-3 font-medium">{t.thGenre}</th>
+                <th className="py-2 pr-3 font-medium">{t.thMood}</th>
                 <th className="py-2 font-medium" />
               </tr>
             </thead>
@@ -138,7 +148,7 @@ export default async function LibraryPage() {
                     {t.moods?.slice(0, 2).join(", ") ?? "—"}
                   </td>
                   <td className="py-1.5">
-                    <PreviewButton deezerId={t.deezerId} />
+                    <PreviewButton deezerId={t.deezerId} locale={locale} />
                   </td>
                 </tr>
               ))}
@@ -150,18 +160,24 @@ export default async function LibraryPage() {
   );
 }
 
-function FeelCard({ feel }: { feel: AudioFeelAgg }) {
+function FeelCard({
+  feel,
+  t,
+}: {
+  feel: AudioFeelAgg;
+  t: ReturnType<typeof libraryDict>;
+}) {
   const axes = [
-    { label: "에너지", lo: "차분", hi: "격렬", v: feel.energy },
-    { label: "템포", lo: "느림", hi: "빠름", v: feel.tempo },
-    { label: "사운드", lo: "전자음", hi: "생악기", v: feel.acousticness },
+    { label: t.feelEnergy, lo: t.feelEnergyLo, hi: t.feelEnergyHi, v: feel.energy },
+    { label: t.feelTempo, lo: t.feelTempoLo, hi: t.feelTempoHi, v: feel.tempo },
+    { label: t.feelSound, lo: t.feelSoundLo, hi: t.feelSoundHi, v: feel.acousticness },
   ];
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
       <h2 className="font-semibold">
-        오디오 특성{" "}
+        {t.feelTitle}{" "}
         <span className="text-xs font-normal text-neutral-500">
-          · {feel.analyzed.toLocaleString()}곡 평균
+          {t.feelAverage(feel.analyzed.toLocaleString())}
         </span>
       </h2>
       <div className="flex flex-col gap-3">
@@ -198,12 +214,14 @@ function BarCard({
   color,
   empty,
   excludable,
+  locale,
 }: {
   title: string;
   items: Count[];
   color: string;
   empty: string;
   excludable?: boolean;
+  locale: Locale;
 }) {
   const max = Math.max(1, ...items.map((i) => i.count));
   return (
@@ -223,7 +241,7 @@ function BarCard({
                 />
               </div>
               <span className="w-10 shrink-0 text-right text-neutral-500">{it.count}</span>
-              {excludable && <ExcludeButton artist={it.name} />}
+              {excludable && <ExcludeButton artist={it.name} locale={locale} />}
             </div>
           ))}
         </div>

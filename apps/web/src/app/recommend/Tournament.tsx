@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Locale } from "@/lib/i18n";
+import { recommendDict } from "@/lib/i18n/recommend";
 
 export interface Rec {
   id: string;
@@ -17,11 +19,11 @@ export interface Rec {
 }
 
 /** "Why recommended" header styling per recommendation mode. */
-const HEADER: Record<Rec["recType"], { icon: string; label: string; bg: string; fg: string }> = {
-  song: { icon: "❤️", label: "좋아한 곡과 비슷", bg: "bg-emerald-500/12", fg: "text-emerald-300" },
-  genre: { icon: "🎼", label: "내 핵심 장르", bg: "bg-indigo-500/15", fg: "text-indigo-300" },
-  unheard: { icon: "🧭", label: "취향 밖 탐험", bg: "bg-amber-500/15", fg: "text-amber-300" },
-  indie: { icon: "💎", label: "숨은 인디", bg: "bg-violet-500/15", fg: "text-violet-300" },
+const HEADER: Record<Rec["recType"], { icon: string; bg: string; fg: string }> = {
+  song: { icon: "❤️", bg: "bg-emerald-500/12", fg: "text-emerald-300" },
+  genre: { icon: "🎼", bg: "bg-indigo-500/15", fg: "text-indigo-300" },
+  unheard: { icon: "🧭", bg: "bg-amber-500/15", fg: "text-amber-300" },
+  indie: { icon: "💎", bg: "bg-violet-500/15", fg: "text-violet-300" },
 };
 
 type Rating = "superlike" | "like" | "pass" | "dislike" | "strong_dislike" | "known";
@@ -37,12 +39,21 @@ export function Tournament({
   rated,
   likes,
   dislikes,
+  locale,
 }: {
   initial: Rec[];
   rated: number;
   likes: number;
   dislikes: number;
+  locale: Locale;
 }) {
+  const t = recommendDict(locale);
+  const HEADER_LABEL: Record<Rec["recType"], string> = {
+    song: t.headerSong,
+    genre: t.headerGenre,
+    unheard: t.headerUnheard,
+    indie: t.headerIndie,
+  };
   const router = useRouter();
   const [idx, setIdx] = useState(0);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
@@ -201,13 +212,13 @@ export function Tournament({
   if (!current) {
     return (
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-12">
-        <p className="text-neutral-400">평가할 추천이 없어요.</p>
+        <p className="text-neutral-400">{t.emptyNoRecs}</p>
         <button
           onClick={generate}
           disabled={busy}
           className="rounded-full bg-white px-6 py-2.5 font-semibold text-neutral-900 disabled:opacity-50"
         >
-          {busy ? "추천 만드는 중… (~10초)" : "추천 만들기"}
+          {busy ? t.generating : t.generate}
         </button>
       </div>
     );
@@ -215,8 +226,8 @@ export function Tournament({
 
   const blurb = current.blurb ?? blurbs.get(current.id) ?? null;
   const hd = HEADER[current.recType] ?? HEADER.song;
-  const t = flyOff ?? drag ?? { x: 0, y: 0 };
-  const transform = `translate(${t.x}px, ${t.y}px) rotate(${t.x * 0.05}deg)`;
+  const tf = flyOff ?? drag ?? { x: 0, y: 0 };
+  const transform = `translate(${tf.x}px, ${tf.y}px) rotate(${tf.x * 0.05}deg)`;
   const transition = flyOff
     ? "transform 0.3s ease-out"
     : drag
@@ -232,7 +243,7 @@ export function Tournament({
   return (
     <div className="flex w-full flex-col items-center gap-4">
       <p className="text-sm text-neutral-500">
-        평가 {counts.rated} · 👍 {counts.likes} · 👎 {counts.dislikes}
+        {t.countsRated} {counts.rated} · 👍 {counts.likes} · 👎 {counts.dislikes}
       </p>
 
       {/* card */}
@@ -250,7 +261,9 @@ export function Tournament({
           {/* why-recommended strip */}
           <div className={`flex shrink-0 items-center gap-2 ${hd.bg} px-4 py-2.5 text-sm`}>
             <span>{hd.icon}</span>
-            <span className={`shrink-0 font-medium ${hd.fg}`}>{hd.label}</span>
+            <span className={`shrink-0 font-medium ${hd.fg}`}>
+              {HEADER_LABEL[current.recType] ?? HEADER_LABEL.song}
+            </span>
             {current.seedTrack && (
               <span className="ml-auto min-w-0 truncate rounded-full bg-white/10 px-2 py-0.5 text-xs text-neutral-300">
                 {current.seedTrack}
@@ -305,40 +318,40 @@ export function Tournament({
           {/* blurb */}
           <div className="flex-1 overflow-y-auto p-4">
             <p className="text-[15px] leading-relaxed text-neutral-300">
-              {blurb ?? <span className="text-neutral-600">곡 이야기 불러오는 중…</span>}
+              {blurb ?? <span className="text-neutral-600">{t.blurbLoading}</span>}
             </p>
           </div>
         </div>
       </div>
 
-      <p className="text-xs text-neutral-600">← 별로 · → 좋아요 · ↑ 정말 좋아요</p>
+      <p className="text-xs text-neutral-600">{t.swipeHint}</p>
 
       {/* rating buttons */}
       <div className="flex items-center gap-3">
-        <RateBtn onClick={() => commit("strong_dislike")} disabled={busy} title="정말 별로" className="bg-rose-900">💔</RateBtn>
-        <RateBtn onClick={() => commit("dislike")} disabled={busy} title="별로" className="bg-rose-600">👎</RateBtn>
-        <RateBtn onClick={() => commit("pass")} disabled={busy} title="패스" className="bg-neutral-700">⏭</RateBtn>
-        <RateBtn onClick={() => commit("like")} disabled={busy} title="좋아요" className="bg-emerald-600">👍</RateBtn>
-        <RateBtn onClick={() => commit("superlike")} disabled={busy} title="정말 좋아요" className="bg-sky-500">💖</RateBtn>
+        <RateBtn onClick={() => commit("strong_dislike")} disabled={busy} title={t.rateStrongDislike} className="bg-rose-900">💔</RateBtn>
+        <RateBtn onClick={() => commit("dislike")} disabled={busy} title={t.rateDislike} className="bg-rose-600">👎</RateBtn>
+        <RateBtn onClick={() => commit("pass")} disabled={busy} title={t.ratePass} className="bg-neutral-700">⏭</RateBtn>
+        <RateBtn onClick={() => commit("like")} disabled={busy} title={t.rateLike} className="bg-emerald-600">👍</RateBtn>
+        <RateBtn onClick={() => commit("superlike")} disabled={busy} title={t.rateSuperlike} className="bg-sky-500">💖</RateBtn>
       </div>
 
       <div className="flex items-center gap-4 text-sm text-neutral-400">
         <button onClick={() => commit("known")} disabled={busy} className="hover:text-white disabled:opacity-40">
-          이미 아는 곡
+          {t.known}
         </button>
         <button
           onClick={undo}
           disabled={busy || history.length === 0}
           className="hover:text-white disabled:opacity-30"
         >
-          ↩ 되돌리기
+          {t.undo}
         </button>
       </div>
 
       <textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        placeholder="이 곡에 대한 메모 (선택) — 평가와 함께 저장됩니다"
+        placeholder={t.commentPlaceholder}
         className="h-14 w-full max-w-sm resize-none rounded-lg border border-white/10 bg-white/5 p-2 text-sm outline-none"
       />
     </div>

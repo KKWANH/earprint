@@ -34,7 +34,7 @@ if (!DB) {
   process.exit(1);
 }
 const AI_URL = (process.env.LOCAL_AI_URL || "http://localhost:11434/v1").replace(/\/+$/, "");
-const AI_MODEL = process.env.LOCAL_AI_MODEL || "qwen2.5";
+const AI_MODEL = process.env.LOCAL_AI_MODEL || "qwen3:8b";
 const ENRICH_BATCH = 24;
 const AI_BATCH = Math.max(1, Number(process.env.AI_BATCH || 6));
 
@@ -69,12 +69,15 @@ async function deezerTrackMeta(id) {
   try {
     const r = await fetch(`https://api.deezer.com/track/${id}`);
     const t = await r.json();
+    // Deezer error payload (rate limit) ⇒ not a real "no date" answer.
+    if (t?.error) return { ok: false, year: null, rank: null };
     return {
+      ok: true,
       year: yearOf(t?.release_date) ?? yearOf(t?.album?.release_date),
       rank: typeof t?.rank === "number" ? t.rank : null,
     };
   } catch {
-    return { year: null, rank: null };
+    return { ok: false, year: null, rank: null };
   }
 }
 async function searchDeezer(artist, title) {
@@ -153,9 +156,11 @@ async function callLocalAi(list) {
     throw new Error(`local AI HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   }
   const data = await res.json();
-  const text = data?.choices?.[0]?.message?.content;
+  let text = data?.choices?.[0]?.message?.content;
   if (!text) throw new Error("local AI 응답이 비어 있습니다");
-  // Some models wrap JSON in prose / code fences — extract the JSON object.
+  // Qwen3 emits a <think> reasoning block — strip it before parsing JSON.
+  text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  // Models may still wrap JSON in prose / code fences — extract the object.
   const m = text.match(/\{[\s\S]*\}/);
   return JSON.parse(m ? m[0] : text);
 }
@@ -205,6 +210,7 @@ async function enrichPhase() {
 // (the reminiscence-bump / novelty analyses need these)
 async function backfillPhase() {
   let done = 0;
+  let stall = 0;
   for (;;) {
     const { rows } = await q(
       `SELECT t.id, t.deezer_id
@@ -212,18 +218,29 @@ async function backfillPhase() {
        JOIN user_tracks ut ON ut.track_id = t.id
        WHERE t.deezer_id IS NOT NULL AND t.release_year IS NULL
        GROUP BY t.id, t.deezer_id
-       LIMIT 40`,
+       LIMIT 15`,
     );
     if (rows.length === 0) break;
     const out = [];
     for (const t of rows) {
       const meta = await deezerTrackMeta(t.deezer_id);
-      // 0 = "checked, no date" so the row isn't re-fetched forever.
-      out.push({ trackId: t.id, releaseYear: meta.year ?? 0, rank: meta.rank });
+      // Skip fetch failures (stay NULL → retried); 0 = genuinely no date.
+      if (meta.ok) out.push({ trackId: t.id, releaseYear: meta.year ?? 0, rank: meta.rank });
     }
-    await q("SELECT save_track_meta($1::jsonb)", [JSON.stringify(out)]);
-    done += rows.length;
+    if (out.length > 0) {
+      await q("SELECT save_track_meta($1::jsonb)", [JSON.stringify(out)]);
+      done += out.length;
+      stall = 0;
+    } else {
+      // whole batch failed (Deezer throttling) — back off, then give up
+      if (++stall >= 6) {
+        console.log("\n  ⚠ Deezer 응답이 계속 실패해 발매연도 보강을 멈춥니다 (나중에 재시도).");
+        break;
+      }
+      await sleep(3000);
+    }
     process.stdout.write(`\r  발매연도 보강: ${done}곡`);
+    await sleep(700); // spaced — stay under Deezer's rate limit
   }
   if (done) console.log();
   return done;

@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { NavBar } from "@/components/NavBar";
+import { getLocale } from "@/lib/i18n-server";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Playlist Analyzer",
-  description: "유튜브 뮤직 좋아요 곡 특성 분석 · music-map · 추천",
+  title: "Playlist Analyzer — understand your music taste",
+  description:
+    "Turns your YouTube Music liked songs into a research-grounded portrait of your taste: Taste DNA, an interactive artist map, and recommendations.",
 };
 
 export const viewport: Viewport = {
@@ -13,11 +15,12 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const locale = await getLocale();
   return (
-    <html lang="ko">
+    <html lang={locale}>
       <body className="flex min-h-screen flex-col overflow-x-hidden bg-neutral-950 text-neutral-100 antialiased">
-        <NavBar />
+        <NavBar locale={locale} />
         <div className="flex flex-1 flex-col">{children}</div>
       </body>
     </html>

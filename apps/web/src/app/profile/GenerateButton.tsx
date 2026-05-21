@@ -2,9 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Locale } from "@/lib/i18n";
+import { profileDict } from "@/lib/i18n/profile";
 
 /** Button to generate/regenerate the Gemini psychological analysis. */
-export function GenerateButton({ hasProfile }: { hasProfile: boolean }) {
+export function GenerateButton({
+  hasProfile,
+  locale,
+}: {
+  hasProfile: boolean;
+  locale: Locale;
+}) {
+  const t = profileDict(locale);
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +24,7 @@ export function GenerateButton({ hasProfile }: { hasProfile: boolean }) {
     try {
       const res = await fetch("/api/profile", { method: "POST" });
       const d = (await res.json()) as { ok?: boolean; error?: string };
-      if (!d.ok) setError(d.error ?? `오류 ${res.status}`);
+      if (!d.ok) setError(d.error ?? `${t.errorStatus} ${res.status}`);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -31,9 +40,9 @@ export function GenerateButton({ hasProfile }: { hasProfile: boolean }) {
         disabled={busy}
         className="self-start rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-900 disabled:opacity-50"
       >
-        {busy ? "Gemini 분석 중… (~10초)" : hasProfile ? "다시 분석하기" : "AI 분석 생성"}
+        {busy ? t.generating : hasProfile ? t.reanalyze : t.generate}
       </button>
-      {error && <p className="text-xs text-red-400">오류: {error}</p>}
+      {error && <p className="text-xs text-red-400">{t.errorPrefix} {error}</p>}
     </div>
   );
 }

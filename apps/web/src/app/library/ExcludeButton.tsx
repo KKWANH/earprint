@@ -2,9 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Locale } from "@/lib/i18n";
+import { libraryDict } from "@/lib/i18n/library";
 
 /** Excludes an artist from analysis (✕) or restores it. */
-export function ExcludeButton({ artist, restore }: { artist: string; restore?: boolean }) {
+export function ExcludeButton({
+  artist,
+  restore,
+  locale,
+}: {
+  artist: string;
+  restore?: boolean;
+  locale: Locale;
+}) {
+  const t = libraryDict(locale);
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -24,9 +35,9 @@ export function ExcludeButton({ artist, restore }: { artist: string; restore?: b
       onClick={go}
       disabled={busy}
       className="shrink-0 rounded px-1.5 text-xs text-neutral-500 hover:text-white disabled:opacity-40"
-      title={restore ? "분석에 다시 포함" : "분석에서 제외"}
+      title={restore ? t.excludeIncludeTitle : t.excludeExcludeTitle}
     >
-      {restore ? "복원" : "✕"}
+      {restore ? t.excludeRestore : t.excludeMark}
     </button>
   );
 }

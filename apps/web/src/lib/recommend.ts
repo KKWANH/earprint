@@ -109,9 +109,12 @@ export async function generateRecommendations(
   const [seeds, likedRows, existingRows, dislikedRows, genreRows] = await Promise.all([
     sql`
       SELECT t.artist, t.title
-      FROM user_tracks ut JOIN tracks t ON t.id = ut.track_id
+      FROM user_tracks ut
+      JOIN tracks t ON t.id = ut.track_id
+      LEFT JOIN artist_affinity aff
+        ON aff.user_id = ut.user_id AND lower(aff.artist) = lower(t.artist)
       WHERE ut.user_id = ${userId}
-      ORDER BY random() LIMIT 6`,
+      ORDER BY random() / COALESCE(aff.weight, 1) LIMIT 6`,
     sql`
       SELECT DISTINCT lower(t.artist) AS a
       FROM user_tracks ut JOIN tracks t ON t.id = ut.track_id

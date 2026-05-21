@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import type { Locale } from "@/lib/i18n";
+import { connectDict } from "@/lib/i18n/connect";
 
 /** Displays the sync token plus a copy button. */
-export function TokenBox({ token }: { token: string }) {
+export function TokenBox({ token, locale }: { token: string; locale: Locale }) {
+  const t = connectDict(locale);
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -21,7 +24,7 @@ export function TokenBox({ token }: { token: string }) {
         onClick={copy}
         className="rounded-md bg-white px-3 py-2 text-sm font-medium text-neutral-900"
       >
-        {copied ? "복사됨" : "복사"}
+        {copied ? t.copied : t.copy}
       </button>
     </div>
   );

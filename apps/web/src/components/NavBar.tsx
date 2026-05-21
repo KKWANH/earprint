@@ -3,18 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { dicts, type Locale } from "@/lib/i18n";
+import { LocaleToggle } from "./LocaleToggle";
+
+const LINKS = [
+  { href: "/library", key: "library" },
+  { href: "/dna", key: "dna" },
+  { href: "/map", key: "map" },
+  { href: "/recommend", key: "recommend" },
+  { href: "/profile", key: "profile" },
+  { href: "/connect", key: "connect" },
+] as const;
 
 /** Shared top navigation — inline on desktop, hamburger dropdown on mobile. */
-const LINKS = [
-  { href: "/library", label: "라이브러리" },
-  { href: "/dna", label: "취향 DNA" },
-  { href: "/map", label: "아티스트 맵" },
-  { href: "/recommend", label: "추천" },
-  { href: "/profile", label: "심리분석" },
-  { href: "/connect", label: "확장 연결" },
-];
-
-export function NavBar() {
+export function NavBar({ locale }: { locale: Locale }) {
+  const nav = dicts[locale].nav;
   const path = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
@@ -23,14 +26,13 @@ export function NavBar() {
     <header className="sticky top-0 z-50 border-b border-white/10 bg-neutral-950/95 backdrop-blur">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
         <Link
-          href="/library"
+          href="/"
           onClick={() => setOpen(false)}
           className="shrink-0 text-sm font-bold tracking-tight"
         >
           🎧 Playlist<span className="text-emerald-400">Analyzer</span>
         </Link>
 
-        {/* desktop — inline links */}
         <nav className="hidden gap-1 sm:flex">
           {LINKS.map((l) => (
             <Link
@@ -42,23 +44,24 @@ export function NavBar() {
                   : "text-neutral-400 hover:text-white"
               }`}
             >
-              {l.label}
+              {nav[l.key]}
             </Link>
           ))}
         </nav>
 
-        {/* mobile — hamburger */}
-        <button
-          onClick={() => setOpen((o) => !o)}
-          aria-label="메뉴"
-          aria-expanded={open}
-          className="rounded-md px-2 py-1 text-lg leading-none text-neutral-300 hover:bg-white/10 sm:hidden"
-        >
-          {open ? "✕" : "☰"}
-        </button>
+        <div className="flex items-center gap-2">
+          <LocaleToggle locale={locale} />
+          <button
+            onClick={() => setOpen((o) => !o)}
+            aria-label="Menu"
+            aria-expanded={open}
+            className="rounded-md px-2 py-1 text-lg leading-none text-neutral-300 hover:bg-white/10 sm:hidden"
+          >
+            {open ? "✕" : "☰"}
+          </button>
+        </div>
       </div>
 
-      {/* mobile — dropdown panel */}
       {open && (
         <nav className="flex flex-col gap-0.5 border-t border-white/10 px-3 py-2 sm:hidden">
           {LINKS.map((l) => (
@@ -72,7 +75,7 @@ export function NavBar() {
                   : "text-neutral-300 hover:bg-white/5"
               }`}
             >
-              {l.label}
+              {nav[l.key]}
             </Link>
           ))}
         </nav>

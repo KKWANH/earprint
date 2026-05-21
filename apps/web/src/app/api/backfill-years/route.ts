@@ -1,19 +1,15 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
-import { getJson, json } from "@/lib/http";
+import { json } from "@/lib/http";
+import { mbAlbumYear } from "@/lib/musicbrainz";
 
-/** Parses a 4-digit year out of a Deezer release_date. */
-function yearOf(date: unknown): number | null {
-  const m = typeof date === "string" ? date.match(/^(\d{4})/) : null;
-  if (!m) return null;
-  const y = Number(m[1]);
-  return y >= 1900 && y <= new Date().getFullYear() + 1 ? y : null;
-}
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * One batch of release-year backfill (drives the reminiscence-bump analysis).
- * Tracks Deezer has no date for are stored as year 0 so they are not re-fetched.
- * The client calls this repeatedly until `remaining` hits 0.
+ * One batch of release-year backfill via MusicBrainz — looked up per album
+ * (release group) for the genuine original year, then applied to every track
+ * of that album. MusicBrainz allows ~1 request/second, so batches are small
+ * and spaced; the client calls this until `remaining` hits 0.
  */
 export async function POST() {
   let userId: string;
@@ -25,37 +21,37 @@ export async function POST() {
 
   const sql = getSql();
   const batch = await sql`
-    SELECT t.id, t.deezer_id
+    SELECT t.artist, t.album, array_agg(t.id) AS ids
     FROM tracks t
     JOIN user_tracks ut ON ut.track_id = t.id
-    WHERE ut.user_id = ${userId} AND t.deezer_id IS NOT NULL AND t.release_year IS NULL
-    GROUP BY t.id, t.deezer_id
-    LIMIT 25`;
+    WHERE ut.user_id = ${userId} AND t.release_year IS NULL
+      AND t.album IS NOT NULL AND t.album <> ''
+    GROUP BY t.artist, t.album
+    LIMIT 5`;
 
-  if (batch.length > 0) {
-    const rows = await Promise.all(
-      batch.map(async (t) => {
-        let year: number | null = null;
-        let rank: number | null = null;
-        try {
-          const d = await getJson(`https://api.deezer.com/track/${t.deezer_id}`);
-          year = yearOf(d?.release_date) ?? yearOf(d?.album?.release_date);
-          rank = typeof d?.rank === "number" ? d.rank : null;
-        } catch {
-          /* leave as unknown */
-        }
-        // 0 = "checked, no date" — keeps the row out of the next batch.
-        return { trackId: t.id, releaseYear: year ?? 0, rank };
-      }),
-    );
+  const rows: { trackId: string; releaseYear: number; rank: null }[] = [];
+  for (let i = 0; i < batch.length; i++) {
+    const g = batch[i];
+    const r = await mbAlbumYear(g.artist as string, g.album as string);
+    // 0 = MB answered with no usable date (won't be re-fetched); a failed
+    // fetch is skipped so the album stays NULL and is retried.
+    if (r.ok) {
+      for (const id of g.ids as string[]) {
+        rows.push({ trackId: id, releaseYear: r.year ?? 0, rank: null });
+      }
+    }
+    if (i < batch.length - 1) await sleep(1100); // MusicBrainz rate limit
+  }
+  if (rows.length > 0) {
     await sql`SELECT save_track_meta(${JSON.stringify(rows)}::jsonb)`;
   }
 
   const rem = await sql`
-    SELECT count(*)::int AS n
+    SELECT count(DISTINCT (t.artist, t.album))::int AS n
     FROM tracks t
     JOIN user_tracks ut ON ut.track_id = t.id
-    WHERE ut.user_id = ${userId} AND t.deezer_id IS NOT NULL AND t.release_year IS NULL`;
+    WHERE ut.user_id = ${userId} AND t.release_year IS NULL
+      AND t.album IS NOT NULL AND t.album <> ''`;
 
-  return json({ ok: true, processed: batch.length, remaining: rem[0].n as number }, 200);
+  return json({ ok: true, processed: rows.length, remaining: rem[0].n as number }, 200);
 }

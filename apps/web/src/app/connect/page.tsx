@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection, getLibrarySummary } from "@/lib/connection";
+import { getLocale } from "@/lib/i18n-server";
+import { connectDict } from "@/lib/i18n/connect";
 import { TokenBox } from "./TokenBox";
 
 export default async function ConnectPage() {
   const session = await auth();
+  const locale = await getLocale();
+  const t = connectDict(locale);
 
   if (!session?.user) {
     return (
@@ -16,7 +20,7 @@ export default async function ConnectPage() {
           }}
         >
           <button className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-900">
-            Google 로 로그인하고 시작하기
+            {t.loginGoogle}
           </button>
         </form>
       </main>
@@ -29,7 +33,7 @@ export default async function ConnectPage() {
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 px-6 py-16">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">확장 연결</h1>
+        <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
         <p className="text-sm text-neutral-400">{session.user.email}</p>
       </header>
 
@@ -38,28 +42,23 @@ export default async function ConnectPage() {
       <span id="pa-sync-token" data-token={token} hidden />
 
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
-        <h2 className="font-semibold">동기화 토큰</h2>
-        <p className="text-sm text-neutral-400">
-          크롬 확장에서 &ldquo;웹에서 연결&rdquo;을 누르면 이 토큰이 자동으로 연결됩니다.
-          (수동 연결이 필요할 때만 아래 값을 복사하세요.)
-        </p>
-        <TokenBox token={token} />
+        <h2 className="font-semibold">{t.syncTokenTitle}</h2>
+        <p className="text-sm text-neutral-400">{t.syncTokenDesc}</p>
+        <TokenBox token={token} locale={locale} />
       </section>
 
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="font-semibold">내 라이브러리 — {count}곡</h2>
+          <h2 className="font-semibold">{t.libraryTitle(count)}</h2>
           <Link
             href="/library"
             className="shrink-0 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-neutral-900"
           >
-            분석 대시보드 →
+            {t.analysisDashboard}
           </Link>
         </div>
         {recent.length === 0 ? (
-          <p className="text-sm text-neutral-500">
-            아직 동기화된 곡이 없습니다. 확장에서 동기화를 실행하세요.
-          </p>
+          <p className="text-sm text-neutral-500">{t.noSyncedSongs}</p>
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
             {recent.map((t, i) => (

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     return json({ error: "unauthorized" }, 401);
   }
 
-  let body: { artist?: string };
+  let body: { artist?: string; weight?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -25,6 +25,7 @@ export async function POST(req: Request) {
   }
   const artist = (body.artist ?? "").trim();
   if (!artist) return json({ error: "artist required" }, 400);
+  const weight = Number(body.weight);
 
   const key = process.env.LASTFM_API_KEY;
   if (!key) return json({ ok: false, reason: "lastfm_unconfigured" }, 200);
@@ -50,5 +51,14 @@ export async function POST(req: Request) {
   const sql = getSql();
   const rows = await sql`
     SELECT add_liked_tracks(${userId}, ${JSON.stringify(tracks)}::jsonb) AS n`;
+
+  // Record how much the user likes this newly-added artist.
+  if (Number.isFinite(weight) && weight >= 2 && weight <= 3) {
+    await sql`
+      INSERT INTO artist_affinity (user_id, artist, weight, updated_at)
+      VALUES (${userId}, ${artist}, ${weight}, now())
+      ON CONFLICT (user_id, artist)
+      DO UPDATE SET weight = ${weight}, updated_at = now()`;
+  }
   return json({ ok: true, added: rows[0].n as number, artist }, 200);
 }
