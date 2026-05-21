@@ -25,6 +25,17 @@ const en = {
   errorPrefix: "Error:",
   errorStatus: "Error",
   constellationHint: "Drag / wheel to explore · tap a star to see the genres it blends with",
+  statsTitle: "The data behind the analysis",
+  statsDesc: "The library figures the AI reads. Run more analysis to sharpen them.",
+  statSongs: "Liked songs",
+  statArtists: "Artists",
+  statGenres: "Genres",
+  statAnalyzed: "Analyzed",
+  statTopGenre: "Top genre",
+  statAlbumDepth: "Album depth",
+  feelEnergy: "Energy",
+  feelTempo: "Tempo",
+  feelAcoustic: "Acoustic",
 };
 
 const ko: typeof en = {
@@ -52,6 +63,17 @@ const ko: typeof en = {
   errorPrefix: "오류:",
   errorStatus: "오류",
   constellationHint: "드래그·휠로 탐색 · 별을 눌러 함께 쓰는 장르 보기",
+  statsTitle: "분석의 바탕이 된 데이터",
+  statsDesc: "AI 가 읽은 라이브러리 수치입니다. 분석을 더 돌릴수록 또렷해집니다.",
+  statSongs: "좋아요 곡",
+  statArtists: "아티스트",
+  statGenres: "장르",
+  statAnalyzed: "분석 완료",
+  statTopGenre: "최다 장르",
+  statAlbumDepth: "앨범 몰입도",
+  feelEnergy: "에너지",
+  feelTempo: "템포",
+  feelAcoustic: "어쿠스틱",
 };
 
 export function profileDict(locale: Locale) {

@@ -166,6 +166,40 @@ async function lastfmSimilarArtists(
   }
 }
 
+type SimList = { name: string; match: number }[];
+
+/**
+ * Last.fm similar artists for several seeds, served from a shared DB cache.
+ * Similar-artist lists barely change, so a cache hit avoids the network call
+ * entirely — the main cost of loading the artist map. Empty results (often a
+ * transient failure) are not cached, so they self-heal on the next visit.
+ */
+async function cachedSimilarArtists(names: string[]): Promise<SimList[]> {
+  const sql = getSql();
+  const keys = names.map((n) => n.toLowerCase());
+  const rows = await sql`
+    SELECT artist, payload FROM lastfm_similar WHERE artist = ANY(${keys}::text[])`;
+  const have = new Map(rows.map((r) => [r.artist as string, r.payload as SimList]));
+
+  const missIdx: number[] = [];
+  for (let i = 0; i < keys.length; i++) if (!have.has(keys[i])) missIdx.push(i);
+  const fetched = await Promise.all(missIdx.map((i) => lastfmSimilarArtists(names[i])));
+
+  const store: { artist: string; payload: SimList }[] = [];
+  missIdx.forEach((i, k) => {
+    have.set(keys[i], fetched[k]);
+    if (fetched[k].length > 0) store.push({ artist: keys[i], payload: fetched[k] });
+  });
+  if (store.length > 0) {
+    await sql`
+      INSERT INTO lastfm_similar (artist, payload)
+      SELECT x->>'artist', x->'payload'
+      FROM jsonb_array_elements(${JSON.stringify(store)}::jsonb) AS x
+      ON CONFLICT (artist) DO NOTHING`;
+  }
+  return keys.map((k) => have.get(k) ?? []);
+}
+
 /**
  * Finds artists the user has *not* liked but who are close to their taste —
  * Last.fm similar artists of the top library artists, minus anything already
@@ -186,7 +220,7 @@ export async function getGhostArtists(
     ...excluded.map((a) => canonArtist(a).toLowerCase()),
   ]);
 
-  const lists = await Promise.all(seeds.map((s) => lastfmSimilarArtists(s.name)));
+  const lists = await cachedSimilarArtists(seeds.map((s) => s.name));
 
   const ghosts = new Map<string, { name: string; related: Set<string>; score: number }>();
   lists.forEach((sims, i) => {

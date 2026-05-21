@@ -356,6 +356,14 @@ CREATE TABLE IF NOT EXISTS artist_affinity (
   PRIMARY KEY (user_id, artist)
 );
 
+-- ── Last.fm similar-artist cache (shared; speeds up the artist map) ──
+-- artist is the lowercased seed name; payload is the similar-artist list.
+CREATE TABLE IF NOT EXISTS lastfm_similar (
+  artist     TEXT PRIMARY KEY,
+  payload    JSONB NOT NULL,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ── taste_profiles: AI-generated psychology / taste profile ──
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_profile      jsonb;
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_generated_at TIMESTAMPTZ;

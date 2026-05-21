@@ -2,6 +2,7 @@ import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { getGenreMap } from "@/lib/genreMap";
+import { getLibraryStats, type AudioFeelAgg, type LibraryStats } from "@/lib/library";
 import type { AiProfile, Persona } from "@/lib/profile";
 import { getLocale } from "@/lib/i18n-server";
 import { profileDict } from "@/lib/i18n/profile";
@@ -35,7 +36,10 @@ export default async function ProfilePage() {
     SELECT ai_profile, ai_generated_at FROM taste_profiles WHERE user_id = ${userId}`;
   const profile = (rows[0]?.ai_profile as AiProfile | undefined) ?? null;
   const generatedAt = rows[0]?.ai_generated_at as string | undefined;
-  const genreMap = await getGenreMap(userId);
+  const [genreMap, stats] = await Promise.all([
+    getGenreMap(userId),
+    getLibraryStats(userId),
+  ]);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
@@ -50,6 +54,8 @@ export default async function ProfilePage() {
           </p>
         )}
       </section>
+
+      {stats.total > 0 && <StatsSection stats={stats} t={t} />}
 
       {genreMap.nodes.length > 0 && (
         <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
@@ -71,6 +77,69 @@ export default async function ProfilePage() {
 }
 
 type ProfileT = ReturnType<typeof profileDict>;
+
+/** "The data behind the analysis" — the library figures the AI reads. */
+function StatsSection({ stats, t }: { stats: LibraryStats; t: ProfileT }) {
+  const top = stats.topGenres[0];
+  return (
+    <section className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+      <div>
+        <h2 className="font-semibold">{t.statsTitle}</h2>
+        <p className="text-sm text-neutral-400">{t.statsDesc}</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label={t.statSongs} value={stats.total.toLocaleString()} />
+        <Stat label={t.statArtists} value={stats.distinctArtists.toLocaleString()} />
+        <Stat label={t.statAnalyzed} value={stats.enriched.toLocaleString()} />
+        <Stat
+          label={t.statAlbumDepth}
+          value={`${Math.round(stats.albumDepth.concentration * 100)}%`}
+        />
+      </div>
+      {top && (
+        <p className="text-xs text-neutral-500">
+          {t.statTopGenre}: <span className="text-neutral-300">{top.name}</span> ({top.count})
+        </p>
+      )}
+      {stats.audioFeel && <FeelBars feel={stats.audioFeel} t={t} />}
+    </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+      <div className="text-[11px] text-neutral-500">{label}</div>
+      <div className="mt-0.5 text-xl font-bold">{value}</div>
+    </div>
+  );
+}
+
+function FeelBars({ feel, t }: { feel: AudioFeelAgg; t: ProfileT }) {
+  const axes = [
+    { label: t.feelEnergy, v: feel.energy },
+    { label: t.feelTempo, v: feel.tempo },
+    { label: t.feelAcoustic, v: feel.acousticness },
+  ];
+  return (
+    <div className="flex flex-col gap-2">
+      {axes.map((a) => (
+        <div key={a.label} className="flex items-center gap-3 text-xs">
+          <span className="w-16 shrink-0 text-neutral-400">{a.label}</span>
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full bg-sky-400"
+              style={{ width: `${Math.round(a.v * 100)}%` }}
+            />
+          </div>
+          <span className="w-8 shrink-0 text-right text-neutral-500">
+            {Math.round(a.v * 100)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function ProfileView({ profile: p, t }: { profile: AiProfile; t: ProfileT }) {
   return (

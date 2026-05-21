@@ -68,10 +68,21 @@ export function Tournament({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const prefetch = useRef<Promise<unknown> | null>(null);
 
   const current = initial[idx];
 
   useEffect(() => () => audioRef.current?.pause(), []);
+
+  // Generate the next batch a few cards early — by the time the user reaches
+  // the end it is ready, so there is no ~10s wait.
+  useEffect(() => {
+    if (idx >= initial.length - 5 && !prefetch.current) {
+      prefetch.current = fetch("/api/recommend/generate", { method: "POST" }).catch(
+        () => {},
+      );
+    }
+  }, [idx, initial.length]);
 
   // Lazily fetch the history blurb for the current and next card.
   useEffect(() => {
@@ -155,7 +166,9 @@ export function Tournament({
     setDrag(null);
     setFlyOff(null);
     if (idx + 1 >= initial.length) {
-      await fetch("/api/recommend/generate", { method: "POST" }).catch(() => {});
+      // The prefetch (started ~5 cards back) is usually already done.
+      if (prefetch.current) await prefetch.current;
+      else await fetch("/api/recommend/generate", { method: "POST" }).catch(() => {});
       router.refresh();
     } else {
       setIdx(idx + 1);

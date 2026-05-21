@@ -4,10 +4,25 @@ import { NavBar } from "@/components/NavBar";
 import { getLocale } from "@/lib/i18n-server";
 import "./globals.css";
 
+const DESC =
+  "Turns your YouTube Music liked songs into a research-grounded portrait of your taste: Taste DNA, an interactive artist map, and recommendations.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://music.kwanho.dev"),
   title: "Playlist Analyzer — understand your music taste",
-  description:
-    "Turns your YouTube Music liked songs into a research-grounded portrait of your taste: Taste DNA, an interactive artist map, and recommendations.",
+  description: DESC,
+  openGraph: {
+    title: "Playlist Analyzer",
+    description: DESC,
+    url: "https://music.kwanho.dev",
+    siteName: "Playlist Analyzer",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Playlist Analyzer",
+    description: DESC,
+  },
 };
 
 export const viewport: Viewport = {
