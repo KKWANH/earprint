@@ -1,16 +1,16 @@
 /**
- * 앱 · 확장 · (참고용) 분석 서비스가 공유하는 도메인 타입.
- * db/schema.sql 과 1:1 로 대응한다.
+ * Domain types shared by the web app, the extension, and (for reference)
+ * the analysis service. Maps 1:1 to db/schema.sql.
  */
 
-/** label -> probability(0..1) 분포 맵. genres/moods/instruments 등에 사용. */
+/** label -> probability(0..1) distribution map. Used for genres/moods/instruments. */
 export type LabelDistribution = Record<string, number>;
 
 export type MusicScale = "major" | "minor";
 export type VoiceInstrumental = "voice" | "instrumental";
 export type AnalysisJobStatus = "pending" | "running" | "done" | "failed";
 
-/** 확장이 music.youtube.com 에서 수집해 백엔드로 보내는 원본 항목. */
+/** A raw item the extension collects on music.youtube.com and sends to the backend. */
 export interface CapturedTrack {
   /** YouTube Music videoId */
   videoId: string;
@@ -18,17 +18,17 @@ export interface CapturedTrack {
   artist: string;
   album?: string;
   durationMs?: number;
-  /** 플랫폼상 좋아요 시각 (ISO 8601) — 알 수 있을 때만 */
+  /** Like time on the platform (ISO 8601) — only when known */
   likedAt?: string;
 }
 
-/** 확장 → 백엔드 동기화 페이로드. */
+/** Extension → backend sync payload. */
 export interface SyncRequest {
   source: "ytmusic";
   tracks: CapturedTrack[];
 }
 
-/** 전역 공유 canonical 트랙. */
+/** Globally shared canonical track. */
 export interface Track {
   id: string;
   mbid: string | null;
@@ -42,7 +42,7 @@ export interface Track {
   matchConfidence: number | null;
 }
 
-/** 트랙별 특성 분석 결과. */
+/** Per-track feature analysis result. */
 export interface Analysis {
   id: string;
   trackId: string;
@@ -58,13 +58,13 @@ export interface Analysis {
   valence: number | null;
   arousal: number | null;
   voiceInstrumental: VoiceInstrumental | null;
-  /** 필드별 신뢰도(0..1) */
+  /** Per-field confidence (0..1) */
   confidence: Record<string, number> | null;
-  /** 필드별 출처: 'api' | 'model' */
+  /** Per-field source: 'api' | 'model' */
   sourceFlags: Record<string, string> | null;
 }
 
-/** 사용자별 집계 취향 프로필 (추천 / 미래 작곡 conditioning). */
+/** Per-user aggregated taste profile (recommendations / future composition conditioning). */
 export interface TasteProfile {
   userId: string;
   genreDist: LabelDistribution | null;

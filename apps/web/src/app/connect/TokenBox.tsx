@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-/** 동기화 토큰 표시 + 복사 버튼. */
+/** Displays the sync token plus a copy button. */
 export function TokenBox({ token }: { token: string }) {
   const [copied, setCopied] = useState(false);
 

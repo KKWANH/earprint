@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-/** Gemini 심리분석 생성/재생성 버튼. */
+/** Button to generate/regenerate the Gemini psychological analysis. */
 export function GenerateButton({ hasProfile }: { hasProfile: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

@@ -1,6 +1,6 @@
 import { geminiJson } from "./gemini";
 
-/** API 가 장르를 못 채운 곡을 Gemini 지식으로 보강. */
+/** Enriches tracks whose genres the APIs couldn't fill, using Gemini's knowledge. */
 export interface AiEnrichInput {
   id: string;
   artist: string;
@@ -10,7 +10,7 @@ export interface AiEnrichRow {
   trackId: string;
   genres: Record<string, number>;
   moods: Record<string, number>;
-  realArtist: string; // "" 면 변경 없음
+  realArtist: string; // "" means no change
   realTitle: string;
 }
 
@@ -46,9 +46,9 @@ function toObj(arr: unknown): Record<string, number> {
 }
 
 /**
- * Gemini 한 번 호출로 여러 곡을 보강한다.
- * Gemini 호출 자체가 실패하면 throw — 호출측이 배치를 재시도하게 한다.
- * (성공했으나 일부 곡을 건너뛴 경우엔 빈 결과로 채워 무한루프를 막는다)
+ * Enriches multiple tracks in a single Gemini call.
+ * Throws if the Gemini call itself fails — letting the caller retry the batch.
+ * (If it succeeds but skips some tracks, fills them with empty results to avoid an infinite loop.)
  */
 export async function aiEnrichBatch(tracks: AiEnrichInput[]): Promise<AiEnrichRow[]> {
   if (tracks.length === 0) return [];
@@ -74,7 +74,7 @@ ${list}`;
     if (r?.id) byId.set(String(r.id), r);
   }
 
-  // 모든 입력 트랙에 행을 반환 (누락 곡은 빈 결과 — 재시도 무한루프 방지).
+  // Return a row for every input track (missing ones get empty results — prevents retry infinite loops).
   return tracks.map((t) => {
     const r = byId.get(t.id);
     return {

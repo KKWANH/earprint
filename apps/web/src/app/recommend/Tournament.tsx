@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export interface Rec {
@@ -37,7 +37,15 @@ export function Tournament({
 
   const current = initial[idx];
 
-  /** 카드 전환 시 — 재생 중지 + 오디오 폐기. */
+  // Stop and release audio on unmount.
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, []);
+
+  /** On card change — stop playback and discard the audio element. */
   function resetAudio() {
     audioRef.current?.pause();
     audioRef.current = null;

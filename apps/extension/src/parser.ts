@@ -1,14 +1,14 @@
 /**
- * YouTube Music InnerTube(youtubei/v1/browse) 응답에서 트랙을 추출한다.
+ * Extracts tracks from YouTube Music InnerTube (youtubei/v1/browse) responses.
  *
- * 응답 구조는 자주 바뀌므로, 정해진 경로를 따라가는 대신
- * `musicResponsiveListItemRenderer` 를 깊이우선으로 전부 찾아 파싱한다.
+ * The response structure changes often, so instead of following a fixed path,
+ * we depth-first find and parse every `musicResponsiveListItemRenderer`.
  */
 import type { CapturedTrack } from "@playlist-analyzer/shared";
 
 type Json = Record<string, unknown>;
 
-/** 응답 트리를 순회하며 모든 트랙을 out 맵(videoId 기준)에 모은다. */
+/** Walks the response tree and collects every track into the out map (keyed by videoId). */
 export function extractTracks(node: unknown, out: Map<string, CapturedTrack>): void {
   if (!node || typeof node !== "object") return;
   if (Array.isArray(node)) {
@@ -32,7 +32,7 @@ function parseItem(item: Json): CapturedTrack | null {
   const title = runsText(flex[0]);
   if (!title) return null;
 
-  // flexColumns[1] 은 보통 "아티스트 • 앨범 • 연도" 형태 — 첫 구획만 아티스트로.
+  // flexColumns[1] is usually "artist • album • year" — take only the first segment as the artist.
   const artistRaw = runsText(flex[1]);
   const artist = artistRaw.split("•")[0]?.trim() || "Unknown";
 
@@ -44,7 +44,7 @@ function parseItem(item: Json): CapturedTrack | null {
   return track;
 }
 
-/** 객체 트리에서 videoId 를 찾는다 (playlistItemData 우선, 그다음 watchEndpoint). */
+/** Finds videoId in the object tree (playlistItemData first, then watchEndpoint). */
 function findVideoId(node: unknown): string | null {
   const fromPlaylist = deepGet(node, "playlistItemData", "videoId");
   if (typeof fromPlaylist === "string") return fromPlaylist;
@@ -56,7 +56,7 @@ function findVideoId(node: unknown): string | null {
   return null;
 }
 
-/** 컬럼 객체 안에서 첫 번째 { text: { runs: [...] } } 를 찾아 텍스트를 잇는다. */
+/** Finds the first { text: { runs: [...] } } inside a column object and joins the text. */
 function runsText(column: unknown): string {
   const runs = deepFindKey(column, "runs");
   if (!Array.isArray(runs)) return "";
@@ -66,7 +66,7 @@ function runsText(column: unknown): string {
     .join("");
 }
 
-/** "m:ss" 또는 "h:mm:ss" → 밀리초. */
+/** "m:ss" or "h:mm:ss" → milliseconds. */
 function parseDuration(text: string): number | null {
   const parts = text.trim().split(":").map(Number);
   if (parts.length < 2 || parts.some((n) => Number.isNaN(n))) return null;
@@ -80,7 +80,7 @@ function deepGet(node: unknown, parentKey: string, childKey: string): unknown {
   return undefined;
 }
 
-/** 트리에서 주어진 key 의 첫 값을 깊이우선으로 찾는다. */
+/** Depth-first finds the first value for the given key in the tree. */
 function deepFindKey(node: unknown, key: string): unknown {
   if (!node || typeof node !== "object") return undefined;
   if (Array.isArray(node)) {

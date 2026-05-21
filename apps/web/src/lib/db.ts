@@ -1,12 +1,12 @@
 import { neon } from "@neondatabase/serverless";
 
 /**
- * Neon Postgres(서버리스) 연결.
- * HTTP 기반이라 Cloudflare Workers 런타임에서 동작한다.
- * 반환값은 태그드 템플릿 쿼리 함수: sql`SELECT ...`
+ * Neon Postgres (serverless) connection.
+ * HTTP-based, so it works in the Cloudflare Workers runtime.
+ * Returns a tagged-template query function: sql`SELECT ...`
  */
 export function getSql() {
   const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL 환경변수가 설정되지 않았습니다");
+  if (!url) throw new Error("DATABASE_URL is not set");
   return neon(url);
 }

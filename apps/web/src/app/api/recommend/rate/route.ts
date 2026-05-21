@@ -1,9 +1,10 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
+import { json } from "@/lib/http";
 
 const VALID = new Set(["like", "dislike", "pass"]);
 
-/** 추천 곡 평가 저장 — { id, rating, comment }. */
+/** Saves a recommendation rating — { id, rating, comment }. */
 export async function POST(req: Request) {
   let userId: string;
   try {
@@ -31,11 +32,4 @@ export async function POST(req: Request) {
     WHERE id = ${body.id} AND user_id = ${userId}`;
 
   return json({ ok: true }, 200);
-}
-
-function json(data: unknown, status: number) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

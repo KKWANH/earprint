@@ -9,7 +9,7 @@ interface EnrichResponse {
   remaining: number;
 }
 
-/** "분석 실행" 버튼 — /api/enrich 를 remaining 이 0 이 될 때까지 반복 호출. */
+/** "Run analysis" button — repeatedly calls /api/enrich until remaining reaches 0. */
 export function EnrichPanel({ total, remaining }: { total: number; remaining: number }) {
   const router = useRouter();
   const [running, setRunning] = useState(false);

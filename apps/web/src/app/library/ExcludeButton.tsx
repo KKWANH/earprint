@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-/** 아티스트를 분석에서 제외(✕) 또는 복원. */
+/** Excludes an artist from analysis (✕) or restores it. */
 export function ExcludeButton({ artist, restore }: { artist: string; restore?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

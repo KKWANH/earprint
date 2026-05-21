@@ -1,28 +1,33 @@
 # Analysis Service
 
-트랙 정규화 → 외부 API 메타데이터 보강 → MIR(오디오 특성 추론) 파이프라인.
+> Status: scaffold only. Phase 3 (Essentia MIR — BPM, key, embeddings) is not
+> implemented yet. API-based enrichment currently runs inside the web app on
+> Cloudflare Workers; this Python service exists for the future MIR pipeline.
 
-## 실행
+Planned pipeline: track resolution → external-API metadata enrichment →
+MIR (audio feature inference).
+
+## Run
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e .            # 코어만
-pip install -e ".[mir]"     # MIR(Essentia/librosa)까지 — Phase 3
+pip install -e .            # core only
+pip install -e ".[mir]"     # incl. MIR (Essentia/librosa) — Phase 3
 
-uvicorn app.main:app --reload      # API 서버 (:8000)
-rq worker analysis --url $REDIS_URL # 분석 워커 (Phase 3)
+uvicorn app.main:app --reload       # API server (:8000)
+rq worker analysis --url $REDIS_URL # analysis worker (Phase 3)
 ```
 
-## 구조
+## Layout
 
 ```
 app/
-  main.py            FastAPI 진입점 (health 등)
-  config.py          환경설정 (pydantic-settings)
-  schemas.py         API 스키마 (packages/shared 타입과 대응)
+  main.py            FastAPI entry point (health, etc.)
+  config.py          settings (pydantic-settings)
+  schemas.py         API schemas (mirror packages/shared types)
   pipeline/
-    resolver.py      트랙 정규화/매칭        (Phase 2)
-    enricher.py      Deezer/Last.fm/MB 보강  (Phase 2)
-    mir.py           Essentia/librosa 추론   (Phase 3)
-  worker.py          RQ 작업 함수             (Phase 3)
+    resolver.py      track normalization / matching   (Phase 2)
+    enricher.py      Deezer/Last.fm/MB enrichment      (Phase 2)
+    mir.py           Essentia/librosa inference        (Phase 3)
+  worker.py          RQ job functions                  (Phase 3)
 ```

@@ -1,8 +1,8 @@
 /**
- * Service worker — content script 가 수집한 좋아요를 백엔드로 전송.
+ * Service worker — sends the likes collected by the content script to the backend.
  *
- * 백엔드 URL · 동기화 토큰은 팝업에서 chrome.storage.sync 에 저장된다.
- * /api/sync 는 Bearer 토큰으로 인증하고 CORS 를 허용한다.
+ * The backend URL and sync token are saved to chrome.storage.sync from the popup.
+ * /api/sync authenticates via a Bearer token and allows CORS.
  */
 import type { CapturedTrack, SyncRequest } from "@playlist-analyzer/shared";
 
@@ -16,12 +16,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     upload((message as UploadMessage).tracks)
       .then(sendResponse)
       .catch((err: unknown) => sendResponse({ ok: false, error: String(err) }));
-    return true; // 비동기 응답
+    return true; // async response
   }
   return false;
 });
 
-/** 스킴 누락(https:// 없음)·끝 슬래시를 보정한다. */
+/** Fixes a missing scheme (no https://) and trailing slashes. */
 function normalizeBackendUrl(raw: string): string {
   let url = raw.trim();
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`;

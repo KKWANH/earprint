@@ -1,23 +1,40 @@
 # DB
 
-Postgres 15+ / pgvector 단일 DB로 관계형 + 벡터를 함께 다룬다.
+A single Postgres 15+ / pgvector database holds both relational data and vectors.
 
 ```bash
 psql "$DATABASE_URL" -f db/schema.sql
 ```
 
-Phase 0 에서는 raw SQL 스키마만 둔다. 스키마가 안정화되면
-마이그레이션 도구(예: `dbmate`, `drizzle-kit`) 도입을 검토한다.
+No `psql`? Use the bundled script:
 
-## 테이블 개요
+```bash
+cd apps/web && DATABASE_URL=... node scripts/apply-schema.mjs ../../db/schema.sql
+```
 
-| 테이블 | 역할 |
+The schema is plain SQL for now. Once it stabilizes, a migration tool
+(e.g. `dbmate`, `drizzle-kit`) can be introduced.
+
+## Tables
+
+| Table | Role |
 |---|---|
-| `users` | 사용자 (Google OAuth) |
-| `tracks` | 전역 공유 canonical 트랙 |
-| `track_sources` | 트랙별 외부 플랫폼 식별자 (YT videoId 등) |
-| `user_tracks` | 사용자별 좋아요 관계 |
-| `analysis` | 트랙별 특성 분석 결과 (버전 관리) |
-| `embeddings` | 트랙별 오디오 임베딩 벡터 |
-| `taste_profiles` | 사용자별 집계 취향 프로필 |
-| `analysis_jobs` | 분석 작업 큐 추적 |
+| `users` | Users (Google OAuth) |
+| `tracks` | Globally shared canonical tracks |
+| `track_sources` | External platform identifiers per track (YT videoId, etc.) |
+| `user_tracks` | Per-user like relationships |
+| `analysis` | Per-track feature analysis results (versioned) |
+| `embeddings` | Per-track audio embedding vectors (Phase 3) |
+| `taste_profiles` | Per-user aggregated taste profile + AI analysis |
+| `analysis_jobs` | Analysis job queue tracking (Phase 3) |
+| `excluded_artists` | Artists a user excluded from stats |
+| `recommendations` | Generated recommendations + user ratings |
+
+## Functions
+
+| Function | Role |
+|---|---|
+| `sync_liked_tracks` | Idempotently apply a batch of captured likes |
+| `save_enrichments` | Bulk-save Deezer/Last.fm enrichment results |
+| `save_ai_enrichments` | Bulk-save Gemini enrichment results |
+| `save_recommendations` | Bulk-insert recommendation candidates |

@@ -1,14 +1,14 @@
 /**
- * MAIN world 스크립트 — 페이지의 window.fetch 를 패치해
- * youtubei/v1/browse 응답을 가로챈다.
+ * MAIN-world script — patches the page's window.fetch to intercept
+ * youtubei/v1/browse responses.
  *
- * content.ts(ISOLATED world)는 페이지 fetch 를 직접 가로챌 수 없으므로,
- * 가로챈 JSON 을 window.postMessage 로 넘긴다.
- * content.ts 가 늦게 로드되어 초기 응답을 놓칠 수 있으므로 buffer 에 보관하고
- * 'flush' 요청 시 재전송한다.
+ * content.ts (ISOLATED world) cannot intercept the page's fetch directly,
+ * so intercepted JSON is passed via window.postMessage. content.ts may load
+ * late and miss the first responses, so they are buffered and re-sent on 'flush'.
  */
 (() => {
   const buffer: unknown[] = [];
+  const MAX_BUFFER = 60; // cap so a long session can't grow this unbounded
   const post = (data: unknown) =>
     window.postMessage({ __pa: true, kind: "browse", data }, "*");
 
@@ -29,6 +29,7 @@
           .json()
           .then((data: unknown) => {
             buffer.push(data);
+            if (buffer.length > MAX_BUFFER) buffer.shift();
             post(data);
           })
           .catch(() => {});
@@ -43,6 +44,7 @@
     const d = e.data as { __pa?: boolean; kind?: string } | undefined;
     if (e.source === window && d?.__pa && d.kind === "flush") {
       for (const item of buffer) post(item);
+      buffer.length = 0; // buffer has done its job once flushed
     }
   });
 })();

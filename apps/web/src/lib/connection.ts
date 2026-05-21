@@ -14,41 +14,51 @@ export interface RecentTrack {
 }
 
 /**
- * 로그인 세션을 users 테이블에 멱등하게 반영하고 동기화 토큰을 보장한다.
- * 최초 호출 시 사용자 행과 토큰을 만들고, 이후 호출은 기존 토큰을 유지한다.
+ * Resolves the signed-in user to a users row, creating it on first use.
+ * Reads first so the common (already-registered) path is a single SELECT —
+ * this runs on every authenticated request, so it must not write each time.
  */
 export async function ensureConnection(): Promise<Connection> {
   const session = await auth();
   const email = session?.user?.email;
-  if (!email) throw new Error("로그인이 필요합니다");
+  if (!email) throw new Error("Not signed in");
 
   const sql = getSql();
-  const rows = await sql`
+  const existing = await sql`SELECT id, sync_token FROM users WHERE email = ${email}`;
+  if (existing.length > 0) {
+    return {
+      userId: existing[0].id as string,
+      token: existing[0].sync_token as string,
+    };
+  }
+
+  // First sign-in: create the row. ON CONFLICT covers a concurrent insert race.
+  const created = await sql`
     INSERT INTO users (email, display_name, sync_token)
     VALUES (${email}, ${session.user?.name ?? null}, ${generateSyncToken()})
-    ON CONFLICT (email) DO UPDATE
-      SET display_name = EXCLUDED.display_name,
-          sync_token   = COALESCE(users.sync_token, EXCLUDED.sync_token),
-          updated_at   = now()
+    ON CONFLICT (email) DO UPDATE SET sync_token = users.sync_token
     RETURNING id, sync_token`;
-
-  return { userId: rows[0].id as string, token: rows[0].sync_token as string };
+  return {
+    userId: created[0].id as string,
+    token: created[0].sync_token as string,
+  };
 }
 
-/** 동기화된 좋아요 통계 + 최근 항목. */
+/** Synced-likes count plus the most recent entries. */
 export async function getLibrarySummary(
   userId: string,
 ): Promise<{ count: number; recent: RecentTrack[] }> {
   const sql = getSql();
-  const countRows = await sql`
-    SELECT count(*)::int AS c FROM user_tracks WHERE user_id = ${userId}`;
-  const recent = await sql`
-    SELECT t.title, t.artist, ut.captured_at
-    FROM user_tracks ut
-    JOIN tracks t ON t.id = ut.track_id
-    WHERE ut.user_id = ${userId}
-    ORDER BY ut.captured_at DESC
-    LIMIT 20`;
+  const [countRows, recent] = await Promise.all([
+    sql`SELECT count(*)::int AS c FROM user_tracks WHERE user_id = ${userId}`,
+    sql`
+      SELECT t.title, t.artist, ut.captured_at
+      FROM user_tracks ut
+      JOIN tracks t ON t.id = ut.track_id
+      WHERE ut.user_id = ${userId}
+      ORDER BY ut.captured_at DESC
+      LIMIT 20`,
+  ]);
   return {
     count: countRows[0].c as number,
     recent: recent.map((r) => ({

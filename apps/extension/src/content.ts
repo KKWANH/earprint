@@ -1,10 +1,10 @@
 /**
- * Content script (ISOLATED world) — music.youtube.com 에서 실행.
+ * Content script (ISOLATED world) — runs on music.youtube.com.
  *
- * 역할:
- *  1. inject.ts 가 postMessage 로 넘긴 browse 응답을 파싱·누적
- *  2. 팝업의 PA_SYNC 요청 시: 버퍼 flush → 자동 스크롤로 전체 로드
- *  3. 누적된 트랙을 background 로 전달
+ * Responsibilities:
+ *  1. Parse and accumulate browse responses passed via postMessage from inject.ts
+ *  2. On the popup's PA_SYNC request: flush the buffer, then auto-scroll to load everything
+ *  3. Forward the accumulated tracks to background
  */
 import type { CapturedTrack } from "@playlist-analyzer/shared";
 import { extractTracks } from "./parser";
@@ -22,7 +22,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     runSync()
       .then(sendResponse)
       .catch((err: unknown) => sendResponse({ ok: false, error: String(err) }));
-    return true; // 비동기 응답
+    return true; // async response
   }
   return false;
 });
@@ -31,14 +31,14 @@ async function runSync(): Promise<unknown> {
   if (!location.href.includes("list=LM")) {
     return { ok: false, error: "좋아요(LM) 플레이리스트 페이지에서 실행하세요" };
   }
-  // 1) inject 버퍼에 쌓인 초기 응답을 다시 받는다
+  // 1) Re-receive the initial responses buffered in inject
   window.postMessage({ __pa: true, kind: "flush" }, "*");
   await sleep(400);
 
-  // 2) 전체 곡이 로드되도록 자동 스크롤
+  // 2) Auto-scroll so all tracks get loaded
   await autoScroll();
 
-  // 3) 누적분을 background 로 업로드
+  // 3) Upload the accumulated tracks to background
   const list = [...tracks.values()];
   if (list.length === 0) {
     return { ok: false, error: "수집된 곡이 없습니다 (페이지를 새로고침 후 다시 시도)" };
@@ -46,7 +46,7 @@ async function runSync(): Promise<unknown> {
   return chrome.runtime.sendMessage({ type: "PA_UPLOAD", tracks: list });
 }
 
-/** 새 곡이 더 안 나올 때까지 페이지 하단으로 스크롤. */
+/** Scroll to the bottom of the page until no more new tracks appear. */
 async function autoScroll(): Promise<void> {
   let lastCount = -1;
   let stableRounds = 0;

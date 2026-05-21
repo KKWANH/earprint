@@ -1,7 +1,10 @@
 /**
- * Deezer 검색 — 무인증·무료. 트랙당 1콜.
- * 앨범·미리듣기·매칭 신뢰도를 얻는다. (BPM·장르는 Deezer 품질이 낮아 사용 안 함)
+ * Deezer search — free, no auth. One call per track.
+ * Yields album, preview and a match-confidence score.
+ * (BPM and genre are skipped — Deezer's data quality for them is poor.)
  */
+import { getJson } from "./http";
+
 const API = "https://api.deezer.com";
 
 export interface DeezerMatch {
@@ -18,19 +21,7 @@ const EMPTY: DeezerMatch = {
   matchConfidence: 0,
 };
 
-async function getJson(url: string): Promise<any> {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data && data.error) return null;
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-/** 매칭/스코어용 정규화: 소문자 + 괄호·feat·기호 제거 (한·일·중 문자 보존). */
+/** Normalize for matching/scoring: lowercase, strip brackets/feat/symbols (keep CJK). */
 function norm(s: string): string {
   return s
     .toLowerCase()

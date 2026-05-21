@@ -1,8 +1,9 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { generateProfile } from "@/lib/profile";
+import { json } from "@/lib/http";
 
-/** Gemini 로 음악 심리·취향 프로파일을 생성해 taste_profiles 에 저장한다. */
+/** Generates a music psychology/taste profile via Gemini and stores it in taste_profiles. */
 export async function POST() {
   let userId: string;
   try {
@@ -23,11 +24,4 @@ export async function POST() {
   } catch (e) {
     return json({ ok: false, error: String(e) }, 500);
   }
-}
-
-function json(data: unknown, status: number) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

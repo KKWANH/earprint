@@ -1,10 +1,12 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { aiEnrichBatch } from "@/lib/aiEnrich";
+import { json } from "@/lib/http";
 
 /**
- * AI 보강 배치 — 장르가 비어 있는 곡 20개를 Gemini 로 채운다.
- * 뮤비/모음 채널은 원곡 아티스트로 재매핑된다. 클라이언트가 반복 호출.
+ * AI enrichment batch — fills genres for up to 8 tracks via Gemini.
+ * Compilation/MV channels get re-mapped to the real artist. Client calls repeatedly.
+ * Batch kept small so a single Gemini call stays well under request timeouts.
  */
 export async function POST() {
   let userId: string;
@@ -21,7 +23,7 @@ export async function POST() {
     JOIN user_tracks ut ON ut.track_id = a.track_id
     JOIN tracks t ON t.id = a.track_id
     WHERE ut.user_id = ${userId} AND a.analysis_version = 1 AND a.genres IS NULL
-    LIMIT 20`;
+    LIMIT 8`;
 
   if (batch.length > 0) {
     let rows;
@@ -46,11 +48,4 @@ export async function POST() {
     WHERE ut.user_id = ${userId} AND a.analysis_version = 1`;
 
   return json({ ok: true, processed: batch.length, remaining: stat[0].remaining }, 200);
-}
-
-function json(data: unknown, status: number) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

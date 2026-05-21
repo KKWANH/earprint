@@ -1,8 +1,11 @@
 /**
- * Last.fm 태그 → 장르·무드.
- * track.getTopTags 를 먼저 쓰고, 비면 artist.getTopTags 로 폴백(커버리지 보강).
- * 태그 정제: 문장형 개인 태그·아티스트명·연도/연대·중복(k-pop/kpop) 제거.
+ * Last.fm tags → genres and moods.
+ * Tries track.getTopTags first, falls back to artist.getTopTags when empty
+ * (improves coverage). Cleans tags: drops sentence-like personal tags,
+ * the artist's own name, years/decades, and duplicates (k-pop / kpop).
  */
+import { getJson } from "./http";
+
 const API = "https://ws.audioscrobbler.com/2.0/";
 
 const MOOD = new Set([
@@ -30,26 +33,18 @@ interface RawTag {
   count: number;
 }
 
+/** Calls a Last.fm getTopTags method and returns its raw tag list. */
 async function fetchTopTags(query: string): Promise<RawTag[]> {
   const key = process.env.LASTFM_API_KEY;
   if (!key) return [];
-  try {
-    const res = await fetch(`${API}?${query}&api_key=${key}&format=json&autocorrect=1`, {
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!res.ok) return [];
-    const data: any = await res.json();
-    if (!data || data.error) return [];
-    let tags = data?.toptags?.tag;
-    if (!tags) return [];
-    if (!Array.isArray(tags)) tags = [tags];
-    return tags.map((t: any) => ({
-      name: String(t?.name ?? "").toLowerCase().trim(),
-      count: Number(t?.count ?? 0),
-    }));
-  } catch {
-    return [];
-  }
+  const data = await getJson(`${API}?${query}&api_key=${key}&format=json&autocorrect=1`);
+  let tags = data?.toptags?.tag;
+  if (!tags) return [];
+  if (!Array.isArray(tags)) tags = [tags];
+  return tags.map((t: any) => ({
+    name: String(t?.name ?? "").toLowerCase().trim(),
+    count: Number(t?.count ?? 0),
+  }));
 }
 
 function classify(tags: RawTag[], artistLower: string): TagResult {
@@ -61,11 +56,11 @@ function classify(tags: RawTag[], artistLower: string): TagResult {
 
   for (const { name, count } of tags) {
     if (!name) continue;
-    if (name.length > 24 || name.split(/\s+/).length > 4) continue; // 문장형 개인 태그
-    if (/^\d{4}$/.test(name) || /^\d0s$/.test(name)) continue; // 연도·연대
+    if (name.length > 24 || name.split(/\s+/).length > 4) continue; // sentence-like personal tag
+    if (/^\d{4}$/.test(name) || /^\d0s$/.test(name)) continue; // year / decade
     if (JUNK.has(name) || name === artistLower) continue;
     const key = name.replace(/[^a-z0-9가-힣]/g, "");
-    if (!key || seen.has(key)) continue; // 중복 (k-pop / kpop)
+    if (!key || seen.has(key)) continue; // duplicate (k-pop / kpop)
     seen.add(key);
 
     const weight = Math.max(0.1, Math.min(1, count / 100));
@@ -95,7 +90,7 @@ export async function getLastfmTags(artist: string, title: string): Promise<TagR
   );
   let result = classify(trackTags, artistLower);
 
-  // 트랙 태그가 없으면 아티스트 단위 태그로 폴백
+  // Fall back to artist-level tags when the track has none.
   if (!result.genres) {
     const artistTags = await fetchTopTags(
       `method=artist.gettoptags&artist=${encodeURIComponent(artist)}`,

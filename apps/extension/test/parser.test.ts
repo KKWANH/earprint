@@ -1,15 +1,15 @@
 /**
- * parser.ts 단위 테스트 — 실제 브라우저 없이 InnerTube 응답 픽스처로 검증.
- * 실행: node --test apps/extension/test/parser.test.ts
+ * parser.ts unit tests — verified against InnerTube response fixtures, no real browser.
+ * Run: node --test apps/extension/test/parser.test.ts
  *
- * 픽스처는 YouTube Music youtubei/v1/browse 응답의 알려진 구조를 모사한다.
- * 실제 응답으로 교체하면 회귀 테스트로 그대로 쓸 수 있다.
+ * The fixtures mimic the known structure of YouTube Music youtubei/v1/browse responses.
+ * Replacing them with real responses lets them serve as regression tests as-is.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { extractTracks } from "../src/parser.ts";
 
-/* ── 픽스처 빌더 ──────────────────────────────────────── */
+/* ── Fixture builders ─────────────────────────────────── */
 
 const run = (text) => ({ text });
 
@@ -48,7 +48,7 @@ const itemPlastic = item({
   videoId: "VID_PLASTIC",
 });
 
-// videoId 가 playlistItemData 가 아니라 watchEndpoint 에만 있는 경우
+// Case where videoId is only in watchEndpoint, not playlistItemData
 const itemWatch = item({
   title: "Stay With Me",
   artistRuns: ["Miki Matsubara"],
@@ -56,7 +56,7 @@ const itemWatch = item({
   watchVideoId: "VID_WATCH",
 });
 
-// videoId 가 전혀 없는 항목 → 건너뛰어야 함
+// Item with no videoId at all → must be skipped
 const itemNoVid = item({
   title: "Broken Row",
   artistRuns: ["Nobody"],
@@ -70,7 +70,7 @@ const itemFour = item({
   videoId: "VID_FOUR",
 });
 
-// 초기 browse 응답 — 실제 구조처럼 깊게 중첩
+// Initial browse response — deeply nested like the real structure
 const browseResponse = {
   contents: {
     singleColumnBrowseResultsRenderer: {
@@ -95,7 +95,7 @@ const browseResponse = {
   },
 };
 
-// continuation(스크롤 시 추가 로드) 응답 — itemPlastic 이 다시 등장(중복)
+// Continuation response (loaded on scroll) — itemPlastic appears again (duplicate)
 const continuationResponse = {
   continuationContents: {
     musicPlaylistShelfContinuation: {
@@ -104,12 +104,12 @@ const continuationResponse = {
   },
 };
 
-/* ── 테스트 ──────────────────────────────────────────── */
+/* ── Tests ────────────────────────────────────────────── */
 
 test("browse 응답에서 트랙을 추출한다", () => {
   const out = new Map();
   extractTracks(browseResponse, out);
-  // itemNoVid 는 videoId 가 없어 제외 → 2곡
+  // itemNoVid is excluded for having no videoId → 2 tracks
   assert.equal(out.size, 2);
 });
 
@@ -152,7 +152,7 @@ test("여러 응답에 걸쳐 videoId 로 중복 제거한다", () => {
   const out = new Map();
   extractTracks(browseResponse, out);
   extractTracks(continuationResponse, out);
-  // VID_PLASTIC, VID_WATCH (초기) + VID_FOUR (continuation), VID_PLASTIC 중복
+  // VID_PLASTIC, VID_WATCH (initial) + VID_FOUR (continuation), VID_PLASTIC duplicate
   assert.equal(out.size, 3);
   assert.ok(out.has("VID_FOUR"));
 });

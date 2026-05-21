@@ -1,4 +1,4 @@
-/** 팝업 — 설정 저장 + 동기화 트리거. */
+/** Popup — saves settings and triggers sync. */
 
 const urlInput = document.getElementById("url") as HTMLInputElement;
 const tokenInput = document.getElementById("token") as HTMLInputElement;
@@ -15,7 +15,7 @@ void chrome.storage.sync.get(["backendUrl", "syncToken"]).then((s) => {
   tokenInput.value = (s.syncToken as string) ?? "";
 });
 
-/** https:// 누락·끝 슬래시를 보정. */
+/** Fixes a missing https:// and trailing slashes. */
 function normalizeUrl(raw: string): string {
   let url = raw.trim();
   if (!url) return "";
@@ -25,7 +25,7 @@ function normalizeUrl(raw: string): string {
 
 saveBtn.addEventListener("click", () => {
   const backendUrl = normalizeUrl(urlInput.value);
-  urlInput.value = backendUrl; // 보정된 값을 화면에 반영
+  urlInput.value = backendUrl; // reflect the normalized value in the UI
   void chrome.storage.sync
     .set({ backendUrl, syncToken: tokenInput.value.trim() })
     .then(() => setStatus("설정을 저장했습니다"));

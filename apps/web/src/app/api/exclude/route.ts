@@ -1,7 +1,8 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
+import { json } from "@/lib/http";
 
-/** 아티스트를 분석/통계에서 제외하거나(action 미지정/exclude) 복원한다(restore). */
+/** Excludes an artist from analysis/stats (action omitted/exclude) or restores it (restore). */
 export async function POST(req: Request) {
   let userId: string;
   try {
@@ -29,11 +30,4 @@ export async function POST(req: Request) {
       ON CONFLICT DO NOTHING`;
   }
   return json({ ok: true }, 200);
-}
-
-function json(data: unknown, status: number) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }

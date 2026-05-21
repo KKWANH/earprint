@@ -26,18 +26,19 @@ export default async function RecommendPage() {
   const { userId } = await ensureConnection();
   const sql = getSql();
 
-  const unrated = await sql`
-    SELECT id, artist, title, album, deezer_id, seed_track
-    FROM recommendations
-    WHERE user_id = ${userId} AND rating IS NULL
-    ORDER BY created_at
-    LIMIT 20`;
-
-  const stat = await sql`
-    SELECT count(*) FILTER (WHERE rating = 'like')::int     AS likes,
-           count(*) FILTER (WHERE rating = 'dislike')::int  AS dislikes,
-           count(*) FILTER (WHERE rating IS NOT NULL)::int  AS rated
-    FROM recommendations WHERE user_id = ${userId}`;
+  const [unrated, stat] = await Promise.all([
+    sql`
+      SELECT id, artist, title, album, deezer_id, seed_track
+      FROM recommendations
+      WHERE user_id = ${userId} AND rating IS NULL
+      ORDER BY created_at
+      LIMIT 20`,
+    sql`
+      SELECT count(*) FILTER (WHERE rating = 'like')::int     AS likes,
+             count(*) FILTER (WHERE rating = 'dislike')::int  AS dislikes,
+             count(*) FILTER (WHERE rating IS NOT NULL)::int  AS rated
+      FROM recommendations WHERE user_id = ${userId}`,
+  ]);
 
   const recs: Rec[] = unrated.map((r) => ({
     id: r.id as string,

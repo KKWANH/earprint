@@ -8,12 +8,14 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
-  // 비밀값은 커밋하지 않는다. 배포 후 아래 명령으로 등록:
+  // Secrets are not committed. Register them after deploy with:
   //   wrangler secret put DATABASE_URL
   //   wrangler secret put AUTH_SECRET
   //   wrangler secret put AUTH_GOOGLE_ID
   //   wrangler secret put AUTH_GOOGLE_SECRET
-  // 공개해도 되는 값만 vars 에 둔다.
+  //   wrangler secret put LASTFM_API_KEY
+  //   wrangler secret put GEMINI_API_KEY
+  // Only non-sensitive values belong in vars.
   "vars": {
     "AUTH_URL": "https://playlist-analyzer-web.kwanho0096.workers.dev",
     "AUTH_TRUST_HOST": "true"

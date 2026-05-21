@@ -10,7 +10,7 @@ interface Res {
   error?: string;
 }
 
-/** API 가 못 채운 곡을 Gemini 로 보강 — /api/enrich-ai 를 반복 호출. */
+/** Enriches tracks the API could not fill via Gemini — repeatedly calls /api/enrich-ai. */
 export function AiEnrichPanel({ missing }: { missing: number }) {
   const router = useRouter();
   const [running, setRunning] = useState(false);

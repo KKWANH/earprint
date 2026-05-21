@@ -1,4 +1,4 @@
-/** 확장 동기화용 토큰 생성 (48 hex chars). Web Crypto 사용 — Workers 호환. */
+/** Generates a token for extension sync (48 hex chars). Uses Web Crypto — Workers-compatible. */
 export function generateSyncToken(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
