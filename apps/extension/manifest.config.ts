@@ -18,9 +18,8 @@ export default defineManifest({
   version: "0.1.0",
   description: "유튜브 뮤직 좋아요 곡 목록을 수집해 Playlist Analyzer 로 보냅니다.",
   permissions: ["storage", "tabs"],
-  // Including the workers.dev backend in host_permissions exempts the
-  // extension's fetch from CORS, making uploads reliable.
-  host_permissions: ["https://music.youtube.com/*", "https://*.workers.dev/*"],
+  // Including the backend host exempts the extension's fetch from CORS.
+  host_permissions: ["https://music.youtube.com/*", "https://*.kwanho.dev/*"],
   background: {
     service_worker: "src/background.ts",
     type: "module",

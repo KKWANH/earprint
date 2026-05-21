@@ -10,8 +10,16 @@ function setStatus(text: string): void {
   statusEl.textContent = text;
 }
 
+const DEFAULT_BACKEND = "https://music.kwanho.dev";
+
 void chrome.storage.sync.get(["backendUrl", "syncToken"]).then((s) => {
-  urlInput.value = (s.backendUrl as string) ?? "";
+  let url = (s.backendUrl as string) ?? "";
+  // Self-heal: the old *.workers.dev URL is no longer served.
+  if (!url || url.includes("workers.dev")) {
+    url = DEFAULT_BACKEND;
+    void chrome.storage.sync.set({ backendUrl: url });
+  }
+  urlInput.value = url;
   tokenInput.value = (s.syncToken as string) ?? "";
 });
 
