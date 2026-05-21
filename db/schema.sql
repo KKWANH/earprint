@@ -271,6 +271,7 @@ CREATE INDEX IF NOT EXISTS idx_recommendations_unrated
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS score     REAL;  -- predicted fit (0..1)
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS cover_url TEXT;  -- Deezer album cover
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS blurb     TEXT;  -- AI history/significance (lazy)
+ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS rec_type  TEXT DEFAULT 'similar';  -- 'similar' | 'explore'
 -- rating values: NULL | 'superlike' | 'like' | 'pass' | 'dislike' | 'strong_dislike' | 'known'
 
 -- Bulk-save recommendation candidates. p_rows keys: artist, title, album, deezerId, previewUrl, seedTrack
@@ -282,12 +283,13 @@ DECLARE
 BEGIN
   FOR rec IN SELECT jsonb_array_elements(p_rows) LOOP
     INSERT INTO recommendations
-      (user_id, artist, title, album, deezer_id, preview_url, cover_url, seed_track, score)
+      (user_id, artist, title, album, deezer_id, preview_url, cover_url, seed_track, score, rec_type)
     VALUES (
       p_user, rec->>'artist', rec->>'title', NULLIF(rec->>'album', ''),
       NULLIF(rec->>'deezerId', '')::bigint,
       NULLIF(rec->>'previewUrl', ''), NULLIF(rec->>'coverUrl', ''),
-      NULLIF(rec->>'seedTrack', ''), NULLIF(rec->>'score', '')::real
+      NULLIF(rec->>'seedTrack', ''), NULLIF(rec->>'score', '')::real,
+      COALESCE(NULLIF(rec->>'recType', ''), 'similar')
     )
     ON CONFLICT (user_id, artist, title) DO NOTHING;
     IF FOUND THEN n := n + 1; END IF;

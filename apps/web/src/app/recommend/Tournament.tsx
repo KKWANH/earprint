@@ -13,15 +13,16 @@ export interface Rec {
   seedTrack: string | null;
   score: number | null;
   blurb: string | null;
+  recType: "similar" | "explore";
 }
 
 type Rating = "superlike" | "like" | "pass" | "dislike" | "strong_dislike" | "known";
 
-const THRESHOLD = 110; // px drag distance to commit a swipe
+const THRESHOLD = 100; // px drag distance to commit a swipe
 
 /**
  * Tinder-style recommendation rating — swipe right/left/up to like/dislike/super-like,
- * buttons for finer ratings, undo, optional comment.
+ * buttons for finer ratings, undo, always-visible comment. Mobile-first layout.
  */
 export function Tournament({
   initial,
@@ -40,7 +41,6 @@ export function Tournament({
   const [flyOff, setFlyOff] = useState<{ x: number; y: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [comment, setComment] = useState("");
-  const [showComment, setShowComment] = useState(false);
   const [counts, setCounts] = useState({ rated, likes, dislikes });
   const [history, setHistory] = useState<string[]>([]);
   const [blurbs, setBlurbs] = useState<Map<string, string>>(new Map());
@@ -113,12 +113,12 @@ export function Tournament({
     stopAudio();
     const dir =
       rating === "like"
-        ? { x: 600, y: 0 }
+        ? { x: 620, y: 0 }
         : rating === "superlike"
-          ? { x: 0, y: -700 }
+          ? { x: 0, y: -720 }
           : rating === "dislike" || rating === "strong_dislike"
-            ? { x: -600, y: 0 }
-            : { x: 0, y: 600 };
+            ? { x: -620, y: 0 }
+            : { x: 0, y: 620 };
     setFlyOff(dir);
     await fetch("/api/recommend/rate", {
       method: "POST",
@@ -133,7 +133,6 @@ export function Tournament({
     }));
     await new Promise((r) => setTimeout(r, 300));
     setComment("");
-    setShowComment(false);
     setDrag(null);
     setFlyOff(null);
     if (idx + 1 >= initial.length) {
@@ -188,7 +187,7 @@ export function Tournament({
     if (d.y < -THRESHOLD && Math.abs(d.y) > Math.abs(d.x)) commit("superlike");
     else if (d.x > THRESHOLD) commit("like");
     else if (d.x < -THRESHOLD) commit("dislike");
-    else setDrag(null); // snap back
+    else setDrag(null);
   }
 
   if (!current) {
@@ -207,8 +206,9 @@ export function Tournament({
   }
 
   const blurb = current.blurb ?? blurbs.get(current.id) ?? null;
+  const explore = current.recType === "explore";
   const t = flyOff ?? drag ?? { x: 0, y: 0 };
-  const transform = `translate(${t.x}px, ${t.y}px) rotate(${t.x * 0.06}deg)`;
+  const transform = `translate(${t.x}px, ${t.y}px) rotate(${t.x * 0.05}deg)`;
   const transition = flyOff
     ? "transform 0.3s ease-out"
     : drag
@@ -219,15 +219,16 @@ export function Tournament({
   const likeOp = Math.max(0, Math.min(1, dx / THRESHOLD));
   const nopeOp = Math.max(0, Math.min(1, -dx / THRESHOLD));
   const superOp = Math.max(0, Math.min(1, -dy / THRESHOLD));
+  const pct = current.score != null ? Math.round(current.score * 100) : null;
 
   return (
-    <div className="flex flex-col items-center gap-5">
+    <div className="flex w-full flex-col items-center gap-4">
       <p className="text-sm text-neutral-500">
         평가 {counts.rated} · 👍 {counts.likes} · 👎 {counts.dislikes}
       </p>
 
-      {/* card stack */}
-      <div className="relative h-[30rem] w-full max-w-sm select-none">
+      {/* card */}
+      <div className="relative h-[min(33rem,62vh)] w-full max-w-sm select-none">
         <div className="absolute inset-x-3 top-3 bottom-0 rounded-2xl bg-white/5" />
         <div
           key={current.id}
@@ -238,8 +239,37 @@ export function Tournament({
           style={{ transform, transition }}
           className="absolute inset-0 flex cursor-grab touch-none flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-900 shadow-2xl active:cursor-grabbing"
         >
+          {/* why-recommended strip */}
+          {explore ? (
+            <div className="flex shrink-0 items-center gap-2 bg-amber-500/15 px-4 py-2.5 text-sm">
+              <span>🧭</span>
+              <span className="font-medium text-amber-300">취향 밖 탐험</span>
+              <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-200">
+                {current.seedTrack}
+              </span>
+            </div>
+          ) : (
+            <div className="flex shrink-0 items-center gap-2 bg-emerald-500/10 px-4 py-2.5 text-sm">
+              <span>❤️</span>
+              <span className="min-w-0 truncate text-neutral-300">
+                좋아한 「{current.seedTrack}」
+              </span>
+              {pct != null && (
+                <span className="ml-auto flex shrink-0 items-center gap-1.5">
+                  <span className="block h-1.5 w-12 overflow-hidden rounded-full bg-white/10">
+                    <span
+                      className="block h-full bg-emerald-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </span>
+                  <span className="text-xs font-medium text-emerald-400">{pct}%</span>
+                </span>
+              )}
+            </div>
+          )}
+
           {/* cover */}
-          <div className="relative aspect-square w-full shrink-0 bg-neutral-800">
+          <div className="relative h-40 shrink-0 bg-neutral-800">
             {current.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -249,91 +279,59 @@ export function Tournament({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-900 to-rose-900 text-5xl">
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-indigo-900 to-rose-900 text-4xl">
                 🎵
               </div>
             )}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-4">
-              <h2 className="truncate text-xl font-bold">{current.title}</h2>
-              <p className="truncate text-neutral-300">{current.artist}</p>
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 to-transparent p-3">
+              <h2 className="truncate text-lg font-bold">{current.title}</h2>
+              <p className="truncate text-sm text-neutral-300">{current.artist}</p>
             </div>
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={togglePlay}
               disabled={!current.deezerId || loadingAudio}
-              className="absolute right-3 top-3 h-11 w-11 rounded-full bg-black/60 text-lg backdrop-blur disabled:opacity-40"
+              className="absolute right-3 top-3 h-10 w-10 rounded-full bg-black/60 text-base backdrop-blur disabled:opacity-40"
             >
               {loadingAudio ? "…" : playing ? "⏸" : "▶"}
             </button>
-
-            {/* swipe hint badges */}
-            <span
-              style={{ opacity: likeOp }}
-              className="absolute left-4 top-4 rounded-md border-2 border-emerald-400 px-3 py-1 text-lg font-extrabold text-emerald-400"
-            >
+            <SwipeBadge op={likeOp} className="left-3 top-3 border-emerald-400 text-emerald-400">
               LIKE
-            </span>
-            <span
-              style={{ opacity: nopeOp }}
-              className="absolute right-4 top-16 rounded-md border-2 border-rose-400 px-3 py-1 text-lg font-extrabold text-rose-400"
-            >
+            </SwipeBadge>
+            <SwipeBadge op={nopeOp} className="right-3 top-3 border-rose-400 text-rose-400">
               NOPE
-            </span>
-            <span
-              style={{ opacity: superOp }}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md border-2 border-sky-400 px-3 py-1 text-lg font-extrabold text-sky-400"
+            </SwipeBadge>
+            <SwipeBadge
+              op={superOp}
+              className="left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 border-sky-400 text-sky-400"
             >
               SUPER
-            </span>
+            </SwipeBadge>
           </div>
 
-          {/* body */}
-          <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-4">
-            {current.score != null && (
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full bg-emerald-500"
-                    style={{ width: `${Math.round(current.score * 100)}%` }}
-                  />
-                </div>
-                <span className="shrink-0 text-xs font-medium text-emerald-400">
-                  취향 적합도 {Math.round(current.score * 100)}%
-                </span>
-              </div>
-            )}
-            <p className="text-sm leading-relaxed text-neutral-300">
+          {/* blurb */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <p className="text-[15px] leading-relaxed text-neutral-300">
               {blurb ?? <span className="text-neutral-600">곡 이야기 불러오는 중…</span>}
             </p>
-            {current.seedTrack && (
-              <p className="mt-auto pt-2 text-xs text-neutral-600">
-                💡 좋아한 「{current.seedTrack}」 에서 추천
-              </p>
-            )}
           </div>
         </div>
       </div>
 
-      <p className="text-xs text-neutral-600">← 별로 · → 좋아요 · ↑ 정말 좋아요 로 스와이프</p>
+      <p className="text-xs text-neutral-600">← 별로 · → 좋아요 · ↑ 정말 좋아요</p>
 
       {/* rating buttons */}
       <div className="flex items-center gap-3">
-        <RateBtn onClick={() => commit("strong_dislike")} disabled={busy} title="정말 별로" className="bg-rose-900 text-xl">💔</RateBtn>
-        <RateBtn onClick={() => commit("dislike")} disabled={busy} title="별로" className="bg-rose-600 text-2xl">👎</RateBtn>
-        <RateBtn onClick={() => commit("pass")} disabled={busy} title="패스" className="bg-neutral-700 text-xl">⏭</RateBtn>
-        <RateBtn onClick={() => commit("like")} disabled={busy} title="좋아요" className="bg-emerald-600 text-2xl">👍</RateBtn>
-        <RateBtn onClick={() => commit("superlike")} disabled={busy} title="정말 좋아요" className="bg-sky-500 text-xl">💖</RateBtn>
+        <RateBtn onClick={() => commit("strong_dislike")} disabled={busy} title="정말 별로" className="bg-rose-900">💔</RateBtn>
+        <RateBtn onClick={() => commit("dislike")} disabled={busy} title="별로" className="bg-rose-600">👎</RateBtn>
+        <RateBtn onClick={() => commit("pass")} disabled={busy} title="패스" className="bg-neutral-700">⏭</RateBtn>
+        <RateBtn onClick={() => commit("like")} disabled={busy} title="좋아요" className="bg-emerald-600">👍</RateBtn>
+        <RateBtn onClick={() => commit("superlike")} disabled={busy} title="정말 좋아요" className="bg-sky-500">💖</RateBtn>
       </div>
 
       <div className="flex items-center gap-4 text-sm text-neutral-400">
         <button onClick={() => commit("known")} disabled={busy} className="hover:text-white disabled:opacity-40">
           이미 아는 곡
-        </button>
-        <button
-          onClick={() => setShowComment((s) => !s)}
-          className="hover:text-white"
-        >
-          💬 코멘트
         </button>
         <button
           onClick={undo}
@@ -344,15 +342,32 @@ export function Tournament({
         </button>
       </div>
 
-      {showComment && (
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="이 곡에 대한 메모 (선택) — 평가와 함께 저장됩니다"
-          className="h-16 w-full max-w-sm resize-none rounded-lg border border-white/10 bg-white/5 p-2 text-sm outline-none"
-        />
-      )}
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="이 곡에 대한 메모 (선택) — 평가와 함께 저장됩니다"
+        className="h-14 w-full max-w-sm resize-none rounded-lg border border-white/10 bg-white/5 p-2 text-sm outline-none"
+      />
     </div>
+  );
+}
+
+function SwipeBadge({
+  op,
+  className,
+  children,
+}: {
+  op: number;
+  className: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      style={{ opacity: op }}
+      className={`absolute rounded-md border-2 px-2.5 py-0.5 text-base font-extrabold ${className}`}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -374,7 +389,7 @@ function RateBtn({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition active:scale-90 disabled:opacity-40 ${className}`}
+      className={`flex h-12 w-12 items-center justify-center rounded-full text-xl shadow-lg transition active:scale-90 disabled:opacity-40 ${className}`}
     >
       {children}
     </button>
