@@ -9,7 +9,7 @@ import {
   type JobKind,
 } from "@/lib/jobs";
 
-const KINDS = new Set<JobKind>(["enrich", "ai_enrich"]);
+const KINDS = new Set<JobKind>(["enrich", "ai_enrich", "audio_feel"]);
 
 /** Current status + progress for both background jobs. */
 export async function GET() {
@@ -23,7 +23,8 @@ export async function GET() {
   return json(
     {
       enrich: { status: jobs.enrich, ...progress.enrich },
-      aiEnrich: { status: jobs.ai_enrich, ...progress.aiEnrich },
+      aiEnrich: { status: jobs.ai_enrich, ...progress.ai_enrich },
+      audioFeel: { status: jobs.audio_feel, ...progress.audio_feel },
     },
     200,
   );

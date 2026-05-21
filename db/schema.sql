@@ -298,8 +298,29 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ── Audio feel (Gemini-estimated listening characteristics) ──────────
+-- audio_feel jsonb: { energy, tempo, acousticness (0..1), instruments[] }
+ALTER TABLE analysis ADD COLUMN IF NOT EXISTS audio_feel JSONB;
+
+CREATE OR REPLACE FUNCTION save_audio_feel(p_rows jsonb)
+RETURNS int AS $$
+DECLARE
+  rec jsonb;
+  n   int := 0;
+BEGIN
+  FOR rec IN SELECT jsonb_array_elements(p_rows) LOOP
+    UPDATE analysis SET
+      audio_feel = CASE WHEN jsonb_typeof(rec->'audioFeel') = 'object'
+                        THEN rec->'audioFeel' ELSE '{}'::jsonb END
+    WHERE track_id = (rec->>'trackId')::uuid AND analysis_version = 1;
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ── Background jobs (cron-driven enrichment that survives tab close) ──
--- kind:   'enrich' | 'ai_enrich'
+-- kind:   'enrich' | 'ai_enrich' | 'audio_feel'
 -- status: 'running' | 'stopped' | 'done'
 CREATE TABLE IF NOT EXISTS background_jobs (
   user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

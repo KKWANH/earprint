@@ -1,8 +1,9 @@
 import { getSql } from "./db";
 import { enrichTrack } from "./enrich";
 import { aiEnrichBatch } from "./aiEnrich";
+import { audioFeelBatch } from "./audioFeel";
 
-export type JobKind = "enrich" | "ai_enrich";
+export type JobKind = "enrich" | "ai_enrich" | "audio_feel";
 export type JobStatus = "running" | "stopped" | "done" | "idle";
 
 const BATCH = 8;
@@ -29,7 +30,7 @@ export async function runEnrichBatch(userId: string): Promise<number> {
   return batch.length;
 }
 
-/** Process one AI-enrichment batch (Gemini). Throws if the Gemini call fails. */
+/** Process one AI-enrichment batch (Gemini fills missing genres). */
 export async function runAiEnrichBatch(userId: string): Promise<number> {
   const sql = getSql();
   const batch = await sql`
@@ -52,47 +53,75 @@ export async function runAiEnrichBatch(userId: string): Promise<number> {
   return batch.length;
 }
 
+/** Process one audio-feel batch (Gemini estimates energy/tempo/acousticness/instruments). */
+export async function runAudioFeelBatch(userId: string): Promise<number> {
+  const sql = getSql();
+  const batch = await sql`
+    SELECT t.id, t.title, t.artist
+    FROM analysis a
+    JOIN user_tracks ut ON ut.track_id = a.track_id
+    JOIN tracks t ON t.id = a.track_id
+    WHERE ut.user_id = ${userId} AND a.analysis_version = 1 AND a.audio_feel IS NULL
+    LIMIT ${BATCH}`;
+  if (batch.length > 0) {
+    const rows = await audioFeelBatch(
+      batch.map((t) => ({
+        id: t.id as string,
+        artist: t.artist as string,
+        title: t.title as string,
+      })),
+    );
+    await sql`SELECT save_audio_feel(${JSON.stringify(rows)}::jsonb)`;
+  }
+  return batch.length;
+}
+
 export interface KindProgress {
   total: number;
   remaining: number;
 }
 
-/** Progress counts for both job kinds. */
+/** Progress counts for every job kind. */
 export async function getProgress(
   userId: string,
-): Promise<{ enrich: KindProgress; aiEnrich: KindProgress }> {
+): Promise<Record<JobKind, KindProgress>> {
   const sql = getSql();
   const r = await sql`
     SELECT
-      count(*)::int                                                      AS enrich_total,
-      count(*) FILTER (WHERE a.id IS NULL)::int                           AS enrich_remaining,
-      count(a.id)::int                                                    AS ai_total,
-      count(*) FILTER (WHERE a.id IS NOT NULL AND a.genres IS NULL)::int   AS ai_remaining
+      count(*)::int                                                    AS enrich_total,
+      count(*) FILTER (WHERE a.id IS NULL)::int                         AS enrich_remaining,
+      count(a.id)::int                                                  AS analyzed,
+      count(*) FILTER (WHERE a.id IS NOT NULL AND a.genres IS NULL)::int AS ai_remaining,
+      count(*) FILTER (WHERE a.id IS NOT NULL AND a.audio_feel IS NULL)::int AS af_remaining
     FROM user_tracks ut
     LEFT JOIN analysis a ON a.track_id = ut.track_id AND a.analysis_version = 1
     WHERE ut.user_id = ${userId}`;
   return {
     enrich: { total: r[0].enrich_total as number, remaining: r[0].enrich_remaining as number },
-    aiEnrich: { total: r[0].ai_total as number, remaining: r[0].ai_remaining as number },
+    ai_enrich: { total: r[0].analyzed as number, remaining: r[0].ai_remaining as number },
+    audio_feel: { total: r[0].analyzed as number, remaining: r[0].af_remaining as number },
   };
 }
 
-export function remainingFor(
-  kind: JobKind,
-  p: { enrich: KindProgress; aiEnrich: KindProgress },
-): number {
-  return kind === "enrich" ? p.enrich.remaining : p.aiEnrich.remaining;
+export function remainingFor(kind: JobKind, p: Record<JobKind, KindProgress>): number {
+  return p[kind].remaining;
 }
 
 /** Run one batch for the given kind. */
 export function runBatch(kind: JobKind, userId: string): Promise<number> {
-  return kind === "enrich" ? runEnrichBatch(userId) : runAiEnrichBatch(userId);
+  if (kind === "enrich") return runEnrichBatch(userId);
+  if (kind === "ai_enrich") return runAiEnrichBatch(userId);
+  return runAudioFeelBatch(userId);
 }
 
 export async function getJobs(userId: string): Promise<Record<JobKind, JobStatus>> {
   const sql = getSql();
   const rows = await sql`SELECT kind, status FROM background_jobs WHERE user_id = ${userId}`;
-  const out: Record<JobKind, JobStatus> = { enrich: "idle", ai_enrich: "idle" };
+  const out: Record<JobKind, JobStatus> = {
+    enrich: "idle",
+    ai_enrich: "idle",
+    audio_feel: "idle",
+  };
   for (const r of rows) out[r.kind as JobKind] = r.status as JobStatus;
   return out;
 }

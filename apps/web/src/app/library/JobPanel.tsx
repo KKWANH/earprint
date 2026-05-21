@@ -10,6 +10,7 @@ interface KindState {
 interface JobsResponse {
   enrich: KindState;
   aiEnrich: KindState;
+  audioFeel: KindState;
 }
 
 /**
@@ -23,12 +24,13 @@ export function JobPanel({
   description,
   accent,
 }: {
-  kind: "enrich" | "ai_enrich";
+  kind: "enrich" | "ai_enrich" | "audio_feel";
   title: string;
   description: string;
   accent: string;
 }) {
-  const field = kind === "enrich" ? "enrich" : "aiEnrich";
+  const field: keyof JobsResponse =
+    kind === "enrich" ? "enrich" : kind === "ai_enrich" ? "aiEnrich" : "audioFeel";
   const [state, setState] = useState<KindState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

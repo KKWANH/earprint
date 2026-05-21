@@ -50,6 +50,14 @@ export async function generateProfile(userId: string): Promise<AiProfile> {
 - 자주 좋아한 아티스트: ${s.topArtists.map((a) => `${a.name}(${a.count})`).join(", ") || "데이터 없음"}
 - 장르 분포: ${s.topGenres.map((g) => `${g.name}(${g.count})`).join(", ") || "데이터 없음"}
 - 무드 분포: ${s.topMoods.map((m) => `${m.name}(${m.count})`).join(", ") || "데이터 없음"}
+- 오디오 특성(0~1 평균): ${
+    s.audioFeel
+      ? `에너지 ${s.audioFeel.energy.toFixed(2)}, 템포 ${s.audioFeel.tempo.toFixed(2)}, 어쿠스틱 ${s.audioFeel.acousticness.toFixed(2)}`
+      : "데이터 없음"
+  }
+- 자주 등장하는 악기: ${s.topInstruments.map((i) => i.name).join(", ") || "데이터 없음"}
+- 앨범 몰입도: 3곡 이상 좋아한 앨범 ${s.albumDepth.deepAlbums}개, 좋아요 곡의 ${(s.albumDepth.concentration * 100).toFixed(0)}%가 그런 앨범에서 나옴
+- 깊게 판 앨범: ${s.topAlbums.slice(0, 6).map((a) => `${a.name}(${a.count}곡)`).join(", ") || "데이터 없음"}
 
 [작성 지시]
 - 한국어로, 친근하면서도 날카롭게.
@@ -59,9 +67,9 @@ export async function generateProfile(userId: string): Promise<AiProfile> {
 - favoriteGenres: 데이터상 뚜렷한 선호 장르.
 - avoidedGenres: 의식적으로 피하는 듯한 주요 장르(데이터에 거의 없음).
 - unexploredGenres: 이 취향이면 좋아할 만한데 아직 안 들어본 장르 3~5개.
-- moodProfile: 무드 분포로 본 정서적 경향 1~2문장.
-- diggingScore: 0~100 정수. 아티스트 다양성·장르 폭·마이너/니치 장르 비중으로 '음악 디깅(탐험) 수준'을 평가.
-- diggingComment: diggingScore 의 근거 + 점수를 올리려면 무엇이 필요한지 한 문장으로.
+- moodProfile: 무드 분포와 오디오 특성(에너지·템포·어쿠스틱)을 엮어 정서적 경향을 1~2문장으로.
+- diggingScore: 0~100 정수. 아티스트 다양성·장르 폭·마이너 장르 비중에 더해 **앨범 몰입도**(한 앨범을 깊게 파는지)도 함께 반영해 '음악 디깅 수준'을 평가. 싱글 위주로 흩어 듣기보다 앨범을 통째로 깊게 파는 사람을 디깅 수준이 높다고 본다.
+- diggingComment: diggingScore 의 근거(다양성·앨범 몰입도 포함) + 점수를 올리려면 무엇이 필요한지 한 문장으로.
 - improvementTips: 이 리스너의 취향에서 '보강하면 좋을 점' 4~6개. 각 항목은 한 문장으로 끝내지 말고 ① 무엇이 부족하거나 편향됐는지 ② 왜 그것을 보강하면 좋은지 ③ 구체적으로 어떤 하위장르·아티스트·곡부터 시작하면 좋은지 를 모두 담아 2~3문장으로 충실히 설명하세요. 막연한 조언이 아니라 실제 데이터(편중된 장르/무드, 낮은 다양성 등)에 근거해서.`;
 
   return geminiJson<AiProfile>(prompt, SCHEMA);

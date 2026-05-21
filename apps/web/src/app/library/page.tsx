@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
-import { getLibraryStats, type Count } from "@/lib/library";
+import { getLibraryStats, type Count, type AudioFeelAgg } from "@/lib/library";
 import { JobPanel } from "./JobPanel";
 import { PreviewButton } from "./PreviewButton";
 import { ExcludeButton } from "./ExcludeButton";
@@ -57,11 +57,21 @@ export default async function LibraryPage() {
         description="API 가 못 채운 곡을 Gemini 가 추론하고, 뮤비·모음 채널을 원곡 아티스트로 재매핑합니다."
         accent="bg-indigo-500"
       />
+      <JobPanel
+        kind="audio_feel"
+        title="오디오 특성 분석"
+        description="Gemini 가 곡별 에너지 · 템포 · 어쿠스틱 정도와 악기 특징을 추정합니다."
+        accent="bg-sky-500"
+      />
 
-      <section className="grid grid-cols-3 gap-3">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="좋아요 곡" value={stats.total.toLocaleString()} />
         <Stat label="분석 완료" value={stats.enriched.toLocaleString()} />
         <Stat label="아티스트" value={stats.distinctArtists.toLocaleString()} />
+        <Stat
+          label="앨범 몰입도"
+          value={`${Math.round(stats.albumDepth.concentration * 100)}%`}
+        />
       </section>
 
       <BarCard
@@ -82,6 +92,20 @@ export default async function LibraryPage() {
         items={stats.topMoods}
         color="bg-rose-500"
         empty="분석을 실행하면 무드가 채워집니다."
+      />
+
+      {stats.audioFeel && <FeelCard feel={stats.audioFeel} />}
+      <BarCard
+        title="자주 등장하는 악기"
+        items={stats.topInstruments}
+        color="bg-sky-500"
+        empty="오디오 특성 분석을 실행하면 채워집니다."
+      />
+      <BarCard
+        title={`가장 깊게 판 앨범 — 앨범당 좋아요 곡 수 (3곡 이상 앨범 ${stats.albumDepth.deepAlbums}개)`}
+        items={stats.topAlbums}
+        color="bg-fuchsia-500"
+        empty="여러 곡을 좋아한 앨범이 아직 없습니다."
       />
 
       {stats.excludedArtists.length > 0 && (
@@ -137,6 +161,39 @@ export default async function LibraryPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function FeelCard({ feel }: { feel: AudioFeelAgg }) {
+  const axes = [
+    { label: "에너지", lo: "차분", hi: "격렬", v: feel.energy },
+    { label: "템포", lo: "느림", hi: "빠름", v: feel.tempo },
+    { label: "사운드", lo: "전자음", hi: "생악기", v: feel.acousticness },
+  ];
+  return (
+    <section className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+      <h2 className="font-semibold">
+        오디오 특성{" "}
+        <span className="text-xs font-normal text-neutral-500">
+          · {feel.analyzed.toLocaleString()}곡 평균
+        </span>
+      </h2>
+      <div className="flex flex-col gap-3">
+        {axes.map((a) => (
+          <div key={a.label} className="flex items-center gap-3 text-sm">
+            <span className="w-12 shrink-0 text-neutral-300">{a.label}</span>
+            <span className="w-12 shrink-0 text-right text-xs text-neutral-600">{a.lo}</span>
+            <div className="relative h-2 flex-1 rounded-full bg-neutral-800">
+              <div
+                className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-sky-400"
+                style={{ left: `calc(${Math.round(a.v * 100)}% - 7px)` }}
+              />
+            </div>
+            <span className="w-12 shrink-0 text-xs text-neutral-600">{a.hi}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
