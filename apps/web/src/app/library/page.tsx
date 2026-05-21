@@ -2,8 +2,7 @@ import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getLibraryStats, type Count } from "@/lib/library";
-import { EnrichPanel } from "./EnrichPanel";
-import { AiEnrichPanel } from "./AiEnrichPanel";
+import { JobPanel } from "./JobPanel";
 import { PreviewButton } from "./PreviewButton";
 import { ExcludeButton } from "./ExcludeButton";
 
@@ -28,7 +27,6 @@ export default async function LibraryPage() {
 
   const { userId } = await ensureConnection();
   const stats = await getLibraryStats(userId);
-  const remaining = stats.total - stats.enriched;
 
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-12">
@@ -47,9 +45,18 @@ export default async function LibraryPage() {
         </nav>
       </header>
 
-      <EnrichPanel total={stats.total} remaining={remaining} />
-
-      {stats.missingGenres > 0 && <AiEnrichPanel missing={stats.missingGenres} />}
+      <JobPanel
+        kind="enrich"
+        title="트랙 분석"
+        description="Deezer · Last.fm 으로 장르 · 무드 · 앨범 · 미리듣기를 보강합니다."
+        accent="bg-emerald-500"
+      />
+      <JobPanel
+        kind="ai_enrich"
+        title="AI 보강"
+        description="API 가 못 채운 곡을 Gemini 가 추론하고, 뮤비·모음 채널을 원곡 아티스트로 재매핑합니다."
+        accent="bg-indigo-500"
+      />
 
       <section className="grid grid-cols-3 gap-3">
         <Stat label="좋아요 곡" value={stats.total.toLocaleString()} />

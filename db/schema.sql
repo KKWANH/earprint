@@ -295,3 +295,16 @@ BEGIN
   RETURN n;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ── Background jobs (cron-driven enrichment that survives tab close) ──
+-- kind:   'enrich' | 'ai_enrich'
+-- status: 'running' | 'stopped' | 'done'
+CREATE TABLE IF NOT EXISTS background_jobs (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'running',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_background_jobs_running
+  ON background_jobs (status) WHERE status = 'running';

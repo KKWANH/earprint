@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "playlist-analyzer-cron",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-03-25",
+  // Fires every minute; the scheduled handler pokes the web app's tick endpoint.
+  "triggers": { "crons": ["* * * * *"] },
+  "vars": {
+    "TICK_URL": "https://music.kwanho.dev/api/cron/tick"
+  }
+  // CRON_SECRET is a secret: wrangler secret put CRON_SECRET
+}
