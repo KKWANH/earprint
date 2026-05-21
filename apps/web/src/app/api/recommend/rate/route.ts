@@ -2,7 +2,7 @@ import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { json } from "@/lib/http";
 
-const VALID = new Set(["like", "dislike", "pass"]);
+const VALID = new Set(["like", "dislike", "pass", "known"]);
 
 /** Saves a recommendation rating — { id, rating, comment }. */
 export async function POST(req: Request) {

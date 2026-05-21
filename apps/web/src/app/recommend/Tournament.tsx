@@ -10,9 +10,10 @@ export interface Rec {
   album: string | null;
   deezerId: number | null;
   seedTrack: string | null;
+  score: number | null;
 }
 
-type Rating = "like" | "dislike" | "pass";
+type Rating = "like" | "dislike" | "pass" | "known";
 
 /** 추천 평가 — 한 곡씩 카드로 보여주고 좋아요/별로/패스 + 코멘트. */
 export function Tournament({
@@ -146,6 +147,20 @@ export function Tournament({
           {current.album && <p className="text-sm text-neutral-600">{current.album}</p>}
         </div>
 
+        {current.score != null && (
+          <div className="flex items-center gap-3">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-neutral-800">
+              <div
+                className="h-full bg-emerald-500"
+                style={{ width: `${Math.round(current.score * 100)}%` }}
+              />
+            </div>
+            <span className="shrink-0 text-sm font-medium text-emerald-400">
+              좋아요 예상 {Math.round(current.score * 100)}%
+            </span>
+          </div>
+        )}
+
         {current.seedTrack && (
           <p className="rounded-lg bg-neutral-800 px-3 py-2 text-sm text-neutral-400">
             💡 좋아한{" "}
@@ -202,6 +217,13 @@ export function Tournament({
             👍 좋아요
           </button>
         </div>
+        <button
+          onClick={() => rate("known")}
+          disabled={busy}
+          className="rounded-lg border border-neutral-700 py-2 text-sm text-neutral-400 hover:text-white disabled:opacity-50"
+        >
+          이미 아는 곡이에요
+        </button>
       </div>
     </div>
   );

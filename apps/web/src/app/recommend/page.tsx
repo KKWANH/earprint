@@ -28,10 +28,10 @@ export default async function RecommendPage() {
 
   const [unrated, stat] = await Promise.all([
     sql`
-      SELECT id, artist, title, album, deezer_id, seed_track
+      SELECT id, artist, title, album, deezer_id, seed_track, score
       FROM recommendations
       WHERE user_id = ${userId} AND rating IS NULL
-      ORDER BY created_at
+      ORDER BY score DESC NULLS LAST, created_at
       LIMIT 20`,
     sql`
       SELECT count(*) FILTER (WHERE rating = 'like')::int     AS likes,
@@ -47,6 +47,7 @@ export default async function RecommendPage() {
     album: (r.album as string) ?? null,
     deezerId: (r.deezer_id as number) ?? null,
     seedTrack: (r.seed_track as string) ?? null,
+    score: (r.score as number) ?? null,
   }));
 
   return (

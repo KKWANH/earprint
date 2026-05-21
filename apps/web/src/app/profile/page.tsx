@@ -72,7 +72,7 @@ function ProfileView({ profile: p }: { profile: AiProfile }) {
         <h2 className="text-xl font-bold text-indigo-300">{p.headline}</h2>
         <p className="mt-2 text-sm leading-relaxed text-neutral-300">{p.personality}</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          {p.traits.map((t) => (
+          {(p.traits ?? []).map((t) => (
             <span key={t} className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs">
               {t}
             </span>
@@ -89,9 +89,9 @@ function ProfileView({ profile: p }: { profile: AiProfile }) {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <ChipList title="좋아하는 장르" items={p.favoriteGenres} color="bg-indigo-900/60" />
-        <ChipList title="피하는 장르" items={p.avoidedGenres} color="bg-rose-900/60" />
-        <ChipList title="안 들어본 장르" items={p.unexploredGenres} color="bg-amber-900/60" />
+        <ChipList title="좋아하는 장르" items={p.favoriteGenres ?? []} color="bg-indigo-900/60" />
+        <ChipList title="피하는 장르" items={p.avoidedGenres ?? []} color="bg-rose-900/60" />
+        <ChipList title="안 들어본 장르" items={p.unexploredGenres ?? []} color="bg-amber-900/60" />
       </section>
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
@@ -99,17 +99,19 @@ function ProfileView({ profile: p }: { profile: AiProfile }) {
         <p className="mt-2 text-sm leading-relaxed text-neutral-300">{p.moodProfile}</p>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-emerald-900/50 bg-neutral-900 p-6">
-        <h3 className="font-semibold text-emerald-300">취향 보강 가이드</h3>
-        <ol className="flex flex-col gap-3">
-          {p.improvementTips.map((tip, i) => (
-            <li key={i} className="flex gap-3 text-sm leading-relaxed text-neutral-300">
-              <span className="shrink-0 font-bold text-emerald-400">{i + 1}</span>
-              <span>{tip}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {(p.improvementTips?.length ?? 0) > 0 && (
+        <section className="flex flex-col gap-3 rounded-xl border border-emerald-900/50 bg-neutral-900 p-6">
+          <h3 className="font-semibold text-emerald-300">취향 보강 가이드</h3>
+          <ol className="flex flex-col gap-3">
+            {(p.improvementTips ?? []).map((tip, i) => (
+              <li key={i} className="flex gap-3 text-sm leading-relaxed text-neutral-300">
+                <span className="shrink-0 font-bold text-emerald-400">{i + 1}</span>
+                <span>{tip}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
     </div>
   );
 }

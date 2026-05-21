@@ -10,15 +10,19 @@ export interface RecRow {
   deezerId: number | null;
   previewUrl: string | null;
   seedTrack: string;
+  score: number;
 }
 
 const LASTFM = "https://ws.audioscrobbler.com/2.0/";
 
+interface SimilarTrack {
+  artist: string;
+  title: string;
+  match: number; // Last.fm similarity to the seed (0..1)
+}
+
 /** Last.fm similar tracks for a seed song. */
-async function lastfmSimilar(
-  artist: string,
-  track: string,
-): Promise<{ artist: string; title: string }[]> {
+async function lastfmSimilar(artist: string, track: string): Promise<SimilarTrack[]> {
   const key = process.env.LASTFM_API_KEY;
   if (!key) return [];
   const data = await getJson(
@@ -32,8 +36,9 @@ async function lastfmSimilar(
     .map((x: any) => ({
       artist: String(x?.artist?.name ?? "").trim(),
       title: String(x?.name ?? "").trim(),
+      match: Math.max(0, Math.min(1, Number(x?.match ?? 0))),
     }))
-    .filter((x: { artist: string; title: string }) => x.artist && x.title);
+    .filter((x: SimilarTrack) => x.artist && x.title);
 }
 
 /**
@@ -75,9 +80,11 @@ export async function generateRecommendations(userId: string): Promise<RecRow[]>
   const pool = simLists.flatMap((sims, i) =>
     sims.map((sim) => ({ ...sim, seedTrack: `${seeds[i].artist} - ${seeds[i].title}` })),
   );
+  // Best Last.fm match first.
+  pool.sort((a, b) => b.match - a.match);
 
   // Filter + de-duplicate down to 10 candidates.
-  const picked: { artist: string; title: string; seedTrack: string }[] = [];
+  const picked: (SimilarTrack & { seedTrack: string })[] = [];
   const seen = new Set<string>();
   for (const c of pool) {
     const aL = c.artist.toLowerCase();
@@ -102,6 +109,7 @@ export async function generateRecommendations(userId: string): Promise<RecRow[]>
       deezerId: d.deezerId,
       previewUrl: d.previewUrl,
       seedTrack: c.seedTrack,
+      score: c.match,
     });
   });
   return rows;
