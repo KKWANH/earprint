@@ -36,6 +36,12 @@ export default defineManifest({
       js: ["src/content.ts"],
       run_at: "document_idle",
     },
+    {
+      // Captures the sync token from the web app's /connect page.
+      matches: ["https://music.kwanho.dev/*"],
+      js: ["src/connect.ts"],
+      run_at: "document_idle",
+    },
   ],
   action: {
     default_title: "Playlist Analyzer",

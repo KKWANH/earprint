@@ -6,53 +6,37 @@
     <style>
       body {
         font: 13px/1.5 system-ui, sans-serif;
-        width: 300px;
+        width: 280px;
         margin: 0;
         padding: 14px;
         background: #0a0a0a;
         color: #e5e5e5;
       }
-      h3 { margin: 0 0 10px; font-size: 14px; }
-      label { display: block; margin-bottom: 8px; color: #a3a3a3; }
-      input {
-        width: 100%;
-        box-sizing: border-box;
-        margin-top: 3px;
-        padding: 6px 8px;
-        border: 1px solid #333;
-        border-radius: 6px;
-        background: #1a1a1a;
-        color: #e5e5e5;
-      }
+      h3 { margin: 0 0 8px; font-size: 14px; }
+      #status { margin: 0 0 12px; color: #a3a3a3; }
       button {
         width: 100%;
-        padding: 7px;
+        padding: 8px;
         margin-top: 6px;
         border: 0;
         border-radius: 6px;
         cursor: pointer;
         font-weight: 600;
+        font-size: 13px;
       }
-      #save { background: #333; color: #e5e5e5; }
+      #connect { background: #333; color: #e5e5e5; }
       #sync { background: #fff; color: #0a0a0a; }
       hr { border: 0; border-top: 1px solid #262626; margin: 12px 0; }
-      #status { margin: 8px 0 0; color: #a3a3a3; min-height: 18px; }
+      #msg { margin: 8px 0 0; color: #a3a3a3; min-height: 18px; }
     </style>
   </head>
   <body>
     <h3>Playlist Analyzer</h3>
-    <label>
-      백엔드 URL
-      <input id="url" placeholder="https://music.kwanho.dev" />
-    </label>
-    <label>
-      동기화 토큰
-      <input id="token" placeholder="웹앱 /connect 에서 발급" />
-    </label>
-    <button id="save">설정 저장</button>
+    <p id="status">상태 확인 중…</p>
+    <button id="connect">웹에서 연결 (Google 로그인)</button>
     <hr />
     <button id="sync">좋아요 동기화</button>
-    <p id="status"></p>
+    <p id="msg"></p>
     <script type="module" src="./popup.ts"></script>
   </body>
 </html>

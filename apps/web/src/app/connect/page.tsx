@@ -33,11 +33,15 @@ export default async function ConnectPage() {
         <p className="text-sm text-neutral-400">{session.user.email}</p>
       </header>
 
+      {/* Machine-readable token — the extension's content script reads this
+          so the user never has to copy-paste it. */}
+      <span id="pa-sync-token" data-token={token} hidden />
+
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <h2 className="font-semibold">동기화 토큰</h2>
         <p className="text-sm text-neutral-400">
-          크롬 확장 팝업의 &ldquo;동기화 토큰&rdquo; 칸에 아래 값을 붙여넣으세요.
-          백엔드 URL 칸에는 이 사이트 주소를 넣습니다.
+          크롬 확장에서 &ldquo;웹에서 연결&rdquo;을 누르면 이 토큰이 자동으로 연결됩니다.
+          (수동 연결이 필요할 때만 아래 값을 복사하세요.)
         </p>
         <TokenBox token={token} />
       </section>
