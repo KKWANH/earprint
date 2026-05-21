@@ -1,11 +1,13 @@
 import { auth } from "@/auth";
 import { getJson, json } from "@/lib/http";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
  * Deezer preview URL proxy.
- * Deezer preview URLs are signed and expire, so stored copies are not used —
- * a fresh URL is fetched right before playback.
- * Only checks that the caller is signed in (no users-table write needed).
+ * Deezer preview URLs are signed and expire, so a fresh URL is fetched right
+ * before playback. Retries — Deezer occasionally rate-limits, and a hard
+ * failure here silently breaks playback.
  */
 export async function GET(req: Request) {
   const session = await auth();
@@ -16,8 +18,21 @@ export async function GET(req: Request) {
     return json({ error: "deezerId required" }, 400);
   }
 
-  const data = await getJson(`https://api.deezer.com/track/${deezerId}`);
-  const url: string | undefined = data?.preview;
-  if (!url) return json({ error: "no preview" }, 404);
-  return json({ url }, 200);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const data = await getJson(`https://api.deezer.com/track/${deezerId}`);
+      if (typeof data?.preview === "string" && data.preview) {
+        return json({ url: data.preview }, 200);
+      }
+      // Deezer error payload (e.g. quota exceeded) → wait and retry.
+      if (data?.error) {
+        await sleep(500 * (attempt + 1));
+        continue;
+      }
+      return json({ error: "no preview" }, 404);
+    } catch {
+      await sleep(500 * (attempt + 1));
+    }
+  }
+  return json({ error: "deezer unavailable" }, 503);
 }

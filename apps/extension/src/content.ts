@@ -1,41 +1,69 @@
 /**
  * Content script (ISOLATED world) — runs on music.youtube.com.
  *
- *  1. Accumulates browse responses passed via postMessage from inject.ts.
- *  2. On the popup's PA_SYNC request: runs inject's deterministic "harvest"
- *     (replays InnerTube continuations). Falls back to scroll-based loading
- *     if the harvest can't run.
- *  3. Forwards the accumulated tracks to background.
+ *  1. Tells inject.ts (MAIN world) to scrape: it scrolls the real UI and
+ *     reads every rendered row.
+ *  2. Accumulates the rows + any intercepted browse responses into a map.
+ *  3. Forwards the collected tracks to the background service worker.
  */
 import type { CapturedTrack } from "@playlist-analyzer/shared";
-import { extractTracks, hasContinuation } from "./parser";
+import { extractTracks } from "./parser";
 
 const tracks = new Map<string, CapturedTrack>();
-let reachedEnd = false;
-let onHarvestDone: ((ok: boolean) => void) | null = null;
+let onScrapeDone: (() => void) | null = null;
+let lastProgress = 0;
+const diag: {
+  domPeak: number;
+  spinnerSeen: boolean;
+  endedClean: boolean;
+  lastTitle: string;
+} = { domPeak: 0, spinnerSeen: false, endedClean: false, lastTitle: "" };
 
 window.addEventListener("message", (e: MessageEvent) => {
   const msg = e.data as
-    | { __pa?: boolean; kind?: string; data?: unknown; ok?: boolean }
+    | {
+        __pa?: boolean;
+        kind?: string;
+        data?: unknown;
+        track?: CapturedTrack;
+        count?: number;
+        domPeak?: number;
+        spinnerSeen?: boolean;
+        endedClean?: boolean;
+        lastTitle?: string;
+      }
     | undefined;
   if (e.source !== window || !msg?.__pa) return;
 
   if (msg.kind === "browse") {
-    const before = tracks.size;
     extractTracks(msg.data, tracks);
-    if (tracks.size > before && !hasContinuation(msg.data)) reachedEnd = true;
-  } else if (msg.kind === "harvestDone") {
-    onHarvestDone?.(msg.ok === true);
-    onHarvestDone = null;
+  } else if (msg.kind === "domTrack" && msg.track) {
+    const t = msg.track;
+    if (t.videoId && t.title) tracks.set(t.videoId, t);
+  } else if (msg.kind === "scrapeProgress") {
+    lastProgress = msg.count ?? 0;
+  } else if (msg.kind === "scrapeDone") {
+    diag.domPeak = msg.domPeak ?? 0;
+    diag.spinnerSeen = msg.spinnerSeen ?? false;
+    diag.endedClean = msg.endedClean ?? false;
+    diag.lastTitle = msg.lastTitle ?? "";
+    onScrapeDone?.();
+    onScrapeDone = null;
   }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if ((message as { type?: string })?.type === "PA_SYNC") {
+  const type = (message as { type?: string })?.type;
+  if (type === "PA_SYNC") {
     runSync()
       .then(sendResponse)
       .catch((err: unknown) => sendResponse({ ok: false, error: String(err) }));
     return true; // async response
+  }
+  if (type === "PA_PROGRESS") {
+    // Live count for the popup while a sync is running.
+    sendResponse({ count: tracks.size });
+    return false;
   }
   return false;
 });
@@ -45,51 +73,59 @@ async function runSync(): Promise<unknown> {
     return { ok: false, error: "좋아요(LM) 플레이리스트 페이지에서 실행하세요" };
   }
   tracks.clear();
-  reachedEnd = false;
+  lastProgress = 0;
+  diag.domPeak = 0;
+  diag.spinnerSeen = false;
+  diag.endedClean = false;
+  diag.lastTitle = "";
 
-  // Primary: deterministic continuation replay (fast + complete).
-  const harvested = await new Promise<boolean>((resolve) => {
-    onHarvestDone = resolve;
-    window.postMessage({ __pa: true, kind: "harvest" }, "*");
+  // inject.ts scrolls the real UI and reads every rendered row.
+  await new Promise<void>((resolve) => {
+    onScrapeDone = resolve;
+    window.postMessage({ __pa: true, kind: "scrape" }, "*");
+    // Generous ceiling — a large list with stalls can take several minutes.
     setTimeout(() => {
-      if (onHarvestDone) {
-        onHarvestDone = null;
-        resolve(false);
+      if (onScrapeDone) {
+        onScrapeDone = null;
+        resolve();
       }
-    }, 120000);
+    }, 420000);
   });
 
-  // Fallback: scroll-based loading if the harvest couldn't run.
-  if (!harvested) {
-    window.postMessage({ __pa: true, kind: "flush" }, "*");
-    await sleep(400);
-    await autoScroll();
-  }
+  // Let any in-flight intercepted responses settle.
+  await sleep(600);
 
   const list = [...tracks.values()];
   if (list.length === 0) {
     return { ok: false, error: "수집된 곡이 없습니다 (페이지를 새로고침 후 다시 시도)" };
   }
-  return chrome.runtime.sendMessage({ type: "PA_UPLOAD", tracks: list });
+
+  const expected = expectedCount();
+  const result = (await chrome.runtime.sendMessage({
+    type: "PA_UPLOAD",
+    tracks: list,
+  })) as Record<string, unknown> | undefined;
+  return {
+    ...(result ?? {}),
+    captured: list.length,
+    expected,
+    domPeak: diag.domPeak,
+    spinnerSeen: diag.spinnerSeen,
+    endedClean: diag.endedClean,
+    lastTitle: diag.lastTitle,
+  };
 }
 
-/** Fallback — scroll to the bottom until the continuation token is exhausted. */
-async function autoScroll(): Promise<void> {
-  let lastCount = -1;
-  let stable = 0;
-  for (let i = 0; i < 600 && !reachedEnd && stable < 30; i++) {
-    window.scrollTo(0, document.documentElement.scrollHeight);
-    document
-      .querySelector("ytmusic-responsive-list-item-renderer:last-of-type")
-      ?.scrollIntoView(false);
-    await sleep(600);
-    if (tracks.size === lastCount) {
-      stable++;
-    } else {
-      stable = 0;
-      lastCount = tracks.size;
-    }
+/** Reads the liked-songs total from the playlist header ("2,353곡 • …"). */
+function expectedCount(): number | null {
+  const text = document.body?.innerText ?? "";
+  let best: number | null = null;
+  for (const m of text.matchAll(/([\d,]{2,})\s*(?:곡|songs?|tracks?)/gi)) {
+    if (!m[1]) continue;
+    const n = parseInt(m[1].replace(/,/g, ""), 10);
+    if (Number.isFinite(n) && (best === null || n > best)) best = n;
   }
+  return best;
 }
 
 function sleep(ms: number): Promise<void> {

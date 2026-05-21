@@ -1,6 +1,8 @@
 import { getSql } from "./db";
 import { enrichTrack } from "./enrich";
 import { aiAnalyzeBatch } from "./aiAnalyze";
+import { buildCompletionEmail, sendEmail } from "./email";
+import { getLibraryStats } from "./library";
 
 export type JobStatus = "running" | "stopped" | "done" | "idle";
 export type Phase = "enrich" | "ai" | "done";
@@ -102,8 +104,58 @@ export async function getJob(userId: string): Promise<JobStatus> {
 
 export async function setJob(userId: string, status: JobStatus): Promise<void> {
   const sql = getSql();
-  await sql`
-    INSERT INTO background_jobs (user_id, kind, status, updated_at)
-    VALUES (${userId}, 'analyze', ${status}, now())
-    ON CONFLICT (user_id, kind) DO UPDATE SET status = ${status}, updated_at = now()`;
+  // Starting a fresh run clears the previous completion notification so the
+  // next time it finishes a new email goes out.
+  const notified = status === "running" ? null : undefined;
+  if (notified === null) {
+    await sql`
+      INSERT INTO background_jobs (user_id, kind, status, updated_at, notified_at)
+      VALUES (${userId}, 'analyze', ${status}, now(), NULL)
+      ON CONFLICT (user_id, kind)
+      DO UPDATE SET status = ${status}, updated_at = now(), notified_at = NULL`;
+  } else {
+    await sql`
+      INSERT INTO background_jobs (user_id, kind, status, updated_at)
+      VALUES (${userId}, 'analyze', ${status}, now())
+      ON CONFLICT (user_id, kind) DO UPDATE SET status = ${status}, updated_at = now()`;
+  }
+}
+
+/**
+ * Marks the analyze job done and emails the completion report exactly once.
+ * Idempotent — the notified_at guard means repeated calls (cron + foreground)
+ * only ever send a single email.
+ */
+export async function finishJob(userId: string): Promise<void> {
+  const sql = getSql();
+  // Atomically claim the notification: only the first caller gets a row back.
+  const claimed = await sql`
+    UPDATE background_jobs
+    SET status = 'done', updated_at = now(), notified_at = now()
+    WHERE user_id = ${userId} AND kind = 'analyze' AND notified_at IS NULL
+    RETURNING user_id`;
+  if (claimed.length === 0) {
+    // Already notified — just make sure status reflects completion.
+    await setJob(userId, "done");
+    return;
+  }
+  try {
+    const userRows = await sql`SELECT email FROM users WHERE id = ${userId}`;
+    const email = userRows[0]?.email as string | undefined;
+    if (!email) return;
+    const stats = await getLibraryStats(userId);
+    const { subject, html } = buildCompletionEmail(stats);
+    const result = await sendEmail({ to: email, subject, html });
+    if (result === "failed") {
+      // Transient error — release the claim so a later tick retries.
+      await sql`
+        UPDATE background_jobs SET notified_at = NULL
+        WHERE user_id = ${userId} AND kind = 'analyze'`;
+    }
+    // "skipped" (no API key) keeps the claim so we don't loop forever.
+  } catch {
+    await sql`
+      UPDATE background_jobs SET notified_at = NULL
+      WHERE user_id = ${userId} AND kind = 'analyze'`;
+  }
 }

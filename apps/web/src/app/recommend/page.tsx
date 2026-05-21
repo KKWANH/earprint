@@ -1,8 +1,16 @@
-import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
+import { ModePicker } from "./ModePicker";
 import { Tournament, type Rec } from "./Tournament";
+
+/** Maps a stored rec_type (incl. legacy values) to the current union. */
+function mapRecType(t: string): Rec["recType"] {
+  if (t === "genre") return "genre";
+  if (t === "unheard" || t === "explore") return "unheard";
+  if (t === "indie") return "indie";
+  return "song";
+}
 
 export default async function RecommendPage() {
   const session = await auth();
@@ -50,26 +58,17 @@ export default async function RecommendPage() {
     seedTrack: (r.seed_track as string) ?? null,
     score: (r.score as number) ?? null,
     blurb: (r.blurb as string) ?? null,
-    recType: (r.rec_type as string) === "explore" ? "explore" : "similar",
+    recType: mapRecType((r.rec_type as string) ?? "song"),
   }));
 
   return (
-    <main className="mx-auto flex max-w-2xl flex-col gap-6 px-6 py-12">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">추천 월드컵</h1>
-        <nav className="flex gap-4 text-sm text-neutral-400">
-          <Link href="/library" className="hover:text-white">
-            라이브러리
-          </Link>
-          <Link href="/profile" className="hover:text-white">
-            심리분석
-          </Link>
-        </nav>
-      </header>
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
+      <h1 className="text-2xl font-bold">추천 월드컵</h1>
       <p className="text-sm text-neutral-400">
-        좋아요 라이브러리에서 파생된 추천을 듣고 좋아요/별로로 평가하세요. 평가는 다음
-        추천에 반영됩니다 (별로한 아티스트는 제외).
+        추천을 듣고 좋아요/별로로 평가하세요. 좋아요·이미 아는 곡은 라이브러리에
+        반영되고, 별로한 아티스트는 다음 추천에서 제외됩니다.
       </p>
+      <ModePicker />
       <Tournament
         key={recs[0]?.id ?? "empty"}
         initial={recs}

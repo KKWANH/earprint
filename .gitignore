@@ -26,3 +26,6 @@ client_secret*.json
 *.log
 .DS_Store
 coverage/
+
+# typescript build cache
+*.tsbuildinfo

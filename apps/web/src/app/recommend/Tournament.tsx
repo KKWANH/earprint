@@ -13,8 +13,16 @@ export interface Rec {
   seedTrack: string | null;
   score: number | null;
   blurb: string | null;
-  recType: "similar" | "explore";
+  recType: "song" | "genre" | "unheard" | "indie";
 }
+
+/** "Why recommended" header styling per recommendation mode. */
+const HEADER: Record<Rec["recType"], { icon: string; label: string; bg: string; fg: string }> = {
+  song: { icon: "❤️", label: "좋아한 곡과 비슷", bg: "bg-emerald-500/12", fg: "text-emerald-300" },
+  genre: { icon: "🎼", label: "내 핵심 장르", bg: "bg-indigo-500/15", fg: "text-indigo-300" },
+  unheard: { icon: "🧭", label: "취향 밖 탐험", bg: "bg-amber-500/15", fg: "text-amber-300" },
+  indie: { icon: "💎", label: "숨은 인디", bg: "bg-violet-500/15", fg: "text-violet-300" },
+};
 
 type Rating = "superlike" | "like" | "pass" | "dislike" | "strong_dislike" | "known";
 
@@ -206,7 +214,7 @@ export function Tournament({
   }
 
   const blurb = current.blurb ?? blurbs.get(current.id) ?? null;
-  const explore = current.recType === "explore";
+  const hd = HEADER[current.recType] ?? HEADER.song;
   const t = flyOff ?? drag ?? { x: 0, y: 0 };
   const transform = `translate(${t.x}px, ${t.y}px) rotate(${t.x * 0.05}deg)`;
   const transition = flyOff
@@ -240,33 +248,18 @@ export function Tournament({
           className="absolute inset-0 flex cursor-grab touch-none flex-col overflow-hidden rounded-2xl border border-white/10 bg-neutral-900 shadow-2xl active:cursor-grabbing"
         >
           {/* why-recommended strip */}
-          {explore ? (
-            <div className="flex shrink-0 items-center gap-2 bg-amber-500/15 px-4 py-2.5 text-sm">
-              <span>🧭</span>
-              <span className="font-medium text-amber-300">취향 밖 탐험</span>
-              <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-200">
+          <div className={`flex shrink-0 items-center gap-2 ${hd.bg} px-4 py-2.5 text-sm`}>
+            <span>{hd.icon}</span>
+            <span className={`shrink-0 font-medium ${hd.fg}`}>{hd.label}</span>
+            {current.seedTrack && (
+              <span className="ml-auto min-w-0 truncate rounded-full bg-white/10 px-2 py-0.5 text-xs text-neutral-300">
                 {current.seedTrack}
               </span>
-            </div>
-          ) : (
-            <div className="flex shrink-0 items-center gap-2 bg-emerald-500/10 px-4 py-2.5 text-sm">
-              <span>❤️</span>
-              <span className="min-w-0 truncate text-neutral-300">
-                좋아한 「{current.seedTrack}」
-              </span>
-              {pct != null && (
-                <span className="ml-auto flex shrink-0 items-center gap-1.5">
-                  <span className="block h-1.5 w-12 overflow-hidden rounded-full bg-white/10">
-                    <span
-                      className="block h-full bg-emerald-500"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </span>
-                  <span className="text-xs font-medium text-emerald-400">{pct}%</span>
-                </span>
-              )}
-            </div>
-          )}
+            )}
+            {current.recType === "song" && pct != null && (
+              <span className="shrink-0 text-xs font-medium text-emerald-400">{pct}%</span>
+            )}
+          </div>
 
           {/* cover */}
           <div className="relative h-40 shrink-0 bg-neutral-800">

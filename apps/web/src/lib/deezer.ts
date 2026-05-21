@@ -1,7 +1,7 @@
 /**
- * Deezer search — free, no auth. One call per track.
- * Yields album, preview and a match-confidence score.
- * (BPM and genre are skipped — Deezer's data quality for them is poor.)
+ * Deezer search — free, no auth. One search call per track, plus one track
+ * lookup for the release year (used by the reminiscence-bump analysis).
+ * Yields album, preview, popularity rank, release year and a match score.
  */
 import { getJson } from "./http";
 
@@ -12,6 +12,8 @@ export interface DeezerMatch {
   album: string | null;
   coverUrl: string | null;
   previewUrl: string | null;
+  releaseYear: number | null;
+  rank: number | null; // Deezer popularity (higher = more mainstream)
   matchConfidence: number;
 }
 
@@ -20,6 +22,8 @@ const EMPTY: DeezerMatch = {
   album: null,
   coverUrl: null,
   previewUrl: null,
+  releaseYear: null,
+  rank: null,
   matchConfidence: 0,
 };
 
@@ -42,7 +46,20 @@ function scoreMatch(a: string, b: string): number {
   return 0.5;
 }
 
-export async function searchDeezer(artist: string, title: string): Promise<DeezerMatch> {
+/** Parses a 4-digit year out of a Deezer release_date ("YYYY-MM-DD"). */
+function yearOf(date: unknown): number | null {
+  const m = typeof date === "string" ? date.match(/^(\d{4})/) : null;
+  if (!m) return null;
+  const y = Number(m[1]);
+  return y >= 1900 && y <= new Date().getFullYear() + 1 ? y : null;
+}
+
+export async function searchDeezer(
+  artist: string,
+  title: string,
+  opts: { withYear?: boolean } = {},
+): Promise<DeezerMatch> {
+  const withYear = opts.withYear ?? true;
   const cleanTitle = norm(title) || title;
   const advanced = `artist:"${artist.replace(/"/g, "")}" track:"${cleanTitle}"`;
 
@@ -54,11 +71,25 @@ export async function searchDeezer(artist: string, title: string): Promise<Deeze
   }
   if (!hit) return EMPTY;
 
+  // The search result carries rank but not a release date — one extra
+  // lookup gets the original year (skipped when the caller doesn't need it).
+  let releaseYear: number | null = null;
+  if (withYear && hit.id) {
+    try {
+      const track = await getJson(`${API}/track/${hit.id}`);
+      releaseYear = yearOf(track?.release_date) ?? yearOf(track?.album?.release_date);
+    } catch {
+      /* year stays null */
+    }
+  }
+
   return {
     deezerId: hit.id ?? null,
     album: hit.album?.title ?? null,
     coverUrl: hit.album?.cover_big || hit.album?.cover_medium || null,
     previewUrl: hit.preview || null,
+    releaseYear,
+    rank: typeof hit.rank === "number" ? hit.rank : null,
     matchConfidence: scoreMatch(title, hit.title ?? ""),
   };
 }

@@ -163,6 +163,12 @@ BEGIN
                 NULLIF(rec->>'durationMs', '')::int, v_ck)
         RETURNING id INTO v_track_id;
       new_tracks := new_tracks + 1;
+    ELSE
+      -- Backfill the album from YouTube's own metadata when we now have it
+      -- (more reliable than Deezer's fuzzy match for indie / non-Western releases).
+      IF NULLIF(rec->>'album', '') IS NOT NULL THEN
+        UPDATE tracks SET album = rec->>'album' WHERE id = v_track_id;
+      END IF;
     END IF;
 
     INSERT INTO track_sources (track_id, source, source_id, raw_title, raw_artist)
@@ -186,6 +192,37 @@ BEGIN
   END IF;
 
   RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ── Add liked tracks outside a full sync (map "discover", recommendations) ──
+-- Not replace-mode: these likes survive a later YouTube re-sync (source='discover').
+-- p_tracks element keys: artist, title, album
+CREATE OR REPLACE FUNCTION add_liked_tracks(p_user_id uuid, p_tracks jsonb)
+RETURNS int AS $$
+DECLARE
+  rec        jsonb;
+  v_ck       text;
+  v_track_id uuid;
+  n          int := 0;
+BEGIN
+  FOR rec IN SELECT jsonb_array_elements(p_tracks) LOOP
+    v_ck := track_canon_key(rec->>'artist', rec->>'title');
+    IF v_ck IS NULL OR v_ck = '|' THEN CONTINUE; END IF;
+
+    SELECT id INTO v_track_id FROM tracks WHERE canon_key = v_ck LIMIT 1;
+    IF v_track_id IS NULL THEN
+      INSERT INTO tracks (title, artist, album, canon_key)
+        VALUES (rec->>'title', rec->>'artist', NULLIF(rec->>'album', ''), v_ck)
+        RETURNING id INTO v_track_id;
+    END IF;
+
+    INSERT INTO user_tracks (user_id, track_id, source, liked_at)
+      VALUES (p_user_id, v_track_id, 'discover', now())
+      ON CONFLICT (user_id, track_id) DO NOTHING;
+    IF FOUND THEN n := n + 1; END IF;
+  END LOOP;
+  RETURN n;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -234,7 +271,30 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ── Phase 2: migration ────────────────────────────────
-ALTER TABLE tracks ADD COLUMN IF NOT EXISTS preview_url TEXT;  -- Deezer 30-second preview
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS preview_url  TEXT;   -- Deezer 30-second preview
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS release_year INT;    -- original release year (Deezer)
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS deezer_rank  BIGINT; -- Deezer popularity rank (mainstream-ness)
+
+-- Listener's birth year — drives the reminiscence-bump ("imprint core") analysis.
+ALTER TABLE users  ADD COLUMN IF NOT EXISTS birth_year   INT;
+
+-- Backfill release_year / deezer_rank for tracks already enriched without them.
+-- p_rows element keys: trackId, releaseYear, rank
+CREATE OR REPLACE FUNCTION save_track_meta(p_rows jsonb)
+RETURNS int AS $$
+DECLARE rec jsonb; n int := 0;
+BEGIN
+  FOR rec IN SELECT jsonb_array_elements(p_rows) LOOP
+    UPDATE tracks SET
+      release_year = COALESCE(NULLIF(rec->>'releaseYear', '')::int, release_year),
+      deezer_rank  = COALESCE(NULLIF(rec->>'rank', '')::bigint, deezer_rank),
+      updated_at   = now()
+    WHERE id = (rec->>'trackId')::uuid;
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END;
+$$ LANGUAGE plpgsql;
 
 -- ── Phase 2: bulk-save API enrichment results ─────────
 -- p_rows element keys: trackId, deezerId, album, previewUrl, bpm, genres, matchConfidence
@@ -249,6 +309,8 @@ BEGIN
       deezer_id        = COALESCE(NULLIF(rec->>'deezerId', '')::bigint, deezer_id),
       album            = COALESCE(album, NULLIF(rec->>'album', '')),
       preview_url      = COALESCE(NULLIF(rec->>'previewUrl', ''), preview_url),
+      release_year     = COALESCE(NULLIF(rec->>'releaseYear', '')::int, release_year),
+      deezer_rank      = COALESCE(NULLIF(rec->>'rank', '')::bigint, deezer_rank),
       resolved         = true,
       match_confidence = NULLIF(rec->>'matchConfidence', '')::real,
       updated_at       = now()
@@ -426,11 +488,13 @@ DELETE FROM background_jobs WHERE kind IN ('enrich', 'ai_enrich', 'audio_feel');
 -- kind:   'analyze'  (single 2-phase job: enrich → ai analysis)
 -- status: 'running' | 'stopped' | 'done'
 CREATE TABLE IF NOT EXISTS background_jobs (
-  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  kind       TEXT NOT NULL,
-  status     TEXT NOT NULL DEFAULT 'running',
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'running',
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  notified_at TIMESTAMPTZ,                          -- completion email sent at
   PRIMARY KEY (user_id, kind)
 );
+ALTER TABLE background_jobs ADD COLUMN IF NOT EXISTS notified_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_background_jobs_running
   ON background_jobs (status) WHERE status = 'running';

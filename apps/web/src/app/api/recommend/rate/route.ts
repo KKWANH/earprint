@@ -40,5 +40,20 @@ export async function POST(req: Request) {
         comment = ${body.comment?.trim() || null},
         rated_at = now()
     WHERE id = ${body.id} AND user_id = ${userId}`;
-  return json({ ok: true }, 200);
+
+  // A positive verdict (or "already know it") folds the track into the
+  // library so it feeds future analysis, the map and recommendations.
+  let addedToLibrary = false;
+  if (body.rating === "superlike" || body.rating === "like" || body.rating === "known") {
+    const rec = await sql`
+      SELECT artist, title, album FROM recommendations
+      WHERE id = ${body.id} AND user_id = ${userId}`;
+    if (rec[0]) {
+      await sql`SELECT add_liked_tracks(${userId}, ${JSON.stringify([
+        { artist: rec[0].artist, title: rec[0].title, album: rec[0].album },
+      ])}::jsonb)`;
+      addedToLibrary = true;
+    }
+  }
+  return json({ ok: true, addedToLibrary }, 200);
 }

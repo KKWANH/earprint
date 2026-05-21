@@ -1,52 +1,51 @@
 # Playlist Analyzer
 
-A web service + Chrome extension that extracts your YouTube Music "liked"
-songs, **analyzes their characteristics (genre, mood)**, generates an
-**AI music-psychology profile**, and serves **rated song recommendations**.
+A web service + Chrome extension that collects your YouTube Music **liked
+songs**, analyzes them, and turns them into an interactive picture of *why* you
+like what you like — grounded in music-psychology research, not just top-N
+charts.
 
-> Demo: https://music.kwanho.dev
-> (Google OAuth is in test mode — when self-hosting, use your own account.)
+> Live: https://music.kwanho.dev
+> (Google OAuth is in test mode — when self-hosting, use your own credentials.)
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for design decisions and
 [DEPLOY.md](./DEPLOY.md) for deployment.
 
 ---
 
-## Supported services
+## What it does
 
-| Music service | Supported | Notes |
-|---|---|---|
-| **YouTube Music** | ✅ | Liked-songs (LM) collected via the Chrome extension |
-| Spotify | ❌ | Not supported |
-| Apple Music | ❌ | Not supported |
+| Area | Feature |
+|---|---|
+| **Collect** | Chrome extension (MV3) scrapes the YouTube Music "Liked Music" list and uploads it |
+| **Analyze** | Deezer enrichment (album, preview, release year, popularity) + AI analysis (genre · mood · energy/tempo/acousticness · instruments) |
+| **Library** | Dashboard — top artists / genres / moods / instruments, album-depth, audio-feel, artist exclusion |
+| **취향 DNA** | Two research-grounded lenses: the **reminiscence-bump "imprint core"** and the **prediction ↔ novelty index** |
+| **Artist map** | Interactive force-directed map of your artists; **unheard but related artists** appear as empty circles you can add with one tap |
+| **Genre constellation** | Interactive graph of genres, linked when they co-occur on the same tracks |
+| **Recommend** | Five modes (song · genre · unheard-genre · indie · mix), Tinder-style swipe rating; liked/known picks fold back into the library |
+| **Report** | Optional completion email with a taste summary (Resend) |
 
-YouTube Music has no public API, so the Chrome extension intercepts the
-internal `youtubei` responses within the user's own session to collect the
-liked-songs list. (Personal / educational tool.)
+YouTube Music has no public API, so the extension scrolls the user's own
+session and reads the rendered list. It is a personal / educational tool.
 
-## Features — development status
+## The idea
 
-| Phase | Feature | Status |
-|---|---|---|
-| 1 | Chrome extension — collect liked songs → store in backend | ✅ |
-| 2 | Track enrichment — Deezer (album, preview) + Last.fm (genre/mood tags) | ✅ |
-| B | AI fallback — Gemini fills empty tracks; MV/compilation channels re-mapped to the real artist | ✅ |
-| 1 | Stats dashboard — top artists / genre / mood distribution, artist exclusion | ✅ |
-| A | AI music-psychology analysis — Gemini generates personality, taste, digging score, improvement guide | ✅ |
-| C | Recommendations — Tinder-style swipe cards, similar + "explore" picks, ratings/comments, feedback loop | ✅ |
-| — | Background jobs — cron-driven enrichment that continues after the tab closes | ✅ |
-| — | Admin — app stats (owner only) | ✅ |
-| D | Listening-history collection (beyond likes) | ⛔ Not implemented |
-| 3 | BPM / audio features (MIR) — self-hosted Essentia analysis | ⛔ Not implemented (low priority) |
-| 4 | music-map — embedding-based 2D taste visualization | ⛔ Not implemented (depends on MIR) |
+The app isn't another "Spotify Wrapped" — it tries to *explain* taste using
+three established bodies of research:
 
-### Limitations
-- **No BPM analysis** — Deezer's BPM data is sparse, so it is deferred. Reliable
-  BPM needs Essentia MIR (a separate Python service), which is low priority.
-- **Genre coverage** — even with Last.fm + Gemini, some obscure tracks may have
-  no genre.
-- **Recommendation playback** — Deezer 30-second previews plus a YouTube Music
-  link, not full-track playback.
+- **Prediction & reward.** Musical pleasure peaks at the sweet spot between
+  predictability and surprise (Huron's *Sweet Anticipation*; Gold et al., *J.
+  Neuroscience* 2019; Salimpoor et al., *Nature Neuroscience* 2011). The
+  **novelty index** places a library on a familiarity ↔ novelty axis from genre
+  entropy, sub-genre specificity and distance from the mainstream.
+- **The reminiscence bump.** Music heard at ~15–25 (emotional peak ≈ 17) is
+  encoded with unusually strong memory traces. The **imprint core** overlays
+  that window on the library's release-year histogram.
+- **Taste trajectory & openness.** Discovery peaks ~24 and crystallizes ~31–33
+  as the Openness trait declines (Rentfrow & Gosling, 2003; Cambridge "musical
+  ages"). The imprint stage labels a listener as still-digging / imprinted /
+  balanced.
 
 ## Architecture
 
@@ -61,101 +60,108 @@ flowchart LR
     CRON["Cron Worker<br/>every minute"]
   end
   DB[("Neon Postgres<br/>+ pgvector")]
-  API["Deezer · Last.fm · Gemini"]
+  LOCAL["Local runner (optional)<br/>Deezer + local Qwen"]
+  API["Deezer · Last.fm · Gemini · Resend"]
   EXT -- "liked songs" --> WEB
-  UI <-- "auth · dashboard · recommend" --> WEB
+  UI <-- "auth · dashboard · DNA · map · recommend" --> WEB
   CRON -- "tick" --> WEB
   WEB <--> DB
-  WEB -- "search · tags · AI" --> API
+  LOCAL <--> DB
+  WEB -- "search · tags · AI · email" --> API
 ```
 
-Everything is **serverless** — no always-on server. The Next.js app runs on
-Cloudflare Workers (OpenNext adapter); a tiny separate **Cron Worker** fires
-every minute so background enrichment keeps running after the user closes the
-tab. The AI calls Google Gemini's hosted API — no model is self-hosted.
+Everything is **serverless** — the Next.js app runs on Cloudflare Workers
+(OpenNext adapter); a tiny separate **Cron Worker** fires every minute so
+background analysis continues after the tab closes.
 
-### Enrichment & analysis pipeline
+## Data & analysis pipeline
 
 ```mermaid
 flowchart TD
-  CAP["Extension captures liked song"] --> SYNC["sync_liked_tracks()<br/>tracks + user_tracks rows"]
-  SYNC --> JOB{"Background job<br/>(cron-driven, ~8/min)"}
-  JOB --> ENR["Deezer search<br/>album · cover · preview · match score"]
-  JOB --> TAG["Last.fm getTopTags<br/>genre · mood (artist-tag fallback)"]
-  ENR --> AROW["analysis row"]
-  TAG --> AROW
-  AROW --> CHK{"genres empty?"}
-  CHK -- yes --> AI["AI fallback (Gemini)<br/>infer genre/mood ·<br/>re-map MV/compilation channels"]
-  CHK -- no --> DONE["done"]
-  AI --> DONE
+  CAP["Extension scrolls + reads the liked list"] --> SYNC["sync_liked_tracks()<br/>canonicalize → tracks + user_tracks"]
+  SYNC --> ENR["Phase 1 — Deezer<br/>album · preview · release year · rank"]
+  ENR --> AI["Phase 2 — AI<br/>genre · mood · energy/tempo/acousticness · instruments"]
+  AI --> VIEWS["Library · 취향 DNA · Map · Constellation · Recommend"]
 ```
 
-### Recommendation flow
+- **Capture.** The extension scrolls the real YouTube Music UI and reads each
+  rendered row (Polymer `.data`, with a DOM-text fallback). It self-diagnoses
+  whether it reached the true end of the list.
+- **Canonicalization.** `track_canon_key()` folds live versions, re-uploads and
+  repeat likes into one canonical `tracks` row; `user_tracks` holds the per-user
+  like. Sync is replace-mode for YouTube likes; map/recommendation additions use
+  a separate `discover` source that survives re-syncs.
+- **Enrichment** is Deezer-only (free, no key). **AI analysis** produces
+  genres/moods and audio-feel.
 
-```mermaid
-flowchart LR
-  SEED["5 random liked songs"] --> SIM["Last.fm similar tracks"]
-  GEN["Genres you rarely play"] --> EXP["Last.fm genre top-tracks"]
-  SIM --> MIX["Interleave ~7 similar + ~3 explore"]
-  EXP --> MIX
-  MIX --> DZ["Deezer: cover + preview"]
-  DZ --> CARD["Swipe card → rating + comment"]
-  CARD --> FB["Disliked artists excluded next run"]
-  FB --> SEED
-```
+### Cloud or local analysis
 
-## How it works
+The AI phase can run two ways:
 
-1. **Capture.** YouTube Music has no public API, so the extension injects a
-   script that intercepts the page's internal `youtubei/v1/browse` responses and
-   depth-first extracts every track from the liked-songs (LM) playlist.
-2. **Sync.** `sync_liked_tracks()` upserts one `tracks` row per YouTube videoId
-   plus a per-user `user_tracks` like. Idempotent — re-syncing only adds new likes.
-3. **Enrichment** (background job, ~8 tracks/min, cron-driven). Per track:
-   **Deezer search** fuzzy-matches `artist + title` for album/cover/30s-preview
-   and a match-confidence score; **Last.fm `getTopTags`** turns crowd tags into
-   genres/moods — tags are cleaned (sentence-like personal tags, the artist's
-   own name, years and duplicates dropped) and fall back to artist-level tags.
-4. **AI fallback.** Tracks Last.fm couldn't tag go to Gemini in batches — it
-   infers genre/mood, and when the "artist" is a cover/compilation channel it
-   extracts the real artist from the title.
-5. **Recommendations.** Seeded from 5 random liked songs → Last.fm similar
-   tracks, blended with "explore" picks from broad genres the listener rarely
-   plays. Rated on a swipe card; disliked artists are excluded from later runs.
-6. **AI psychology profile.** Gemini reads the aggregated genre/mood/artist
-   distribution and writes a taste profile, a "digging score" and improvement tips.
+| | Where | Cost |
+|---|---|---|
+| **Cloud** | Cloudflare cron → Google Gemini | paid API |
+| **Local** | `pnpm --filter web analyze:local` → your machine | **$0** |
 
-### Methodology notes & limits
+The local runner (`apps/web/scripts/analyze-local.mjs`) connects straight to
+the database and uses a **local Qwen model** via any OpenAI-compatible endpoint
+(Ollama / LM Studio) — same pipeline, no API bill.
 
-- **Track identity is approximate** — one `tracks` row per videoId, so the same
-  song from two videos is two rows. The schema keeps `mbid` / `resolved` for a
-  future MusicBrainz-based canonical merge; not implemented yet.
-- **Genre/mood are crowd- and LLM-sourced**, not audio-derived — fast and free,
-  but only as good as Last.fm tags and Gemini's knowledge.
-- **No audio-signal analysis yet** — BPM, key, danceability and embeddings (the
-  `analysis` table reserves columns for them) need an Essentia MIR pipeline on a
-  Python host. This is the main planned enhancement, deprioritized for now.
-- **Recommendations are similarity-based** (Last.fm), not embedding-based; the
-  "explore" picks are the current diversity mechanism.
+## Recommendation modes
+
+| Mode | Source |
+|---|---|
+| 🎲 mix | song + unheard-genre blend |
+| ❤️ song | Last.fm tracks similar to your liked songs |
+| 🎼 genre | top tracks of your dominant genres |
+| 🧭 unheard | broad genres you barely touch |
+| 💎 indie | similar tracks filtered to low-popularity (smaller) artists |
+
+Ratings feed back: disliked artists are excluded from later runs; liked / "I
+already know it" picks are added to the library.
 
 ## Tech stack
 
 - **Extension** (`apps/extension`): Manifest V3, TypeScript, Vite + CRXJS
-- **Web app / API** (`apps/web`): Next.js (App Router), TypeScript, Tailwind, Auth.js (Google OAuth)
-- **Cron worker** (`apps/cron`): tiny scheduled Worker driving background jobs
+- **Web app / API** (`apps/web`): Next.js (App Router), TypeScript, Tailwind,
+  Auth.js (Google OAuth), HTML5 canvas for the force-directed maps
+- **Cron worker** (`apps/cron`): scheduled Worker driving background jobs
 - **Hosting**: Cloudflare Workers (OpenNext adapter)
-- **DB**: Postgres + pgvector (Neon)
-- **External APIs**: Deezer (no auth) · Last.fm · Google Gemini
+- **DB**: Neon Postgres + pgvector
+- **External**: Deezer (no auth) · Last.fm · Google Gemini · Resend · local Qwen
 - **Monorepo**: pnpm workspaces + Turborepo
+
+## Repo layout
+
+```
+apps/
+  extension/   Chrome MV3 collector
+  web/         Next.js app + API routes + analyze-local.mjs
+  cron/        minute cron worker
+db/schema.sql  full schema (functions, canonicalization, jobs)
+packages/      shared TypeScript types
+```
+
+## Status & limitations
+
+- **List completeness** — very large liked lists (2k+) can be slow to scroll;
+  the extension reports how much it captured.
+- **Metadata coverage** — release year / popularity come from Deezer, which
+  doesn't match every track (esp. obscure or non-Western releases), so the
+  imprint chart covers the matched subset.
+- **No audio-signal MIR yet** — energy/tempo/acousticness are model-estimated,
+  not extracted from audio. The `analysis` table reserves columns + a pgvector
+  embedding slot for a future Essentia pipeline.
 
 ## Self-hosting
 
-1. Create a Neon Postgres database → apply `db/schema.sql` (via `psql` or the script).
-2. Get your own keys: Google OAuth, Last.fm API, Google Gemini API.
-3. Deploy `apps/web` to Cloudflare Workers (`pnpm run deploy`) and register secrets.
+1. Create a Neon Postgres DB → apply `db/schema.sql`.
+2. Get your own keys: Google OAuth, Last.fm, Gemini (optional if using local
+   Qwen), Resend (optional, for email).
+3. Deploy `apps/web` to Cloudflare (`pnpm --filter web run deploy`) + register secrets.
 4. Build `apps/extension` and load it unpacked in Chrome.
 
-Full steps are in [DEPLOY.md](./DEPLOY.md). Self-hosters use **their own API keys**.
+Full steps in [DEPLOY.md](./DEPLOY.md). Self-hosters use **their own keys**.
 
 ## License
 

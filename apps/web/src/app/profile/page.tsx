@@ -1,9 +1,10 @@
-import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
+import { getGenreMap } from "@/lib/genreMap";
 import type { AiProfile, Persona } from "@/lib/profile";
 import { GenerateButton } from "./GenerateButton";
+import { GenreConstellation } from "./GenreConstellation";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -30,15 +31,11 @@ export default async function ProfilePage() {
     SELECT ai_profile, ai_generated_at FROM taste_profiles WHERE user_id = ${userId}`;
   const profile = (rows[0]?.ai_profile as AiProfile | undefined) ?? null;
   const generatedAt = rows[0]?.ai_generated_at as string | undefined;
+  const genreMap = await getGenreMap(userId);
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">AI 음악 심리분석</h1>
-        <Link href="/library" className="text-sm text-neutral-400 hover:text-white">
-          ← 라이브러리 분석
-        </Link>
-      </header>
+    <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
+      <h1 className="text-2xl font-bold">AI 음악 심리분석</h1>
 
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <p className="text-sm text-neutral-400">
@@ -53,12 +50,25 @@ export default async function ProfilePage() {
         )}
       </section>
 
+      {genreMap.nodes.length > 0 && (
+        <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+          <div>
+            <h2 className="font-semibold">취향 별자리</h2>
+            <p className="text-sm text-neutral-400">
+              장르를 별로, 같은 곡에 함께 태그된 장르를 선으로 잇습니다. 자주 섞어
+              듣는 장르일수록 가까이 모입니다.
+            </p>
+          </div>
+          <GenreConstellation data={genreMap} />
+        </section>
+      )}
+
       {profile ? (
         <ProfileView profile={profile} />
       ) : (
         <p className="text-sm text-neutral-500">
-          아직 분석이 없습니다. 위 버튼으로 생성하세요. (라이브러리 분석을 먼저 돌리면
-          장르·무드 데이터가 채워져 더 정확합니다.)
+          아직 AI 분석이 없습니다. 위 버튼으로 생성하세요. (라이브러리 분석을 먼저
+          돌리면 장르·무드 데이터가 채워져 더 정확합니다.)
         </p>
       )}
     </main>
@@ -69,7 +79,6 @@ function ProfileView({ profile: p }: { profile: AiProfile }) {
   return (
     <div className="flex flex-col gap-6">
       {p.persona && <PersonaCard persona={p.persona} score={p.diggingScore} />}
-      <Constellation genres={p.favoriteGenres ?? []} />
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <h2 className="text-xl font-bold text-indigo-300">{p.headline}</h2>
@@ -132,57 +141,6 @@ function PersonaCard({ persona, score }: { persona: Persona; score: number }) {
         <span className="font-bold text-emerald-300">디깅 {score}</span>
         <span className="text-white/40">/ 100</span>
       </div>
-    </section>
-  );
-}
-
-/** Top genres laid out as a star map — a playful "taste constellation". */
-function Constellation({ genres }: { genres: string[] }) {
-  const list = genres.slice(0, 8);
-  if (list.length === 0) return null;
-  const stars = list.map((g, i) => {
-    let h = 0;
-    for (let c = 0; c < g.length; c++) h = (h * 31 + g.charCodeAt(c)) | 0;
-    return {
-      g,
-      x: 14 + (Math.abs(h) % 72),
-      y: 16 + (Math.abs(h >> 8) % 60),
-      big: i < 3,
-    };
-  });
-  return (
-    <section className="rounded-2xl border border-white/10 bg-neutral-950 p-6">
-      <h3 className="mb-1 font-semibold">취향 별자리</h3>
-      <svg viewBox="0 0 100 80" className="w-full">
-        {stars.map((s, i) =>
-          i === 0 ? null : (
-            <line
-              key={`l${i}`}
-              x1={stars[i - 1].x}
-              y1={stars[i - 1].y}
-              x2={s.x}
-              y2={s.y}
-              stroke="#818cf8"
-              strokeOpacity="0.25"
-              strokeWidth="0.3"
-            />
-          ),
-        )}
-        {stars.map((s) => (
-          <g key={s.g}>
-            <circle cx={s.x} cy={s.y} r={s.big ? 1.3 : 0.8} fill="#c7d2fe" />
-            <text
-              x={s.x}
-              y={s.y - 2.4}
-              fontSize="2.7"
-              fill="#cbd5e1"
-              textAnchor="middle"
-            >
-              {s.g}
-            </text>
-          </g>
-        ))}
-      </svg>
     </section>
   );
 }

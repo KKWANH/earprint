@@ -154,6 +154,12 @@ export function AnalyzePanel() {
       {running && (
         <p className="text-xs text-neutral-500">
           ⚙ 이 창을 열어두면 빠르게 진행됩니다. 닫아도 백그라운드에서 계속돼요.
+          분석이 끝나면 메일로 알려드립니다. 📬
+        </p>
+      )}
+      {complete && (
+        <p className="text-xs text-neutral-500">
+          📬 분석 요약을 가입하신 메일로 보내드렸어요.
         </p>
       )}
       {job.enrich.total === 0 && (

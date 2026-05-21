@@ -1,10 +1,10 @@
-import Link from "next/link";
-import { auth, signIn } from "@/auth";
+import { auth, signIn, signOut } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getLibraryStats, type Count, type AudioFeelAgg } from "@/lib/library";
 import { AnalyzePanel } from "./AnalyzePanel";
 import { PreviewButton } from "./PreviewButton";
 import { ExcludeButton } from "./ExcludeButton";
+import { ResendReportButton } from "./ResendReportButton";
 
 export default async function LibraryPage() {
   const session = await auth();
@@ -29,23 +29,26 @@ export default async function LibraryPage() {
   const stats = await getLibraryStats(userId);
 
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-12">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">라이브러리 분석</h1>
-        <nav className="flex gap-4 text-sm text-neutral-400">
-          <Link href="/recommend" className="hover:text-white">
-            추천 월드컵
-          </Link>
-          <Link href="/profile" className="hover:text-white">
-            AI 심리분석
-          </Link>
-          <Link href="/connect" className="hover:text-white">
-            확장 연결
-          </Link>
-        </nav>
+    <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold">라이브러리 분석</h1>
+          <p className="truncate text-xs text-neutral-500">{session.user.email}</p>
+        </div>
+        <form
+          action={async () => {
+            "use server";
+            await signOut();
+          }}
+        >
+          <button className="shrink-0 rounded-md border border-white/10 px-3 py-1.5 text-xs text-neutral-400 hover:text-white">
+            로그아웃
+          </button>
+        </form>
       </header>
 
       <AnalyzePanel />
+      <ResendReportButton />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="좋아요 곡" value={stats.total.toLocaleString()} />

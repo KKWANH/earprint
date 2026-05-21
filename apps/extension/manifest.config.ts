@@ -15,7 +15,7 @@ import { defineManifest } from "@crxjs/vite-plugin";
 export default defineManifest({
   manifest_version: 3,
   name: "Playlist Analyzer — YT Music 수집기",
-  version: "0.4.0",
+  version: "0.8.1",
   description: "유튜브 뮤직 좋아요 곡 목록을 수집해 Playlist Analyzer 로 보냅니다.",
   permissions: ["storage", "tabs"],
   // Including the backend host exempts the extension's fetch from CORS.

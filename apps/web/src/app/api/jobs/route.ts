@@ -1,6 +1,7 @@
 import { ensureConnection } from "@/lib/connection";
 import { json } from "@/lib/http";
 import {
+  finishJob,
   getJob,
   getProgress,
   isComplete,
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
     } catch {
       /* the cron retries */
     }
-    if (await isComplete(userId)) await setJob(userId, "done");
+    if (await isComplete(userId)) await finishJob(userId);
     return json({ ok: true }, 200);
   }
   // Foreground accelerator — the open panel drives batches; the cron also runs.
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
       } catch {
         /* the cron retries */
       }
-      if (await isComplete(userId)) await setJob(userId, "done");
+      if (await isComplete(userId)) await finishJob(userId);
     }
     const [status, progress] = await Promise.all([getJob(userId), getProgress(userId)]);
     return json({ ok: true, status, phase: phaseOf(progress), ...progress }, 200);

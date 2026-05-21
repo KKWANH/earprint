@@ -48,10 +48,14 @@ function parseItem(item: Json): CapturedTrack | null {
   const artistRaw = runsText(flex[1]);
   const artist = artistRaw.split("•")[0]?.trim() || "Unknown";
 
+  // The liked-songs table also carries an album column (flexColumns[2]).
+  const album = runsText(flex[2]).split("•")[0]?.trim() ?? "";
+
   const fixed = (item["fixedColumns"] as unknown[]) ?? [];
   const durationMs = parseDuration(runsText(fixed[0]));
 
   const track: CapturedTrack = { videoId, title, artist };
+  if (album && album !== artist) track.album = album;
   if (durationMs != null) track.durationMs = durationMs;
   return track;
 }

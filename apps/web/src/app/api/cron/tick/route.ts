@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
 import { json } from "@/lib/http";
-import { isComplete, runAnalyzeBatch, setJob } from "@/lib/jobs";
+import { finishJob, isComplete, runAnalyzeBatch } from "@/lib/jobs";
 
 /**
  * Cron tick — driven by the separate cron worker every minute.
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     } catch {
       /* transient failure — retried next tick */
     }
-    if (await isComplete(userId)) await setJob(userId, "done");
+    if (await isComplete(userId)) await finishJob(userId);
   }
 
   return json({ ok: true, jobs: jobs.length, processed }, 200);
