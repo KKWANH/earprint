@@ -1,5 +1,4 @@
 import { searchDeezer } from "./deezer";
-import { getLastfmTags } from "./lastfm";
 
 /** One input row for save_enrichments(). */
 export interface EnrichmentRow {
@@ -13,22 +12,19 @@ export interface EnrichmentRow {
 }
 
 /**
- * Enriches a single track — calls Deezer (album, preview) + Last.fm (genres, moods) in parallel.
- * BPM is low priority and not collected here (handled in Phase 3 MIR).
+ * Phase 1 enrichment for a single track — Deezer only (album, preview, match).
+ * Genres/moods are left to the AI phase (Gemini), which is album-aware and
+ * more accurate; Last.fm's artist-level tags were too coarse and slow.
  */
 export async function enrichTrack(artist: string, title: string): Promise<EnrichmentRow> {
-  const [deezer, tags] = await Promise.all([
-    searchDeezer(artist, title),
-    getLastfmTags(artist, title),
-  ]);
-
+  const deezer = await searchDeezer(artist, title);
   return {
     deezerId: deezer.deezerId,
     album: deezer.album,
     previewUrl: deezer.previewUrl,
     bpm: null,
-    genres: tags.genres,
-    moods: tags.moods,
+    genres: null,
+    moods: null,
     matchConfidence: deezer.matchConfidence,
   };
 }

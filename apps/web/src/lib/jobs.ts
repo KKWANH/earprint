@@ -5,7 +5,8 @@ import { aiAnalyzeBatch } from "./aiAnalyze";
 export type JobStatus = "running" | "stopped" | "done" | "idle";
 export type Phase = "enrich" | "ai" | "done";
 
-const BATCH = 8;
+const ENRICH_BATCH = 16; // Deezer only — cheap per track
+const AI_BATCH = 15; // one Gemini call covers the whole batch
 
 /** Phase 1 — Deezer + Last.fm enrichment. Returns tracks processed. */
 export async function runEnrichBatch(userId: string): Promise<number> {
@@ -16,7 +17,7 @@ export async function runEnrichBatch(userId: string): Promise<number> {
     JOIN tracks t ON t.id = ut.track_id
     LEFT JOIN analysis a ON a.track_id = t.id AND a.analysis_version = 1
     WHERE ut.user_id = ${userId} AND a.id IS NULL
-    LIMIT ${BATCH}`;
+    LIMIT ${ENRICH_BATCH}`;
   if (batch.length > 0) {
     const rows = await Promise.all(
       batch.map(async (t) => ({
@@ -38,7 +39,7 @@ export async function runAiAnalysisBatch(userId: string): Promise<number> {
     JOIN user_tracks ut ON ut.track_id = a.track_id
     JOIN tracks t ON t.id = a.track_id
     WHERE ut.user_id = ${userId} AND a.analysis_version = 1 AND a.audio_feel IS NULL
-    LIMIT ${BATCH}`;
+    LIMIT ${AI_BATCH}`;
   if (batch.length > 0) {
     const rows = await aiAnalyzeBatch(
       batch.map((t) => ({

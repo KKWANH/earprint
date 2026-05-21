@@ -10,15 +10,15 @@ interface JobsResponse {
 }
 
 /**
- * Single start/stop control for the whole analysis pipeline
- * (phase 1: Deezer/Last.fm enrichment → phase 2: Gemini AI analysis).
- * Runs server-side (cron-driven) so it continues after the tab closes.
+ * Single start/stop control for the analysis pipeline (enrich → AI analysis).
+ * While the panel is open it drives batches in the foreground (fast); the
+ * cron keeps the job going after the tab closes.
  */
 export function AnalyzePanel() {
   const [job, setJob] = useState<JobsResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const looping = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -31,20 +31,39 @@ export function AnalyzePanel() {
 
   useEffect(() => {
     void refresh();
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
   }, [refresh]);
 
+  // Foreground accelerator — drive batches as fast as they finish while the
+  // panel is open. Each tick processes one batch and returns fresh progress.
   useEffect(() => {
-    const running = job?.status === "running";
-    if (running && !pollRef.current) {
-      pollRef.current = setInterval(() => void refresh(), 5000);
-    } else if (!running && pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, [job?.status, refresh]);
+    if (job?.status !== "running" || looping.current) return;
+    looping.current = true;
+    let cancelled = false;
+    void (async () => {
+      while (!cancelled) {
+        try {
+          const res = await fetch("/api/jobs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "tick" }),
+          });
+          if (!res.ok) break;
+          const d = (await res.json()) as JobsResponse;
+          if (cancelled) break;
+          setJob(d);
+          if (d.status !== "running") break;
+          if (d.enrich.remaining === 0 && d.ai.remaining === 0) break;
+        } catch {
+          break;
+        }
+      }
+      looping.current = false;
+    })();
+    return () => {
+      cancelled = true;
+      looping.current = false;
+    };
+  }, [job?.status]);
 
   async function act(action: "start" | "stop") {
     setBusy(true);
@@ -81,7 +100,7 @@ export function AnalyzePanel() {
   const pct = cur.total > 0 ? Math.round((done / cur.total) * 100) : 0;
   const phaseLabel =
     job.phase === "enrich"
-      ? "1/2 · 장르 · 앨범 보강"
+      ? "1/2 · 메타데이터 보강 (Deezer)"
       : job.phase === "ai"
         ? "2/2 · AI 정밀 분석 (장르 · 무드 · 오디오 특성)"
         : "완료";
@@ -93,7 +112,7 @@ export function AnalyzePanel() {
         <div>
           <h2 className="font-semibold">곡 분석</h2>
           <p className="text-sm text-neutral-400">
-            Deezer · Last.fm 으로 보강한 뒤 Gemini 가 장르 · 무드 · 오디오 특성을 정밀 분석합니다.
+            Deezer 로 보강한 뒤 Gemini 가 장르 · 무드 · 오디오 특성을 정밀 분석합니다.
           </p>
         </div>
         {complete ? (
@@ -134,7 +153,7 @@ export function AnalyzePanel() {
 
       {running && (
         <p className="text-xs text-neutral-500">
-          ⚙ 백그라운드에서 진행 중 — 창을 닫아도 계속됩니다 (분당 약 8곡).
+          ⚙ 이 창을 열어두면 빠르게 진행됩니다. 닫아도 백그라운드에서 계속돼요.
         </p>
       )}
       {job.enrich.total === 0 && (

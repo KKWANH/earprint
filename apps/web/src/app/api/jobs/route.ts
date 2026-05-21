@@ -51,5 +51,18 @@ export async function POST(req: Request) {
     if (await isComplete(userId)) await setJob(userId, "done");
     return json({ ok: true }, 200);
   }
-  return json({ error: "action must be start or stop" }, 400);
+  // Foreground accelerator — the open panel drives batches; the cron also runs.
+  if (body.action === "tick") {
+    if ((await getJob(userId)) === "running") {
+      try {
+        await runAnalyzeBatch(userId);
+      } catch {
+        /* the cron retries */
+      }
+      if (await isComplete(userId)) await setJob(userId, "done");
+    }
+    const [status, progress] = await Promise.all([getJob(userId), getProgress(userId)]);
+    return json({ ok: true, status, phase: phaseOf(progress), ...progress }, 200);
+  }
+  return json({ error: "action must be start, stop or tick" }, 400);
 }

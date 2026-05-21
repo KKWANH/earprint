@@ -1,26 +1,33 @@
 /**
  * Content script (ISOLATED world) — runs on music.youtube.com.
  *
- * Responsibilities:
- *  1. Parse and accumulate browse responses passed via postMessage from inject.ts
- *  2. On the popup's PA_SYNC request: flush the buffer, then auto-scroll until
- *     the list is fully loaded (detected via the continuation token)
- *  3. Forward the accumulated tracks to background
+ *  1. Accumulates browse responses passed via postMessage from inject.ts.
+ *  2. On the popup's PA_SYNC request: runs inject's deterministic "harvest"
+ *     (replays InnerTube continuations). Falls back to scroll-based loading
+ *     if the harvest can't run.
+ *  3. Forwards the accumulated tracks to background.
  */
 import type { CapturedTrack } from "@playlist-analyzer/shared";
 import { extractTracks, hasContinuation } from "./parser";
 
 const tracks = new Map<string, CapturedTrack>();
 let reachedEnd = false;
+let onHarvestDone: ((ok: boolean) => void) | null = null;
 
 window.addEventListener("message", (e: MessageEvent) => {
-  const msg = e.data as { __pa?: boolean; kind?: string; data?: unknown } | undefined;
-  if (e.source !== window || !msg?.__pa || msg.kind !== "browse") return;
-  const before = tracks.size;
-  extractTracks(msg.data, tracks);
-  // A response that delivered tracks but has no continuation token is the
-  // last page — that is the reliable signal that everything is loaded.
-  if (tracks.size > before && !hasContinuation(msg.data)) reachedEnd = true;
+  const msg = e.data as
+    | { __pa?: boolean; kind?: string; data?: unknown; ok?: boolean }
+    | undefined;
+  if (e.source !== window || !msg?.__pa) return;
+
+  if (msg.kind === "browse") {
+    const before = tracks.size;
+    extractTracks(msg.data, tracks);
+    if (tracks.size > before && !hasContinuation(msg.data)) reachedEnd = true;
+  } else if (msg.kind === "harvestDone") {
+    onHarvestDone?.(msg.ok === true);
+    onHarvestDone = null;
+  }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -37,15 +44,27 @@ async function runSync(): Promise<unknown> {
   if (!location.href.includes("list=LM")) {
     return { ok: false, error: "좋아요(LM) 플레이리스트 페이지에서 실행하세요" };
   }
+  tracks.clear();
   reachedEnd = false;
-  tracks.clear(); // fresh harvest each sync
 
-  // Re-receive the responses buffered in inject before this script loaded.
-  window.postMessage({ __pa: true, kind: "flush" }, "*");
-  await sleep(400);
+  // Primary: deterministic continuation replay (fast + complete).
+  const harvested = await new Promise<boolean>((resolve) => {
+    onHarvestDone = resolve;
+    window.postMessage({ __pa: true, kind: "harvest" }, "*");
+    setTimeout(() => {
+      if (onHarvestDone) {
+        onHarvestDone = null;
+        resolve(false);
+      }
+    }, 120000);
+  });
 
-  // Auto-scroll until the continuation token says we hit the end.
-  await autoScroll();
+  // Fallback: scroll-based loading if the harvest couldn't run.
+  if (!harvested) {
+    window.postMessage({ __pa: true, kind: "flush" }, "*");
+    await sleep(400);
+    await autoScroll();
+  }
 
   const list = [...tracks.values()];
   if (list.length === 0) {
@@ -54,12 +73,7 @@ async function runSync(): Promise<unknown> {
   return chrome.runtime.sendMessage({ type: "PA_UPLOAD", tracks: list });
 }
 
-/**
- * Scrolls to the bottom repeatedly until the last page is received.
- * Stops on `reachedEnd` (continuation token exhausted). The long stable-window
- * fallback only triggers if the end is never detected — it must be patient
- * enough not to false-stop while a continuation is still loading.
- */
+/** Fallback — scroll to the bottom until the continuation token is exhausted. */
 async function autoScroll(): Promise<void> {
   let lastCount = -1;
   let stable = 0;
