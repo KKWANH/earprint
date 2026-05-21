@@ -117,15 +117,34 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
 );
 CREATE INDEX IF NOT EXISTS idx_analysis_jobs_status ON analysis_jobs (status);
 
--- ── Phase 1: like sync (extension → backend) ──────────
--- Idempotently applies the track array (jsonb) sent by the extension. One call = one transaction.
--- Input element keys: videoId, title, artist, album, durationMs, likedAt
--- This is pre-normalization, so it creates one tracks row per videoId (resolved=false).
--- The Phase 2 resolver merges and normalizes them into canonical tracks.
+-- ── Track canonicalization ────────────────────────────
+-- Canonical key from (artist, title): lowercased, bracket content removed
+-- (so "(Live)", "(Official Video)" collapse), "feat." dropped, punctuation
+-- stripped, CJK kept. Live versions / re-uploads of one song share a key.
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS canon_key TEXT;
+
+CREATE OR REPLACE FUNCTION track_canon_key(p_artist text, p_title text)
+RETURNS text AS $$
+  SELECT
+    lower(regexp_replace(coalesce(p_artist, ''),
+          '[^[:alnum:]가-힣ぁ-んァ-ヶ一-龯]', '', 'g'))
+    || '|' ||
+    lower(regexp_replace(
+      regexp_replace(coalesce(p_title, ''), '\(.*?\)|\[.*?\]|feat\.?.*$', '', 'gi'),
+      '[^[:alnum:]가-힣ぁ-んァ-ヶ一-龯]', '', 'g'));
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE INDEX IF NOT EXISTS idx_tracks_canon ON tracks (canon_key);
+
+-- ── Like sync (extension → backend) ───────────────────
+-- Replace-mode: the extension sends the full liked list each time.
+-- Tracks are canonical — every videoId of one song (live versions, re-uploads,
+-- repeat likes) maps to a single tracks row; videoIds live in track_sources.
 CREATE OR REPLACE FUNCTION sync_liked_tracks(p_user_id uuid, p_tracks jsonb)
 RETURNS TABLE(new_tracks int, new_likes int, total int) AS $$
 DECLARE
   rec        jsonb;
+  v_ck       text;
   v_track_id uuid;
   v_ids      uuid[] := '{}';
 BEGIN
@@ -134,23 +153,21 @@ BEGIN
   total      := 0;
   FOR rec IN SELECT jsonb_array_elements(p_tracks) LOOP
     total := total + 1;
+    v_ck := track_canon_key(rec->>'artist', rec->>'title');
 
-    SELECT track_id INTO v_track_id
-      FROM track_sources
-      WHERE source = 'ytmusic' AND source_id = rec->>'videoId';
-
+    SELECT id INTO v_track_id FROM tracks WHERE canon_key = v_ck LIMIT 1;
     IF v_track_id IS NULL THEN
-      INSERT INTO tracks (title, artist, album, duration_ms)
-        VALUES (rec->>'title',
-                rec->>'artist',
+      INSERT INTO tracks (title, artist, album, duration_ms, canon_key)
+        VALUES (rec->>'title', rec->>'artist',
                 NULLIF(rec->>'album', ''),
-                NULLIF(rec->>'durationMs', '')::int)
+                NULLIF(rec->>'durationMs', '')::int, v_ck)
         RETURNING id INTO v_track_id;
-      INSERT INTO track_sources (track_id, source, source_id, raw_title, raw_artist)
-        VALUES (v_track_id, 'ytmusic', rec->>'videoId',
-                rec->>'title', rec->>'artist');
       new_tracks := new_tracks + 1;
     END IF;
+
+    INSERT INTO track_sources (track_id, source, source_id, raw_title, raw_artist)
+      VALUES (v_track_id, 'ytmusic', rec->>'videoId', rec->>'title', rec->>'artist')
+      ON CONFLICT (source, source_id) DO NOTHING;
 
     INSERT INTO user_tracks (user_id, track_id, source, liked_at)
       VALUES (p_user_id, v_track_id, 'ytmusic',
@@ -162,14 +179,57 @@ BEGIN
     v_ids := array_append(v_ids, v_track_id);
   END LOOP;
 
-  -- Replace mode: the extension sends the full liked list, so drop likes that
-  -- are no longer present. Guarded against a tiny/broken sync wiping the library.
+  -- Replace mode: drop likes no longer present (guarded against a tiny sync).
   IF total >= 20 THEN
     DELETE FROM user_tracks
     WHERE user_id = p_user_id AND source = 'ytmusic' AND track_id <> ALL(v_ids);
   END IF;
 
   RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ── One-time dedup of pre-canonical data ──────────────
+-- Backfills canon_key, then merges duplicate tracks (same canonical key) into
+-- one keeper, repointing sources / likes / analysis. Safe to re-run.
+CREATE OR REPLACE FUNCTION dedup_existing_tracks()
+RETURNS int AS $$
+DECLARE
+  grp    RECORD;
+  keeper uuid;
+  dups   uuid[];
+  merged int := 0;
+BEGIN
+  UPDATE tracks SET canon_key = track_canon_key(artist, title) WHERE canon_key IS NULL;
+
+  FOR grp IN
+    SELECT canon_key, array_agg(id ORDER BY resolved DESC, created_at) AS ids
+    FROM tracks
+    WHERE canon_key IS NOT NULL AND canon_key <> '|'
+    GROUP BY canon_key HAVING count(*) > 1
+  LOOP
+    keeper := grp.ids[1];
+    dups   := grp.ids[2:array_length(grp.ids, 1)];
+
+    UPDATE track_sources SET track_id = keeper WHERE track_id = ANY(dups);
+
+    -- repoint likes, dropping ones that would collide with the keeper's like
+    DELETE FROM user_tracks ut
+      WHERE ut.track_id = ANY(dups)
+        AND EXISTS (SELECT 1 FROM user_tracks k
+                    WHERE k.user_id = ut.user_id AND k.track_id = keeper);
+    UPDATE user_tracks SET track_id = keeper WHERE track_id = ANY(dups);
+
+    -- give the keeper an analysis row if it has none, then drop the rest
+    UPDATE analysis SET track_id = keeper
+      WHERE id = (SELECT id FROM analysis WHERE track_id = ANY(dups) LIMIT 1)
+        AND NOT EXISTS (SELECT 1 FROM analysis WHERE track_id = keeper);
+    DELETE FROM analysis WHERE track_id = ANY(dups);
+
+    DELETE FROM tracks WHERE id = ANY(dups);
+    merged := merged + array_length(dups, 1);
+  END LOOP;
+  RETURN merged;
 END;
 $$ LANGUAGE plpgsql;
 
