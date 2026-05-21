@@ -38,6 +38,7 @@ async function runSync(): Promise<unknown> {
     return { ok: false, error: "좋아요(LM) 플레이리스트 페이지에서 실행하세요" };
   }
   reachedEnd = false;
+  tracks.clear(); // fresh harvest each sync
 
   // Re-receive the responses buffered in inject before this script loaded.
   window.postMessage({ __pa: true, kind: "flush" }, "*");

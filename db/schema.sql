@@ -127,6 +127,7 @@ RETURNS TABLE(new_tracks int, new_likes int, total int) AS $$
 DECLARE
   rec        jsonb;
   v_track_id uuid;
+  v_ids      uuid[] := '{}';
 BEGIN
   new_tracks := 0;
   new_likes  := 0;
@@ -158,7 +159,16 @@ BEGIN
     IF FOUND THEN
       new_likes := new_likes + 1;
     END IF;
+    v_ids := array_append(v_ids, v_track_id);
   END LOOP;
+
+  -- Replace mode: the extension sends the full liked list, so drop likes that
+  -- are no longer present. Guarded against a tiny/broken sync wiping the library.
+  IF total >= 20 THEN
+    DELETE FROM user_tracks
+    WHERE user_id = p_user_id AND source = 'ytmusic' AND track_id <> ALL(v_ids);
+  END IF;
+
   RETURN NEXT;
 END;
 $$ LANGUAGE plpgsql;
@@ -320,8 +330,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ── AI analysis: merge Gemini genres/moods + store audio feel ────────
--- p_rows keys: trackId, genres, moods, audioFeel, realArtist, realTitle
+-- p_rows keys: trackId, genres, moods, audioFeel
 -- Gemini genres/moods are merged into existing (Last.fm) ones, not replaced.
+-- (Artist re-mapping is intentionally NOT applied — it mutated too many
+--  rows and corrupted artist counts; tracks.artist stays as captured.)
 CREATE OR REPLACE FUNCTION save_ai_analysis(p_rows jsonb)
 RETURNS int AS $$
 DECLARE
@@ -329,14 +341,6 @@ DECLARE
   n   int := 0;
 BEGIN
   FOR rec IN SELECT jsonb_array_elements(p_rows) LOOP
-    IF NULLIF(rec->>'realArtist', '') IS NOT NULL THEN
-      UPDATE tracks SET
-        artist     = rec->>'realArtist',
-        title      = COALESCE(NULLIF(rec->>'realTitle', ''), title),
-        updated_at = now()
-      WHERE id = (rec->>'trackId')::uuid;
-    END IF;
-
     UPDATE analysis SET
       genres = COALESCE(genres, '{}'::jsonb)
                || CASE WHEN jsonb_typeof(rec->'genres') = 'object'
