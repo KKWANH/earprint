@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
-import type { AiProfile } from "@/lib/profile";
+import type { AiProfile, Persona } from "@/lib/profile";
 import { GenerateButton } from "./GenerateButton";
 
 export default async function ProfilePage() {
@@ -68,6 +68,9 @@ export default async function ProfilePage() {
 function ProfileView({ profile: p }: { profile: AiProfile }) {
   return (
     <div className="flex flex-col gap-6">
+      {p.persona && <PersonaCard persona={p.persona} score={p.diggingScore} />}
+      <Constellation genres={p.favoriteGenres ?? []} />
+
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <h2 className="text-xl font-bold text-indigo-300">{p.headline}</h2>
         <p className="mt-2 text-sm leading-relaxed text-neutral-300">{p.personality}</p>
@@ -113,6 +116,74 @@ function ProfileView({ profile: p }: { profile: AiProfile }) {
         </section>
       )}
     </div>
+  );
+}
+
+function PersonaCard({ persona, score }: { persona: Persona; score: number }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-600/40 via-fuchsia-600/30 to-amber-500/25 p-8 text-center">
+      <div className="text-6xl">{persona.emoji}</div>
+      <p className="mt-3 text-xs uppercase tracking-[0.2em] text-white/60">
+        {persona.archetype}
+      </p>
+      <h2 className="mt-1 text-3xl font-extrabold leading-tight">{persona.name}</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-white/80">{persona.tagline}</p>
+      <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-black/40 px-4 py-1.5 text-sm">
+        <span className="font-bold text-emerald-300">디깅 {score}</span>
+        <span className="text-white/40">/ 100</span>
+      </div>
+    </section>
+  );
+}
+
+/** Top genres laid out as a star map — a playful "taste constellation". */
+function Constellation({ genres }: { genres: string[] }) {
+  const list = genres.slice(0, 8);
+  if (list.length === 0) return null;
+  const stars = list.map((g, i) => {
+    let h = 0;
+    for (let c = 0; c < g.length; c++) h = (h * 31 + g.charCodeAt(c)) | 0;
+    return {
+      g,
+      x: 14 + (Math.abs(h) % 72),
+      y: 16 + (Math.abs(h >> 8) % 60),
+      big: i < 3,
+    };
+  });
+  return (
+    <section className="rounded-2xl border border-white/10 bg-neutral-950 p-6">
+      <h3 className="mb-1 font-semibold">취향 별자리</h3>
+      <svg viewBox="0 0 100 80" className="w-full">
+        {stars.map((s, i) =>
+          i === 0 ? null : (
+            <line
+              key={`l${i}`}
+              x1={stars[i - 1].x}
+              y1={stars[i - 1].y}
+              x2={s.x}
+              y2={s.y}
+              stroke="#818cf8"
+              strokeOpacity="0.25"
+              strokeWidth="0.3"
+            />
+          ),
+        )}
+        {stars.map((s) => (
+          <g key={s.g}>
+            <circle cx={s.x} cy={s.y} r={s.big ? 1.3 : 0.8} fill="#c7d2fe" />
+            <text
+              x={s.x}
+              y={s.y - 2.4}
+              fontSize="2.7"
+              fill="#cbd5e1"
+              textAnchor="middle"
+            >
+              {s.g}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </section>
   );
 }
 
