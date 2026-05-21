@@ -171,9 +171,12 @@ BEGIN
       END IF;
     END IF;
 
-    INSERT INTO track_sources (track_id, source, source_id, raw_title, raw_artist)
-      VALUES (v_track_id, 'ytmusic', rec->>'videoId', rec->>'title', rec->>'artist')
-      ON CONFLICT (source, source_id) DO NOTHING;
+    -- videoId is optional (Takeout CSV import has artist/title but no id).
+    IF NULLIF(rec->>'videoId', '') IS NOT NULL THEN
+      INSERT INTO track_sources (track_id, source, source_id, raw_title, raw_artist)
+        VALUES (v_track_id, 'ytmusic', rec->>'videoId', rec->>'title', rec->>'artist')
+        ON CONFLICT (source, source_id) DO NOTHING;
+    END IF;
 
     INSERT INTO user_tracks (user_id, track_id, source, liked_at)
       VALUES (p_user_id, v_track_id, 'ytmusic',
