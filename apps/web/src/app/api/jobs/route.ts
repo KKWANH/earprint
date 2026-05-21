@@ -1,17 +1,15 @@
 import { ensureConnection } from "@/lib/connection";
 import { json } from "@/lib/http";
 import {
-  getJobs,
+  getJob,
   getProgress,
-  remainingFor,
-  runBatch,
+  isComplete,
+  phaseOf,
+  runAnalyzeBatch,
   setJob,
-  type JobKind,
 } from "@/lib/jobs";
 
-const KINDS = new Set<JobKind>(["enrich", "ai_enrich", "audio_feel"]);
-
-/** Current status + progress for both background jobs. */
+/** Status + progress of the single analyze job (enrich → AI analysis). */
 export async function GET() {
   let userId: string;
   try {
@@ -19,18 +17,11 @@ export async function GET() {
   } catch {
     return json({ error: "unauthorized" }, 401);
   }
-  const [jobs, progress] = await Promise.all([getJobs(userId), getProgress(userId)]);
-  return json(
-    {
-      enrich: { status: jobs.enrich, ...progress.enrich },
-      aiEnrich: { status: jobs.ai_enrich, ...progress.ai_enrich },
-      audioFeel: { status: jobs.audio_feel, ...progress.audio_feel },
-    },
-    200,
-  );
+  const [status, progress] = await Promise.all([getJob(userId), getProgress(userId)]);
+  return json({ status, phase: phaseOf(progress), ...progress }, 200);
 }
 
-/** Start or stop a background job — { kind, action }. */
+/** Start or stop the analyze job — { action }. */
 export async function POST(req: Request) {
   let userId: string;
   try {
@@ -39,31 +30,26 @@ export async function POST(req: Request) {
     return json({ error: "unauthorized" }, 401);
   }
 
-  let body: { kind?: string; action?: string };
+  let body: { action?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return json({ error: "invalid json" }, 400);
   }
-  const kind = body.kind as JobKind;
-  if (!KINDS.has(kind) || (body.action !== "start" && body.action !== "stop")) {
-    return json({ error: "kind and action required" }, 400);
-  }
 
   if (body.action === "stop") {
-    await setJob(userId, kind, "stopped");
+    await setJob(userId, "stopped");
     return json({ ok: true }, 200);
   }
-
-  // start: mark running, then run one batch now for instant feedback.
-  await setJob(userId, kind, "running");
-  try {
-    await runBatch(kind, userId);
-  } catch {
-    /* a failed first batch is retried by the cron */
+  if (body.action === "start") {
+    await setJob(userId, "running");
+    try {
+      await runAnalyzeBatch(userId); // first batch now for instant feedback
+    } catch {
+      /* the cron retries */
+    }
+    if (await isComplete(userId)) await setJob(userId, "done");
+    return json({ ok: true }, 200);
   }
-  if (remainingFor(kind, await getProgress(userId)) === 0) {
-    await setJob(userId, kind, "done");
-  }
-  return json({ ok: true }, 200);
+  return json({ error: "action must be start or stop" }, 400);
 }

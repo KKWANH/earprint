@@ -2,7 +2,7 @@ import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getLibraryStats, type Count, type AudioFeelAgg } from "@/lib/library";
-import { JobPanel } from "./JobPanel";
+import { AnalyzePanel } from "./AnalyzePanel";
 import { PreviewButton } from "./PreviewButton";
 import { ExcludeButton } from "./ExcludeButton";
 
@@ -45,24 +45,7 @@ export default async function LibraryPage() {
         </nav>
       </header>
 
-      <JobPanel
-        kind="enrich"
-        title="트랙 분석"
-        description="Deezer · Last.fm 으로 장르 · 무드 · 앨범 · 미리듣기를 보강합니다."
-        accent="bg-emerald-500"
-      />
-      <JobPanel
-        kind="ai_enrich"
-        title="AI 보강"
-        description="API 가 못 채운 곡을 Gemini 가 추론하고, 뮤비·모음 채널을 원곡 아티스트로 재매핑합니다."
-        accent="bg-indigo-500"
-      />
-      <JobPanel
-        kind="audio_feel"
-        title="오디오 특성 분석"
-        description="Gemini 가 곡별 에너지 · 템포 · 어쿠스틱 정도와 악기 특징을 추정합니다."
-        accent="bg-sky-500"
-      />
+      <AnalyzePanel />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="좋아요 곡" value={stats.total.toLocaleString()} />

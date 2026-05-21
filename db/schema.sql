@@ -319,8 +319,47 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ── AI analysis: merge Gemini genres/moods + store audio feel ────────
+-- p_rows keys: trackId, genres, moods, audioFeel, realArtist, realTitle
+-- Gemini genres/moods are merged into existing (Last.fm) ones, not replaced.
+CREATE OR REPLACE FUNCTION save_ai_analysis(p_rows jsonb)
+RETURNS int AS $$
+DECLARE
+  rec jsonb;
+  n   int := 0;
+BEGIN
+  FOR rec IN SELECT jsonb_array_elements(p_rows) LOOP
+    IF NULLIF(rec->>'realArtist', '') IS NOT NULL THEN
+      UPDATE tracks SET
+        artist     = rec->>'realArtist',
+        title      = COALESCE(NULLIF(rec->>'realTitle', ''), title),
+        updated_at = now()
+      WHERE id = (rec->>'trackId')::uuid;
+    END IF;
+
+    UPDATE analysis SET
+      genres = COALESCE(genres, '{}'::jsonb)
+               || CASE WHEN jsonb_typeof(rec->'genres') = 'object'
+                       THEN rec->'genres' ELSE '{}'::jsonb END,
+      moods  = COALESCE(moods, '{}'::jsonb)
+               || CASE WHEN jsonb_typeof(rec->'moods') = 'object'
+                       THEN rec->'moods' ELSE '{}'::jsonb END,
+      audio_feel = CASE WHEN jsonb_typeof(rec->'audioFeel') = 'object'
+                        THEN rec->'audioFeel' ELSE '{}'::jsonb END,
+      source_flags = COALESCE(source_flags, '{}'::jsonb) || '{"ai":"gemini"}'::jsonb
+    WHERE track_id = (rec->>'trackId')::uuid AND analysis_version = 1;
+
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Obsolete per-phase job rows (replaced by the single 'analyze' job).
+DELETE FROM background_jobs WHERE kind IN ('enrich', 'ai_enrich', 'audio_feel');
+
 -- ── Background jobs (cron-driven enrichment that survives tab close) ──
--- kind:   'enrich' | 'ai_enrich' | 'audio_feel'
+-- kind:   'analyze'  (single 2-phase job: enrich → ai analysis)
 -- status: 'running' | 'stopped' | 'done'
 CREATE TABLE IF NOT EXISTS background_jobs (
   user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

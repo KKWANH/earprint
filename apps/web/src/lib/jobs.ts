@@ -1,14 +1,13 @@
 import { getSql } from "./db";
 import { enrichTrack } from "./enrich";
-import { aiEnrichBatch } from "./aiEnrich";
-import { audioFeelBatch } from "./audioFeel";
+import { aiAnalyzeBatch } from "./aiAnalyze";
 
-export type JobKind = "enrich" | "ai_enrich" | "audio_feel";
 export type JobStatus = "running" | "stopped" | "done" | "idle";
+export type Phase = "enrich" | "ai" | "done";
 
 const BATCH = 8;
 
-/** Process one enrichment batch (Deezer + Last.fm). Returns tracks processed. */
+/** Phase 1 — Deezer + Last.fm enrichment. Returns tracks processed. */
 export async function runEnrichBatch(userId: string): Promise<number> {
   const sql = getSql();
   const batch = await sql`
@@ -30,31 +29,8 @@ export async function runEnrichBatch(userId: string): Promise<number> {
   return batch.length;
 }
 
-/** Process one AI-enrichment batch (Gemini fills missing genres). */
-export async function runAiEnrichBatch(userId: string): Promise<number> {
-  const sql = getSql();
-  const batch = await sql`
-    SELECT t.id, t.title, t.artist
-    FROM analysis a
-    JOIN user_tracks ut ON ut.track_id = a.track_id
-    JOIN tracks t ON t.id = a.track_id
-    WHERE ut.user_id = ${userId} AND a.analysis_version = 1 AND a.genres IS NULL
-    LIMIT ${BATCH}`;
-  if (batch.length > 0) {
-    const rows = await aiEnrichBatch(
-      batch.map((t) => ({
-        id: t.id as string,
-        artist: t.artist as string,
-        title: t.title as string,
-      })),
-    );
-    await sql`SELECT save_ai_enrichments(${JSON.stringify(rows)}::jsonb)`;
-  }
-  return batch.length;
-}
-
-/** Process one audio-feel batch (Gemini estimates energy/tempo/acousticness/instruments). */
-export async function runAudioFeelBatch(userId: string): Promise<number> {
+/** Phase 2 — Gemini refines genres/moods and estimates audio feel for every track. */
+export async function runAiAnalysisBatch(userId: string): Promise<number> {
   const sql = getSql();
   const batch = await sql`
     SELECT t.id, t.title, t.artist
@@ -64,72 +40,69 @@ export async function runAudioFeelBatch(userId: string): Promise<number> {
     WHERE ut.user_id = ${userId} AND a.analysis_version = 1 AND a.audio_feel IS NULL
     LIMIT ${BATCH}`;
   if (batch.length > 0) {
-    const rows = await audioFeelBatch(
+    const rows = await aiAnalyzeBatch(
       batch.map((t) => ({
         id: t.id as string,
         artist: t.artist as string,
         title: t.title as string,
       })),
     );
-    await sql`SELECT save_audio_feel(${JSON.stringify(rows)}::jsonb)`;
+    await sql`SELECT save_ai_analysis(${JSON.stringify(rows)}::jsonb)`;
   }
   return batch.length;
 }
 
-export interface KindProgress {
-  total: number;
-  remaining: number;
+export interface Progress {
+  enrich: { total: number; remaining: number };
+  ai: { total: number; remaining: number };
 }
 
-/** Progress counts for every job kind. */
-export async function getProgress(
-  userId: string,
-): Promise<Record<JobKind, KindProgress>> {
+export async function getProgress(userId: string): Promise<Progress> {
   const sql = getSql();
   const r = await sql`
-    SELECT
-      count(*)::int                                                    AS enrich_total,
-      count(*) FILTER (WHERE a.id IS NULL)::int                         AS enrich_remaining,
-      count(a.id)::int                                                  AS analyzed,
-      count(*) FILTER (WHERE a.id IS NOT NULL AND a.genres IS NULL)::int AS ai_remaining,
-      count(*) FILTER (WHERE a.id IS NOT NULL AND a.audio_feel IS NULL)::int AS af_remaining
+    SELECT count(*)::int                       AS enrich_total,
+           count(*) FILTER (WHERE a.id IS NULL)::int AS enrich_remaining,
+           count(a.id)::int                    AS ai_total,
+           count(*) FILTER (WHERE a.id IS NOT NULL AND a.audio_feel IS NULL)::int AS ai_remaining
     FROM user_tracks ut
     LEFT JOIN analysis a ON a.track_id = ut.track_id AND a.analysis_version = 1
     WHERE ut.user_id = ${userId}`;
   return {
     enrich: { total: r[0].enrich_total as number, remaining: r[0].enrich_remaining as number },
-    ai_enrich: { total: r[0].analyzed as number, remaining: r[0].ai_remaining as number },
-    audio_feel: { total: r[0].analyzed as number, remaining: r[0].af_remaining as number },
+    ai: { total: r[0].ai_total as number, remaining: r[0].ai_remaining as number },
   };
 }
 
-export function remainingFor(kind: JobKind, p: Record<JobKind, KindProgress>): number {
-  return p[kind].remaining;
+export function phaseOf(p: Progress): Phase {
+  if (p.enrich.remaining > 0) return "enrich";
+  if (p.ai.remaining > 0) return "ai";
+  return "done";
 }
 
-/** Run one batch for the given kind. */
-export function runBatch(kind: JobKind, userId: string): Promise<number> {
-  if (kind === "enrich") return runEnrichBatch(userId);
-  if (kind === "ai_enrich") return runAiEnrichBatch(userId);
-  return runAudioFeelBatch(userId);
+/** Runs one batch of the first phase that still has work. */
+export async function runAnalyzeBatch(userId: string): Promise<number> {
+  const phase = phaseOf(await getProgress(userId));
+  if (phase === "enrich") return runEnrichBatch(userId);
+  if (phase === "ai") return runAiAnalysisBatch(userId);
+  return 0;
 }
 
-export async function getJobs(userId: string): Promise<Record<JobKind, JobStatus>> {
+export async function isComplete(userId: string): Promise<boolean> {
+  const p = await getProgress(userId);
+  return p.enrich.total > 0 && phaseOf(p) === "done";
+}
+
+export async function getJob(userId: string): Promise<JobStatus> {
   const sql = getSql();
-  const rows = await sql`SELECT kind, status FROM background_jobs WHERE user_id = ${userId}`;
-  const out: Record<JobKind, JobStatus> = {
-    enrich: "idle",
-    ai_enrich: "idle",
-    audio_feel: "idle",
-  };
-  for (const r of rows) out[r.kind as JobKind] = r.status as JobStatus;
-  return out;
+  const rows = await sql`
+    SELECT status FROM background_jobs WHERE user_id = ${userId} AND kind = 'analyze'`;
+  return rows.length > 0 ? (rows[0].status as JobStatus) : "idle";
 }
 
-export async function setJob(userId: string, kind: JobKind, status: JobStatus): Promise<void> {
+export async function setJob(userId: string, status: JobStatus): Promise<void> {
   const sql = getSql();
   await sql`
     INSERT INTO background_jobs (user_id, kind, status, updated_at)
-    VALUES (${userId}, ${kind}, ${status}, now())
+    VALUES (${userId}, 'analyze', ${status}, now())
     ON CONFLICT (user_id, kind) DO UPDATE SET status = ${status}, updated_at = now()`;
 }
