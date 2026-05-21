@@ -28,7 +28,7 @@ export default async function RecommendPage() {
 
   const [unrated, stat] = await Promise.all([
     sql`
-      SELECT id, artist, title, album, deezer_id, seed_track, score
+      SELECT id, artist, title, album, cover_url, deezer_id, seed_track, score, blurb
       FROM recommendations
       WHERE user_id = ${userId} AND rating IS NULL
       ORDER BY score DESC NULLS LAST, created_at
@@ -45,9 +45,11 @@ export default async function RecommendPage() {
     artist: r.artist as string,
     title: r.title as string,
     album: (r.album as string) ?? null,
+    coverUrl: (r.cover_url as string) ?? null,
     deezerId: (r.deezer_id as number) ?? null,
     seedTrack: (r.seed_track as string) ?? null,
     score: (r.score as number) ?? null,
+    blurb: (r.blurb as string) ?? null,
   }));
 
   return (

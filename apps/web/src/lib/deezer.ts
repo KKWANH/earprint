@@ -10,6 +10,7 @@ const API = "https://api.deezer.com";
 export interface DeezerMatch {
   deezerId: number | null;
   album: string | null;
+  coverUrl: string | null;
   previewUrl: string | null;
   matchConfidence: number;
 }
@@ -17,6 +18,7 @@ export interface DeezerMatch {
 const EMPTY: DeezerMatch = {
   deezerId: null,
   album: null,
+  coverUrl: null,
   previewUrl: null,
   matchConfidence: 0,
 };
@@ -55,6 +57,7 @@ export async function searchDeezer(artist: string, title: string): Promise<Deeze
   return {
     deezerId: hit.id ?? null,
     album: hit.album?.title ?? null,
+    coverUrl: hit.album?.cover_big || hit.album?.cover_medium || null,
     previewUrl: hit.preview || null,
     matchConfidence: scoreMatch(title, hit.title ?? ""),
   };

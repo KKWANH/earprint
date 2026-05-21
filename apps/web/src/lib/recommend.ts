@@ -7,6 +7,7 @@ export interface RecRow {
   artist: string;
   title: string;
   album: string | null;
+  coverUrl: string | null;
   deezerId: number | null;
   previewUrl: string | null;
   seedTrack: string;
@@ -65,7 +66,8 @@ export async function generateRecommendations(userId: string): Promise<RecRow[]>
       FROM recommendations WHERE user_id = ${userId}`,
     sql`
       SELECT DISTINCT lower(artist) AS a
-      FROM recommendations WHERE user_id = ${userId} AND rating = 'dislike'`,
+      FROM recommendations
+      WHERE user_id = ${userId} AND rating IN ('dislike', 'strong_dislike')`,
   ]);
   if (seeds.length === 0) return [];
 
@@ -106,6 +108,7 @@ export async function generateRecommendations(userId: string): Promise<RecRow[]>
       artist: c.artist,
       title: c.title,
       album: d.album,
+      coverUrl: d.coverUrl,
       deezerId: d.deezerId,
       previewUrl: d.previewUrl,
       seedTrack: c.seedTrack,
