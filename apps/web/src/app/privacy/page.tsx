@@ -19,7 +19,7 @@ const en = {
     {
       heading: "What we collect",
       body: [
-        "Account information — your email address and name, provided by Google when you sign in.",
+        "Account information — your email address, name and a Google account identifier, provided by Google when you sign in.",
         "Music data — the songs you marked as “liked” on YouTube Music (title, artist, album). This list is collected from your own logged-in session by the Earprint Chrome extension and uploaded to your account.",
         "Your activity in Earprint — the ratings and optional notes you give to recommendations.",
       ],
@@ -28,6 +28,7 @@ const en = {
       heading: "How we use it",
       body: [
         "Your data is used solely to analyze your music taste and produce your library dashboard, Taste DNA, psychology profile and recommendations. We do not sell your data and we do not use it for advertising.",
+        "Earprint's use of information received from Google APIs adheres to the Google API Services User Data Policy, including its Limited Use requirements.",
       ],
     },
     {
@@ -47,9 +48,16 @@ const en = {
       ],
     },
     {
+      heading: "Data security",
+      body: [
+        "Your data is stored in a managed PostgreSQL database (Neon) and served over encrypted connections. Access is limited to operating Earprint.",
+      ],
+    },
+    {
       heading: "Data retention and your rights",
       body: [
-        "Your data is kept while your account exists. You can delete your account and all associated data at any time from within the app, or by contacting us.",
+        "Your data is kept while your account exists. You can permanently delete your account and all associated data at any time from the Library page in the app — deletion is immediate and cannot be undone.",
+        "You can also revoke Earprint's access to your Google account at any time from your Google Account settings (Security → Third-party access).",
       ],
     },
     {
@@ -82,7 +90,7 @@ const ko: typeof en = {
     {
       heading: "수집하는 정보",
       body: [
-        "계정 정보 — Google 로그인 시 제공되는 이메일 주소와 이름.",
+        "계정 정보 — Google 로그인 시 제공되는 이메일 주소·이름·Google 계정 식별자.",
         "음악 데이터 — 유튜브 뮤직에서 “좋아요”한 곡(제목·아티스트·앨범). 이 목록은 Earprint 크롬 확장프로그램이 사용자 본인의 로그인 세션에서 수집해 계정에 업로드합니다.",
         "이용 활동 — 추천에 매긴 평가와 선택적으로 남긴 메모.",
       ],
@@ -91,6 +99,7 @@ const ko: typeof en = {
       heading: "정보의 이용",
       body: [
         "수집한 정보는 오직 음악 취향을 분석해 라이브러리 대시보드·취향 DNA·심리분석·추천을 생성하는 데에만 사용됩니다. 데이터를 판매하지 않으며 광고에 사용하지 않습니다.",
+        "Earprint 가 Google API 로부터 받은 정보의 이용은 Google API 서비스 사용자 데이터 정책(제한적 사용 요건 포함)을 준수합니다.",
       ],
     },
     {
@@ -110,9 +119,16 @@ const ko: typeof en = {
       ],
     },
     {
+      heading: "데이터 보안",
+      body: [
+        "데이터는 관리형 PostgreSQL 데이터베이스(Neon)에 저장되며 암호화된 연결로 전송됩니다. 접근은 Earprint 운영 목적으로 제한됩니다.",
+      ],
+    },
+    {
       heading: "데이터 보관 및 이용자 권리",
       body: [
-        "데이터는 계정이 유지되는 동안 보관됩니다. 앱 내에서 또는 문의를 통해 언제든지 계정과 관련 데이터 전체를 삭제할 수 있습니다.",
+        "데이터는 계정이 유지되는 동안 보관됩니다. 앱의 라이브러리 페이지에서 언제든지 계정과 관련 데이터 전체를 영구 삭제할 수 있으며, 삭제는 즉시 이루어지고 되돌릴 수 없습니다.",
+        "Google 계정 설정(보안 → 서드파티 액세스)에서 언제든지 Earprint 의 접근 권한을 철회할 수 있습니다.",
       ],
     },
     {

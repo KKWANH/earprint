@@ -81,6 +81,13 @@ const en = {
   previewTitle: "30-second preview",
   dataDisclaimer:
     "Stats are derived from your YouTube Music library — track matching and genre/mood data are best-effort, so figures are approximate.",
+  dangerZoneTitle: "Delete account",
+  dangerZoneDesc:
+    "Permanently delete your account and all associated data — liked tracks, analysis, recommendations and your psychology profile.",
+  deleteAccount: "Delete my account & data",
+  deleteConfirmWarn: "This is permanent and cannot be undone. Are you sure?",
+  deleteConfirmYes: "Yes, delete everything",
+  deleteCancel: "Cancel",
 };
 
 const ko: typeof en = {
@@ -156,6 +163,13 @@ const ko: typeof en = {
   previewTitle: "30초 미리듣기",
   dataDisclaimer:
     "통계는 YouTube Music 라이브러리에서 추출한 것으로, 곡 매칭·장르/무드 데이터의 특성상 수치는 근사값입니다.",
+  dangerZoneTitle: "계정 삭제",
+  dangerZoneDesc:
+    "계정과 모든 관련 데이터(좋아요 곡·분석·추천·심리분석 프로필)를 영구 삭제합니다.",
+  deleteAccount: "내 계정·데이터 삭제",
+  deleteConfirmWarn: "영구 삭제되며 되돌릴 수 없습니다. 정말 진행할까요?",
+  deleteConfirmYes: "네, 전부 삭제",
+  deleteCancel: "취소",
 };
 
 export function libraryDict(locale: Locale) {
