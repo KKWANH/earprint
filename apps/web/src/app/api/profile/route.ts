@@ -1,7 +1,7 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
-import { generateProfile, translateProfile } from "@/lib/profile";
+import { generateProfile } from "@/lib/profile";
 import { newShareId } from "@/lib/share";
 import { GEMINI_CAP_ERROR, isWhitelisted } from "@/lib/usage";
 import { json } from "@/lib/http";
@@ -18,16 +18,14 @@ export async function POST() {
   try {
     const locale = await getLocale();
     const bypassCap = await isWhitelisted(userId);
-    // Generate once, then translate — the profile is stored in both languages
-    // so switching the UI language later needs no Gemini call.
-    const profile = await generateProfile(userId, locale, bypassCap);
-    const translated = await translateProfile(
-      profile,
-      locale === "ko" ? "en" : "ko",
-      bypassCap,
-    );
-    const en = locale === "en" ? profile : translated;
-    const ko = locale === "ko" ? profile : translated;
+    // Generate the profile natively in each language (same Gemini-call count as
+    // generate-then-translate, but the Korean reads as written Korean rather
+    // than a machine translation).
+    const [en, ko] = await Promise.all([
+      generateProfile(userId, "en", bypassCap),
+      generateProfile(userId, "ko", bypassCap),
+    ]);
+    const profile = locale === "ko" ? ko : en;
     const sql = getSql();
     // share_id is set once and kept stable so a shared link never breaks.
     await sql`
