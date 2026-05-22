@@ -17,14 +17,17 @@ export function GenerateButton({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [capped, setCapped] = useState(false);
 
   async function go() {
     setBusy(true);
     setError(null);
+    setCapped(false);
     try {
       const res = await fetch("/api/profile", { method: "POST" });
-      const d = (await res.json()) as { ok?: boolean; error?: string };
-      if (!d.ok) setError(d.error ?? `${t.errorStatus} ${res.status}`);
+      const d = (await res.json()) as { ok?: boolean; error?: string; capped?: boolean };
+      if (d.capped) setCapped(true);
+      else if (!d.ok) setError(d.error ?? `${t.errorStatus} ${res.status}`);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -42,6 +45,7 @@ export function GenerateButton({
       >
         {busy ? t.generating : hasProfile ? t.reanalyze : t.generate}
       </button>
+      {capped && <p className="text-xs text-amber-400">{t.capped}</p>}
       {error && <p className="text-xs text-red-400">{t.errorPrefix} {error}</p>}
     </div>
   );

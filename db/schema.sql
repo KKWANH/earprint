@@ -539,3 +539,12 @@ CREATE TABLE IF NOT EXISTS background_jobs (
 ALTER TABLE background_jobs ADD COLUMN IF NOT EXISTS notified_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_background_jobs_running
   ON background_jobs (status) WHERE status = 'running';
+
+-- ── API usage counters — a global daily cap on paid calls (Gemini) so a
+--    public launch can't run away with cost. One row per (day, kind). ──
+CREATE TABLE IF NOT EXISTS api_usage (
+  day   DATE NOT NULL,
+  kind  TEXT NOT NULL,
+  count INT  NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, kind)
+);

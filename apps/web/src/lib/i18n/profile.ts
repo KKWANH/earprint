@@ -38,6 +38,8 @@ const en = {
   feelAcoustic: "Acoustic",
   localeMismatch:
     "This analysis was written in another language — regenerate it to read it in English.",
+  capped:
+    "🌙 Today's shared AI limit was reached — please try generating your analysis again tomorrow.",
 };
 
 const ko: typeof en = {
@@ -78,6 +80,8 @@ const ko: typeof en = {
   feelAcoustic: "어쿠스틱",
   localeMismatch:
     "이 분석은 다른 언어로 작성되었습니다 — 한국어로 보려면 다시 생성하세요.",
+  capped:
+    "🌙 오늘의 공용 AI 한도에 도달했어요 — 내일 다시 분석을 생성해 주세요.",
 };
 
 export function profileDict(locale: Locale) {

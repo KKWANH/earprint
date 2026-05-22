@@ -2,6 +2,7 @@ import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { generateProfile, translateProfile } from "@/lib/profile";
+import { GEMINI_CAP_ERROR } from "@/lib/usage";
 import { json } from "@/lib/http";
 
 /** Generates a music psychology/taste profile via Gemini and stores it in taste_profiles. */
@@ -36,6 +37,9 @@ export async function POST() {
             ai_locale = EXCLUDED.ai_locale`;
     return json({ ok: true }, 200);
   } catch (e) {
+    if (String(e).includes(GEMINI_CAP_ERROR)) {
+      return json({ ok: false, capped: true }, 200);
+    }
     return json({ ok: false, error: String(e) }, 500);
   }
 }

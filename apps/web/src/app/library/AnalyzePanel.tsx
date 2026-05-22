@@ -9,6 +9,7 @@ interface JobsResponse {
   phase: "enrich" | "ai" | "done";
   enrich: { total: number; remaining: number };
   ai: { total: number; remaining: number };
+  capped?: boolean; // batch stopped on the daily AI limit
 }
 
 /**
@@ -21,6 +22,7 @@ export function AnalyzePanel({ locale }: { locale: Locale }) {
   const [job, setJob] = useState<JobsResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [capped, setCapped] = useState(false);
   const looping = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -54,6 +56,10 @@ export function AnalyzePanel({ locale }: { locale: Locale }) {
           const d = (await res.json()) as JobsResponse;
           if (cancelled) break;
           setJob(d);
+          if (d.capped) {
+            setCapped(true);
+            break;
+          }
           if (d.status !== "running") break;
           if (d.enrich.remaining === 0 && d.ai.remaining === 0) break;
         } catch {
@@ -71,16 +77,19 @@ export function AnalyzePanel({ locale }: { locale: Locale }) {
   async function act(action: "start" | "stop") {
     setBusy(true);
     setError(null);
+    if (action === "start") setCapped(false);
     try {
       const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      if (!res.ok) {
-        const d = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(d.error ?? t.errorCode(res.status));
-      }
+      const d = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        capped?: boolean;
+      };
+      if (!res.ok) setError(d.error ?? t.errorCode(res.status));
+      else if (d.capped) setCapped(true);
     } catch (e) {
       setError(String(e));
     }
@@ -154,7 +163,10 @@ export function AnalyzePanel({ locale }: { locale: Locale }) {
         </>
       )}
 
-      {running && (
+      {capped && (
+        <p className="text-xs text-amber-400">{t.cappedNote}</p>
+      )}
+      {running && !capped && (
         <p className="text-xs text-neutral-500">
           {t.runningHint}
         </p>

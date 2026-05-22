@@ -56,6 +56,8 @@ const en = {
     "⚙ Keep this window open to go faster. It keeps running in the background if you close it. We'll email you when the analysis finishes. 📬",
   completeHint:
     "📬 We've sent the analysis summary to your registered email.",
+  cappedNote:
+    "🌙 AI analysis is paused — today's shared analysis limit was reached. It resumes automatically tomorrow; the data collected so far is kept.",
   noSyncedTracks: "No synced tracks.",
   errorPrefix: "Error:",
   errorCode: (code: number) => `Error ${code}`,
@@ -133,6 +135,8 @@ const ko: typeof en = {
   runningHint:
     "⚙ 이 창을 열어두면 빠르게 진행됩니다. 닫아도 백그라운드에서 계속돼요. 분석이 끝나면 메일로 알려드립니다. 📬",
   completeHint: "📬 분석 요약을 가입하신 메일로 보내드렸어요.",
+  cappedNote:
+    "🌙 오늘의 공용 분석 한도에 도달해 AI 분석을 잠시 멈췄어요. 내일 자동으로 이어집니다 — 지금까지 수집된 데이터는 그대로 유지돼요.",
   noSyncedTracks: "동기화된 곡이 없습니다.",
   errorPrefix: "오류:",
   errorCode: (code: number) => `오류 ${code}`,
