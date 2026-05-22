@@ -77,6 +77,8 @@ const en = {
   excludeMark: "✕",
   // PreviewButton
   previewTitle: "30-second preview",
+  dataDisclaimer:
+    "Stats are derived from your YouTube Music library — track matching and genre/mood data are best-effort, so figures are approximate.",
 };
 
 const ko: typeof en = {
@@ -148,6 +150,8 @@ const ko: typeof en = {
   excludeRestore: "복원",
   excludeMark: "✕",
   previewTitle: "30초 미리듣기",
+  dataDisclaimer:
+    "통계는 YouTube Music 라이브러리에서 추출한 것으로, 곡 매칭·장르/무드 데이터의 특성상 수치는 근사값입니다.",
 };
 
 export function libraryDict(locale: Locale) {

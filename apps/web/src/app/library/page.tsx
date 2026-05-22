@@ -156,6 +156,8 @@ export default async function LibraryPage() {
           </table>
         </div>
       </section>
+
+      <p className="text-xs leading-relaxed text-neutral-600">{t.dataDisclaimer}</p>
     </main>
   );
 }

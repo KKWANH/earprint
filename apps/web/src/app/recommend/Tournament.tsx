@@ -356,7 +356,7 @@ function SwipeBadge({
   return (
     <span
       style={{ opacity: op }}
-      className={`absolute rounded-md border-2 px-2.5 py-0.5 text-base font-extrabold ${className}`}
+      className={`pointer-events-none absolute rounded-md border-2 px-2.5 py-0.5 text-base font-extrabold ${className}`}
     >
       {children}
     </span>
