@@ -67,35 +67,33 @@ export function ArtistActions({
   }
 
   if (inLibrary) {
-    const opts = [
-      { w: 1, label: t.affinityNormal },
-      { w: 2, label: t.affinityLike },
-      { w: 3, label: t.affinityFavorite },
-    ];
+    const labels = [t.affinityNormal, t.affinityLike, t.affinityFavorite];
+    const level = Math.min(3, Math.max(1, Math.round(weight)));
     return (
-      <div className="flex flex-col gap-1.5">
-        <p className="text-[11px] text-neutral-500">{t.affinityPrompt}</p>
-        <div className="flex gap-1.5">
-          {opts.map((o) => {
-            const active = Math.round(weight) === o.w;
-            return (
+      <div className="flex flex-col gap-1.5 rounded-xl border border-white/10 bg-white/5 p-3">
+        <p className="text-xs text-neutral-400">{t.affinityPrompt}</p>
+        <div className="flex items-center gap-3">
+          <div className="flex gap-0.5">
+            {[1, 2, 3].map((n) => (
               <button
-                key={o.w}
-                onClick={() => rate(o.w)}
+                key={n}
+                onClick={() => rate(n)}
                 disabled={busy}
-                className={`flex-1 rounded-md px-2 py-1.5 text-xs transition-colors disabled:opacity-40 ${
-                  active
-                    ? "bg-amber-500/30 font-semibold text-amber-200 ring-1 ring-amber-500/50"
-                    : "bg-white/5 text-neutral-400 hover:bg-white/10"
+                aria-label={labels[n - 1]}
+                className={`text-2xl leading-none transition-transform hover:scale-110 disabled:opacity-40 ${
+                  n <= level ? "text-amber-400" : "text-neutral-600 hover:text-amber-400/50"
                 }`}
               >
-                {"★".repeat(o.w)} {o.label}
+                {n <= level ? "★" : "☆"}
               </button>
-            );
-          })}
+            ))}
+          </div>
+          <span className="text-sm font-semibold text-amber-200">{labels[level - 1]}</span>
+          {done === "saved" && (
+            <span className="text-xs text-emerald-400">✓ {t.affinitySaved}</span>
+          )}
+          {done === "failed" && <span className="text-xs text-rose-400">{t.addFailed}</span>}
         </div>
-        {done === "saved" && <p className="text-[11px] text-emerald-400">{t.affinitySaved}</p>}
-        {done === "failed" && <p className="text-[11px] text-rose-400">{t.addFailed}</p>}
       </div>
     );
   }

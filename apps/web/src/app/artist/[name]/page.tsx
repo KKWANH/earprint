@@ -60,9 +60,17 @@ export default async function ArtistPage({
 
       <header className="flex flex-col gap-3">
         <h1 className="text-3xl font-extrabold leading-tight">{d.name}</h1>
-        <p className="text-sm text-neutral-400">
-          {d.inLibrary ? t.inLibrary(d.trackCount) : t.notInLibrary}
-        </p>
+        <div>
+          {d.inLibrary ? (
+            <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-300">
+              ♪ {t.inLibrary(d.trackCount)}
+            </span>
+          ) : (
+            <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-300">
+              {t.notInLibrary}
+            </span>
+          )}
+        </div>
         <ArtistActions
           name={d.name}
           inLibrary={d.inLibrary}

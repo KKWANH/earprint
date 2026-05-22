@@ -132,8 +132,8 @@ export default async function LibraryPage() {
               <tr className="border-b border-neutral-800 text-left text-neutral-500">
                 <th className="py-2 pr-3 font-medium">{t.thTitle}</th>
                 <th className="py-2 pr-3 font-medium">{t.thArtist}</th>
-                <th className="py-2 pr-3 font-medium">{t.thGenre}</th>
-                <th className="py-2 pr-3 font-medium">{t.thMood}</th>
+                <th className="hidden py-2 pr-3 font-medium sm:table-cell">{t.thGenre}</th>
+                <th className="hidden py-2 pr-3 font-medium sm:table-cell">{t.thMood}</th>
                 <th className="py-2 font-medium" />
               </tr>
             </thead>
@@ -149,13 +149,13 @@ export default async function LibraryPage() {
                       {t.artist}
                     </Link>
                   </td>
-                  <td className="max-w-[11rem] truncate py-1.5 pr-3 text-neutral-400">
+                  <td className="hidden max-w-[11rem] truncate py-1.5 pr-3 text-neutral-400 sm:table-cell">
                     {t.genres?.slice(0, 2).join(", ") ?? "—"}
                   </td>
-                  <td className="max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400">
+                  <td className="hidden max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400 sm:table-cell">
                     {t.moods?.slice(0, 2).join(", ") ?? "—"}
                   </td>
-                  <td className="py-1.5">
+                  <td className="py-1.5 text-right">
                     <PreviewButton deezerId={t.deezerId} locale={locale} />
                   </td>
                 </tr>

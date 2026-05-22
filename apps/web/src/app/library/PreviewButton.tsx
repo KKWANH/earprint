@@ -19,7 +19,7 @@ export function PreviewButton({
   return (
     <button
       onClick={toggle}
-      className="rounded px-1.5 text-xs text-neutral-400 hover:text-white"
+      className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-sm text-neutral-300 hover:border-emerald-500/50 hover:text-white"
       title={t.previewTitle}
     >
       {loading ? "…" : playing ? "⏸" : "▶"}
