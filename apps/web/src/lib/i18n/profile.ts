@@ -36,6 +36,8 @@ const en = {
   feelEnergy: "Energy",
   feelTempo: "Tempo",
   feelAcoustic: "Acoustic",
+  localeMismatch:
+    "This analysis was written in another language — regenerate it to read it in English.",
 };
 
 const ko: typeof en = {
@@ -74,6 +76,8 @@ const ko: typeof en = {
   feelEnergy: "에너지",
   feelTempo: "템포",
   feelAcoustic: "어쿠스틱",
+  localeMismatch:
+    "이 분석은 다른 언어로 작성되었습니다 — 한국어로 보려면 다시 생성하세요.",
 };
 
 export function profileDict(locale: Locale) {

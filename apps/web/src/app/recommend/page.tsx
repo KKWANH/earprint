@@ -43,7 +43,7 @@ export default async function RecommendPage() {
       SELECT id, artist, title, album, cover_url, deezer_id, seed_track, score, rec_type
       FROM recommendations
       WHERE user_id = ${userId} AND rating IS NULL
-      ORDER BY created_at
+      ORDER BY created_at DESC
       LIMIT 20`,
     sql`
       SELECT count(*) FILTER (WHERE rating = 'like')::int     AS likes,

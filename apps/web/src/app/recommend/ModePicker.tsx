@@ -17,16 +17,20 @@ export function ModePicker({ locale }: { locale: Locale }) {
   ];
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   async function generate(mode: string) {
     setBusy(mode);
+    setNote(null);
     try {
-      await fetch("/api/recommend/generate", {
+      const res = await fetch("/api/recommend/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode }),
       });
-      router.refresh();
+      const d = (await res.json()) as { added?: number };
+      if (d.added && d.added > 0) router.refresh();
+      else setNote(t.modeNoNew);
     } catch {
       /* ignore */
     }
@@ -49,6 +53,7 @@ export function ModePicker({ locale }: { locale: Locale }) {
           </button>
         ))}
       </div>
+      {note && <p className="text-xs text-amber-400">{note}</p>}
       <p className="text-[11px] text-neutral-500">{t.modePickerHint}</p>
     </section>
   );

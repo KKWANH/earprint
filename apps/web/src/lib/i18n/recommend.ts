@@ -40,6 +40,7 @@ const en = {
   // ModePicker
   modePickerTitle: "Choose a recommendation style",
   modeMakingShort: "Generating… (~10s)",
+  modeNoNew: "No new picks found for that style — try another one.",
   modePickerHint:
     "A fresh batch of recommendations is generated in the chosen style. Songs you rated (likes / already known) are added to your library.",
 
@@ -88,6 +89,7 @@ const ko: typeof en = {
 
   modePickerTitle: "추천 방식 고르기",
   modeMakingShort: "만드는 중… (~10초)",
+  modeNoNew: "그 방식으로는 새 추천을 못 찾았어요 — 다른 방식을 시도해 보세요.",
   modePickerHint:
     "고른 방식으로 새 추천 묶음이 만들어집니다. 평가한 곡(좋아요·이미 앎)은 라이브러리에 반영됩니다.",
 

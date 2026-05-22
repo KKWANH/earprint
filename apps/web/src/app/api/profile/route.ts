@@ -14,13 +14,16 @@ export async function POST() {
   }
 
   try {
-    const profile = await generateProfile(userId, await getLocale());
+    const locale = await getLocale();
+    const profile = await generateProfile(userId, locale);
     const sql = getSql();
     await sql`
-      INSERT INTO taste_profiles (user_id, ai_profile, ai_generated_at)
-      VALUES (${userId}, ${JSON.stringify(profile)}::jsonb, now())
+      INSERT INTO taste_profiles (user_id, ai_profile, ai_generated_at, ai_locale)
+      VALUES (${userId}, ${JSON.stringify(profile)}::jsonb, now(), ${locale})
       ON CONFLICT (user_id) DO UPDATE
-        SET ai_profile = EXCLUDED.ai_profile, ai_generated_at = now()`;
+        SET ai_profile = EXCLUDED.ai_profile,
+            ai_generated_at = now(),
+            ai_locale = EXCLUDED.ai_locale`;
     return json({ ok: true }, 200);
   } catch (e) {
     return json({ ok: false, error: String(e) }, 500);

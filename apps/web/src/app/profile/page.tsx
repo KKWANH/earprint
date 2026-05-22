@@ -33,9 +33,12 @@ export default async function ProfilePage() {
   const { userId } = await ensureConnection();
   const sql = getSql();
   const rows = await sql`
-    SELECT ai_profile, ai_generated_at FROM taste_profiles WHERE user_id = ${userId}`;
+    SELECT ai_profile, ai_generated_at, ai_locale
+    FROM taste_profiles WHERE user_id = ${userId}`;
   const profile = (rows[0]?.ai_profile as AiProfile | undefined) ?? null;
   const generatedAt = rows[0]?.ai_generated_at as string | undefined;
+  const aiLocale = rows[0]?.ai_locale as string | undefined;
+  const staleLocale = !!profile && !!aiLocale && aiLocale !== locale;
   const [genreMap, stats] = await Promise.all([
     getGenreMap(userId),
     getLibraryStats(userId),
@@ -52,6 +55,9 @@ export default async function ProfilePage() {
           <p className="text-xs text-neutral-500">
             {t.generatedAt} {new Date(generatedAt).toLocaleString(locale === "ko" ? "ko-KR" : "en-US")}
           </p>
+        )}
+        {staleLocale && (
+          <p className="text-xs text-amber-400">{t.localeMismatch}</p>
         )}
       </section>
 

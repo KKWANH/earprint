@@ -383,6 +383,7 @@ CREATE TABLE IF NOT EXISTS deezer_match (
 -- ── taste_profiles: AI-generated psychology / taste profile ──
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_profile      jsonb;
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_generated_at TIMESTAMPTZ;
+ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_locale       TEXT; -- language the profile text was generated in
 
 -- ── Phase B: save AI enrichment results ───────────────
 -- Enriches tracks the APIs couldn't fill via Gemini inference. If realArtist is present, remaps to the original artist.
