@@ -19,14 +19,14 @@ const en = {
 
 const ko: typeof en = {
   // connect/page.tsx
-  loginGoogle: "Google 로 로그인하고 시작하기",
+  loginGoogle: "Google 로 로그인",
   pageTitle: "확장 연결",
   syncTokenTitle: "동기화 토큰",
   syncTokenDesc:
-    "크롬 확장에서 “웹에서 연결”을 누르면 이 토큰이 자동으로 연결됩니다. (수동 연결이 필요할 때만 아래 값을 복사하세요.)",
-  libraryTitle: (n: number) => `내 라이브러리 — ${n}곡`,
+    "크롬 확장에서 “웹에서 연결”을 누르면 자동으로 연결됩니다. (수동 연결 시에만 아래 값을 복사하세요.)",
+  libraryTitle: (n: number) => `내 라이브러리 · ${n}곡`,
   analysisDashboard: "분석 대시보드 →",
-  noSyncedSongs: "아직 동기화된 곡이 없습니다. 확장에서 동기화를 실행하세요.",
+  noSyncedSongs: "동기화된 곡 없음. 확장에서 동기화를 실행하세요.",
 
   // TokenBox.tsx
   copy: "복사",

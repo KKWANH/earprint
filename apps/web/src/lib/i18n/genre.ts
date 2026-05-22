@@ -14,10 +14,10 @@ const en = {
 
 const ko: typeof en = {
   back: "← 뒤로",
-  inLibrary: (n: number) => `이 장르의 좋아요한 곡 ${n}곡`,
-  notInLibrary: "아직 이 장르로 태그된 좋아요 곡 없음",
+  inLibrary: (n: number) => `이 장르의 좋아요 곡 ${n}곡`,
+  notInLibrary: "이 장르의 좋아요 곡 없음",
   about: "장르 소개",
-  aboutEmpty: "아직 이 장르의 설명이 없습니다.",
+  aboutEmpty: "이 장르의 설명이 아직 없습니다.",
   topArtists: "대표 아티스트",
   topTracks: "대표곡",
   yourTracks: "내 라이브러리의 이 장르 곡",

@@ -61,11 +61,11 @@ const ko: typeof en = {
   loginGoogle: "Google 로 로그인",
   pageTitle: "추천 월드컵",
   pageIntro:
-    "추천을 듣고 좋아요/별로로 평가하세요. 좋아요·이미 아는 곡은 라이브러리에 들어가고, 별로한 아티스트는 다음 추천에서 제외됩니다.",
+    "추천을 듣고 좋아요·별로를 골라 보세요. 좋아요나 이미 아는 곡은 라이브러리에 추가되고, 별로한 아티스트는 다음 추천에서 빠집니다.",
 
-  headerSong: "좋아한 곡과 비슷",
-  headerGenre: "내 핵심 장르",
-  headerUnheard: "취향 밖 탐험",
+  headerSong: "좋아한 곡과 비슷한 곡",
+  headerGenre: "주요 장르",
+  headerUnheard: "취향 밖 장르",
   headerIndie: "숨은 명곡",
 
   emptyNoRecs: "평가할 추천 없음.",
@@ -85,24 +85,24 @@ const ko: typeof en = {
   known: "이미 아는 곡",
   undo: "↩ 되돌리기",
 
-  commentPlaceholder: "이 곡에 대한 메모 (선택) — 평가와 함께 저장됨",
+  commentPlaceholder: "메모 (선택) — 평가와 함께 저장됨",
 
-  modePickerTitle: "추천 방식 고르기",
+  modePickerTitle: "추천 방식",
   modeMakingShort: "만드는 중… (~10초)",
-  modeNoNew: "그 방식으로는 새 추천을 찾지 못했습니다 — 다른 방식을 시도해 보세요.",
+  modeNoNew: "이 방식으로는 새 추천이 없습니다. 다른 방식을 시도해 보세요.",
   modePickerHint:
-    "고른 방식으로 새 추천을 만듭니다. 평가한 곡(좋아요·이미 앎)은 라이브러리에 반영됩니다.",
+    "선택한 방식으로 새 추천을 만듭니다. 평가한 곡(좋아요·이미 아는 곡)은 라이브러리에 반영됩니다.",
 
-  modeMixLabel: "골고루",
-  modeMixHint: "여러 방식을 섞어서",
+  modeMixLabel: "믹스",
+  modeMixHint: "여러 방식 혼합",
   modeSongLabel: "곡 기반",
   modeSongHint: "좋아한 곡과 비슷한 곡",
   modeGenreLabel: "장르 기반",
-  modeGenreHint: "내 핵심 장르의 명곡",
+  modeGenreHint: "주요 장르의 명곡",
   modeUnheardLabel: "안 들어본 장르",
-  modeUnheardHint: "취향 밖 새 장르",
+  modeUnheardHint: "취향 밖의 새 장르",
   modeIndieLabel: "숨은 명곡",
-  modeIndieHint: "청취자 수가 적은, 덜 알려진 좋은 곡",
+  modeIndieHint: "청취자가 적은, 덜 알려진 좋은 곡",
 };
 
 export function recommendDict(locale: Locale) {

@@ -97,12 +97,12 @@ const ko: typeof en = {
   loginButton: "Google 로 로그인",
 
   pageTitle: "취향 DNA",
-  pageIntroLead: "그저",
+  pageIntroLead: "단순히",
   pageIntroWhy: "무엇을",
   pageIntroMid: "듣는지가 아니라,",
   pageIntroEm: "왜",
   pageIntroTail:
-    " 좋아하는지, 음악 인생의 어디쯤인지를 봅니다.",
+    " 좋아하는지를 봅니다. 그리고 음악 인생의 어디쯤에 있는지도.",
 
   citationPrefix: "근거 연구 · 회상 효과:",
   citationFrontiers: "Frontiers in Psychology (2024)",
@@ -112,28 +112,28 @@ const ko: typeof en = {
   citationPersonalityLabel: "취향과 성격:",
   citationRentfrow: "Rentfrow & Gosling (2003)",
 
-  stageDiggingTitle: "지금도 디깅 중",
+  stageDiggingTitle: "탐험가형",
   stageDiggingBody:
-    "최근에 나온 음악 비중이 높습니다. 나이와 상관없이 새로운 사운드를 계속 찾아 듣는 타입 — '개방성'이 높은 패턴입니다.",
+    "최근에 나온 음악의 비중이 큽니다. 나이와 상관없이 새로운 사운드를 계속 찾아 듣는 타입. 음악 심리학에서 '개방성'이 높은 패턴입니다.",
   stageImprintTitle: "각인형",
   stageImprintBody:
-    "10대 후반~20대 초반에 듣던 음악이 라이브러리의 중심입니다. 그 시절의 강한 감정과 함께 뇌에 새겨진 곡들이 지금도 취향을 좌우합니다.",
+    "라이브러리의 중심이 10대 후반~20대 초반의 음악입니다. 그 시절의 감정과 함께 뇌에 새겨진 곡들이 지금의 취향을 만듭니다.",
   stageBalancedTitle: "균형형",
   stageBalancedBody:
-    "각인기 음악과 새 음악이 골고루 섞여 있습니다. 뿌리를 지키면서 새로운 것도 계속 찾아 듣는 타입입니다.",
+    "각인기 음악과 새 음악이 골고루 섞여 있습니다. 뿌리를 지키면서도 새로운 것을 계속 찾는 타입입니다.",
   stageUnknownTitle: "데이터 부족",
   stageUnknownBody:
     "발매연도가 확인된 곡이 아직 적습니다. 곡 분석을 더 돌리면 정확해집니다.",
 
-  imprintHeading: "🧬 각인 코어 — 회상 효과",
+  imprintHeading: "🧬 각인 코어 · 회상 효과",
   imprintIntro:
-    "15~25세(정서가 가장 강렬한 17세 무렵)에 듣던 음악은 사춘기 호르몬과 함께 뇌에 강하게 새겨집니다. 라이브러리 곡들의 발매연도에서 그 시기를 찾아봅니다.",
+    "15~25세에 들었던 음악은 사춘기 호르몬과 함께 뇌에 강하게 새겨집니다. 특히 17세 무렵, 정서가 가장 강렬할 때. 라이브러리의 발매연도에서 그 시기를 찾아봅니다.",
   birthYearLabel: (year: number) => `출생연도: ${year}년`,
-  birthYearPrompt: "출생연도를 입력하면 각인 시기 표시",
+  birthYearPrompt: "출생연도를 입력하면 각인 시기를 표시합니다",
 
   noYearDataWarning:
-    "아직 발매연도 데이터가 없습니다. 아래 버튼으로 Deezer 에서 곡별 발매연도를 가져오세요. (“곡 분석”은 장르·무드만 채우고, 발매연도는 별도입니다.)",
-  yearCoverage: (count: string) => `발매연도가 확인된 곡 ${count}곡 · 전체 좋아요의 `,
+    "발매연도 데이터가 없습니다. 아래 버튼으로 Deezer 에서 곡별 발매연도를 가져오세요. (곡 분석은 장르·무드만 다루고, 발매연도는 별도로 가져옵니다.)",
+  yearCoverage: (count: string) => `확인된 발매연도 ${count}곡 · 전체 좋아요의 `,
   yearCoveragePctSuffix: "%",
   yearCoverageLowNote: " — Deezer 매칭 실패 곡은 연도 미상",
 
@@ -141,12 +141,12 @@ const ko: typeof en = {
   statImprintShareSub: (start: number, end: number) => `${start}~${end}년`,
   statImprintShareNoYear: "출생연도 입력 필요",
   statRecent: "최근 3년",
-  statRecentSub: "지금도 디깅 중",
+  statRecentSub: "현재진행형",
   statCentroid: "취향 무게중심",
   statCentroidYear: (year: number) => `${year}년`,
-  statCentroidSub: (age: number) => `${age}세 무렵`,
+  statCentroidSub: (age: number) => `${age}세 즈음`,
   statCentroidSubFallback: "곡의 중앙값",
-  statPeak: "최다 발매연도",
+  statPeak: "정점 연도",
   statPeakYear: (year: number) => `${year}년`,
   statPeakSub: (count: string) => `${count}곡 기준`,
   emDash: "—",
@@ -159,12 +159,12 @@ const ko: typeof en = {
   noveltyIntroLead: "음악의 쾌감은",
   noveltyIntroEm: "예측이 적당히 맞거나 기분 좋게 빗나갈 때",
   noveltyIntroTail:
-    " 가장 커집니다. 익숙함과 신선함 사이 어디에 있는지 봅니다.",
+    " 가장 큽니다. 익숙함과 신선함 사이 어디쯤인지 봅니다.",
   noveltyAxisFamiliar: "익숙함 · 예측 가능",
   noveltyAxisSweet: "스위트 스폿",
   noveltyAxisNovel: "신선함 · 모험",
   noveltyTopGenre: (name: string, share: number, distinct: number, analyzed: string) =>
-    `가장 많이 듣는 장르: ${name} (${share}%) · 서로 다른 장르 ${distinct}종 · 분석된 곡 ${analyzed}곡`,
+    `최다 장르: ${name} (${share}%) · 장르 ${distinct}종 · 분석 곡 ${analyzed}곡`,
 
   // BirthYearInput
   birthYearError: "연도를 다시 확인하세요 (예: 1996)",
@@ -174,8 +174,8 @@ const ko: typeof en = {
   birthYearSave: "저장",
 
   // YearBackfill
-  backfillDoneSome: (count: number) => `✅ 발매연도 ${count}곡 새로 가져옴.`,
-  backfillDoneNone: "✅ 발매연도 모두 최신 (Deezer 매칭 곡 전부 확인됨).",
+  backfillDoneSome: (count: number) => `✅ ${count}곡의 발매연도를 새로 가져왔습니다.`,
+  backfillDoneNone: "✅ 모든 발매연도가 최신 상태입니다.",
   backfillRunning: (done: number, remaining: number) =>
     `가져오는 중… ${done}곡 (남은 ${remaining})`,
   backfillStart: "발매연도 가져오기",

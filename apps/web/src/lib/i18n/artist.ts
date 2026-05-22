@@ -34,12 +34,12 @@ const en = {
 
 const ko: typeof en = {
   back: "← 뒤로",
-  inLibrary: (n: number) => `라이브러리에 좋아요한 곡 ${n}곡`,
-  notInLibrary: "아직 라이브러리에 없는 아티스트",
+  inLibrary: (n: number) => `라이브러리의 좋아요 곡 ${n}곡`,
+  notInLibrary: "라이브러리에 없는 아티스트",
   notInLibraryHint:
-    "이 아티스트는 라이브러리에 없습니다. 추가하면 대표곡이 좋아요 곡으로 들어갑니다.",
+    "라이브러리에 없는 아티스트입니다. 추가하면 대표곡이 좋아요 곡으로 들어갑니다.",
 
-  affinityPrompt: "이 아티스트를 얼마나 좋아하세요?",
+  affinityPrompt: "이 아티스트, 얼마나 좋아하는지",
   affinityNormal: "보통",
   affinityLike: "좋아함",
   affinityFavorite: "최애",
@@ -49,7 +49,7 @@ const ko: typeof en = {
   addLike: "★ 좋아함",
   addFavorite: "★★ 최애",
   added: "라이브러리에 추가됨",
-  adding: "추가하는 중…",
+  adding: "추가 중…",
   addFailed: "추가 실패 — 다시 시도하세요.",
 
   genres: "장르",
