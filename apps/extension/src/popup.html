@@ -2,40 +2,84 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
-    <title>Playlist Analyzer</title>
+    <title>Earprint</title>
     <style>
+      * { box-sizing: border-box; }
       body {
-        font: 13px/1.5 system-ui, sans-serif;
-        width: 280px;
+        font: 13px/1.5 system-ui, -apple-system, sans-serif;
+        width: 300px;
         margin: 0;
-        padding: 14px;
-        background: #0a0a0a;
+        padding: 16px;
+        background: #0a0a0b;
         color: #e5e5e5;
       }
-      h3 { margin: 0 0 8px; font-size: 14px; }
-      #status { margin: 0 0 12px; color: #a3a3a3; }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      .brand h3 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+      .brand .accent { color: #34d399; }
+      #status {
+        margin: 0 0 14px;
+        font-size: 12px;
+        color: #a3a3a3;
+      }
       button {
         width: 100%;
-        padding: 8px;
-        margin-top: 6px;
-        border: 0;
-        border-radius: 6px;
+        padding: 9px 10px;
+        margin-top: 7px;
+        border: 1px solid transparent;
+        border-radius: 8px;
         cursor: pointer;
         font-weight: 600;
         font-size: 13px;
+        transition: filter 0.12s;
       }
-      #connect { background: #333; color: #e5e5e5; }
-      #sync { background: #fff; color: #0a0a0a; }
-      hr { border: 0; border-top: 1px solid #262626; margin: 12px 0; }
-      #msg { margin: 8px 0 0; color: #a3a3a3; min-height: 18px; white-space: pre-line; }
+      button:hover { filter: brightness(1.12); }
+      #connect {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.1);
+        color: #e5e5e5;
+      }
+      #sync { background: #34d399; color: #06281d; }
+      hr { border: 0; border-top: 1px solid #1f1f22; margin: 13px 0; }
+      #msg {
+        margin: 9px 0 0;
+        font-size: 12px;
+        color: #a3a3a3;
+        min-height: 18px;
+        white-space: pre-line;
+      }
     </style>
   </head>
   <body>
-    <h3>Playlist Analyzer</h3>
+    <div class="brand">
+      <svg viewBox="0 0 512 512" width="24" height="24" aria-hidden="true">
+        <rect width="512" height="512" rx="112" fill="#0a0a0b" />
+        <g
+          fill="none"
+          stroke="#34d399"
+          stroke-width="33"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M214 392 C 172 366 156 306 164 248 C 174 168 230 122 300 132 C 364 141 384 210 366 272 C 357 312 330 344 292 350" />
+          <path d="M300 262 C 258 286 220 258 230 214 C 237 184 278 174 306 198" />
+        </g>
+      </svg>
+      <h3>Ear<span class="accent">print</span></h3>
+    </div>
     <p id="status">상태 확인 중…</p>
     <button id="connect">웹에서 연결 (Google 로그인)</button>
     <hr />
-    <button id="sync">좋아요 동기화</button>
+    <button id="sync">좋아요 곡 동기화</button>
     <p id="msg"></p>
     <script type="module" src="./popup.ts"></script>
   </body>

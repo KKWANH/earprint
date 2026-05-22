@@ -29,3 +29,6 @@ coverage/
 
 # typescript build cache
 *.tsbuildinfo
+
+# built extension package
+apps/extension/earprint-extension.zip
