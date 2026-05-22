@@ -6,7 +6,9 @@ import { getLocale } from "@/lib/i18n-server";
 import { profileDict } from "@/lib/i18n/profile";
 import type { AiProfile } from "@/lib/profile";
 import { diggingPercentile } from "@/lib/share";
+import { getMusicMBTI } from "@/lib/musicMBTI";
 import { PersonaCard } from "@/components/PersonaCard";
+import { MusicMBTICard } from "@/components/MusicMBTICard";
 
 interface SharedRow {
   user_id: string;
@@ -75,6 +77,7 @@ export default async function SharePage({
     diggingPercentile(profile.diggingScore),
   ]);
   const feel = stats.audioFeel;
+  const mbti = await getMusicMBTI(row.user_id, feel);
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 py-8 sm:px-6 sm:py-12">
@@ -86,6 +89,8 @@ export default async function SharePage({
           locale={locale}
         />
       )}
+
+      {mbti && <MusicMBTICard mbti={mbti} locale={locale} />}
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <h2 className="text-lg font-bold text-indigo-300">{profile.headline}</h2>

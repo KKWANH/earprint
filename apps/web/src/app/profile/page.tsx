@@ -8,7 +8,9 @@ import type { Locale } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { profileDict } from "@/lib/i18n/profile";
 import { diggingPercentile, newShareId } from "@/lib/share";
+import { getMusicMBTI, type MusicMBTI } from "@/lib/musicMBTI";
 import { PersonaCard } from "@/components/PersonaCard";
+import { MusicMBTICard } from "@/components/MusicMBTICard";
 import { GenerateButton } from "./GenerateButton";
 import { GenreConstellation } from "./GenreConstellation";
 import { ShareButton } from "./ShareButton";
@@ -69,6 +71,7 @@ export default async function ProfilePage() {
     getLibraryStats(userId),
     profile ? diggingPercentile(profile.diggingScore) : Promise.resolve(null),
   ]);
+  const mbti = await getMusicMBTI(userId, stats.audioFeel);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
@@ -107,7 +110,13 @@ export default async function ProfilePage() {
       )}
 
       {profile ? (
-        <ProfileView profile={profile} percentile={percentile} locale={locale} t={t} />
+        <ProfileView
+          profile={profile}
+          percentile={percentile}
+          mbti={mbti}
+          locale={locale}
+          t={t}
+        />
       ) : (
         <p className="text-sm text-neutral-500">{t.noProfile}</p>
       )}
@@ -183,11 +192,13 @@ function FeelBars({ feel, t }: { feel: AudioFeelAgg; t: ProfileT }) {
 function ProfileView({
   profile: p,
   percentile,
+  mbti,
   locale,
   t,
 }: {
   profile: AiProfile;
   percentile: number | null;
+  mbti: MusicMBTI | null;
   locale: Locale;
   t: ProfileT;
 }) {
@@ -201,6 +212,8 @@ function ProfileView({
           locale={locale}
         />
       )}
+
+      {mbti && <MusicMBTICard mbti={mbti} locale={locale} />}
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <h2 className="text-xl font-bold text-indigo-300">{p.headline}</h2>
