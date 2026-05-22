@@ -23,10 +23,10 @@ const ko: typeof en = {
   pageTitle: "확장 연결",
   syncTokenTitle: "동기화 토큰",
   syncTokenDesc:
-    "크롬 확장에서 “웹에서 연결”을 누르면 이 토큰이 자동으로 연결돼요. (수동 연결이 필요할 때만 아래 값을 복사하세요.)",
+    "크롬 확장에서 “웹에서 연결”을 누르면 이 토큰이 자동으로 연결됩니다. (수동 연결이 필요할 때만 아래 값을 복사하세요.)",
   libraryTitle: (n: number) => `내 라이브러리 — ${n}곡`,
   analysisDashboard: "분석 대시보드 →",
-  noSyncedSongs: "아직 동기화된 곡이 없어요. 확장에서 동기화를 실행해 주세요.",
+  noSyncedSongs: "아직 동기화된 곡이 없습니다. 확장에서 동기화를 실행하세요.",
 
   // TokenBox.tsx
   copy: "복사",

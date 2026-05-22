@@ -37,7 +37,7 @@ const ko: typeof en = {
   inLibrary: (n: number) => `라이브러리에 좋아요한 곡 ${n}곡`,
   notInLibrary: "아직 라이브러리에 없는 아티스트",
   notInLibraryHint:
-    "이 아티스트는 라이브러리에 없어요. 추가하면 대표곡이 좋아요 곡으로 들어갑니다.",
+    "이 아티스트는 라이브러리에 없습니다. 추가하면 대표곡이 좋아요 곡으로 들어갑니다.",
 
   affinityPrompt: "이 아티스트를 얼마나 좋아하세요?",
   affinityNormal: "보통",
@@ -45,12 +45,12 @@ const ko: typeof en = {
   affinityFavorite: "최애",
   affinitySaved: "저장됨",
 
-  addNormal: "♪ 들어봤어요",
-  addLike: "★ 좋아해요",
-  addFavorite: "★★ 최애예요",
+  addNormal: "♪ 들어봤음",
+  addLike: "★ 좋아함",
+  addFavorite: "★★ 최애",
   added: "라이브러리에 추가됨",
   adding: "추가하는 중…",
-  addFailed: "추가하지 못했어요 — 다시 시도해 주세요.",
+  addFailed: "추가 실패 — 다시 시도하세요.",
 
   genres: "장르",
   moods: "무드",
@@ -61,7 +61,7 @@ const ko: typeof en = {
   tracks: "수록곡",
   albumNone: "싱글·기타",
   related: "비슷한 아티스트",
-  relatedEmpty: "비슷한 아티스트를 찾지 못했어요.",
+  relatedEmpty: "비슷한 아티스트 없음.",
 };
 
 export function artistDict(locale: Locale) {

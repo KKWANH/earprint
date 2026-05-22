@@ -55,7 +55,7 @@ const ko: typeof en = {
   ghostSuffix: (n: number) => ` · 안 들어본 추천 ${n}명`,
   subtitleTail: " · 장르가 비슷할수록 가까이 모입니다",
   emptyState:
-    "아직 동기화된 곡이 없어요. 확장 프로그램으로 좋아요 목록을 먼저 동기화해 주세요.",
+    "아직 동기화된 곡이 없습니다. 확장 프로그램으로 좋아요 목록을 먼저 동기화하세요.",
 
   // ArtistMap.tsx
   searchPlaceholder: "아티스트 검색…",
@@ -63,7 +63,7 @@ const ko: typeof en = {
   legendEmptyCircle: "◯ 빈 원",
   legendEmptyCircleRest: " = 안 들어본 추천 — 눌러서 추가",
   fewAnalyzedWarning:
-    "분석된 곡이 적어서 군집이 흐려요. 곡 분석을 끝내면 또렷해집니다.",
+    "분석된 곡이 적어 군집이 흐립니다. 곡 분석을 끝내면 또렷해집니다.",
   hideRecommendations: "🟢 추천 숨기기",
   showRecommendations: "◯ 추천 보기",
   zoomIn: "확대",
@@ -75,9 +75,9 @@ const ko: typeof en = {
   ghostCloseToPre: "당신의 ",
   ghostCloseToPost: " 취향과 가깝습니다.",
   addToLibraryPrompt: "라이브러리에 추가 — 얼마나 좋아하세요?",
-  rateHeard: "들어봤어요",
-  rateLike: "좋아해요",
-  rateFavorite: "최애예요",
+  rateHeard: "들어봤음",
+  rateLike: "좋아함",
+  rateFavorite: "최애",
   processing: "처리하는 중…",
   ghostAddNote: "대표곡이 라이브러리에 추가되고 맵이 다시 정렬됩니다.",
   dislikeButton: "🚫 싫어해요 — 추천에서 빼기",

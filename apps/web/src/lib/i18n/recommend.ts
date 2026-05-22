@@ -61,14 +61,14 @@ const ko: typeof en = {
   loginGoogle: "Google 로 로그인",
   pageTitle: "추천 월드컵",
   pageIntro:
-    "추천을 듣고 좋아요/별로로 평가해 주세요. 좋아요·이미 아는 곡은 라이브러리에 들어가고, 별로한 아티스트는 다음 추천에서 빠집니다.",
+    "추천을 듣고 좋아요/별로로 평가하세요. 좋아요·이미 아는 곡은 라이브러리에 들어가고, 별로한 아티스트는 다음 추천에서 제외됩니다.",
 
   headerSong: "좋아한 곡과 비슷",
   headerGenre: "내 핵심 장르",
   headerUnheard: "취향 밖 탐험",
   headerIndie: "숨은 명곡",
 
-  emptyNoRecs: "평가할 추천이 없어요.",
+  emptyNoRecs: "평가할 추천 없음.",
   generating: "추천 만드는 중… (~10초)",
   generate: "추천 만들기",
 
@@ -85,13 +85,13 @@ const ko: typeof en = {
   known: "이미 아는 곡",
   undo: "↩ 되돌리기",
 
-  commentPlaceholder: "이 곡에 대한 메모 (선택) — 평가와 함께 저장돼요",
+  commentPlaceholder: "이 곡에 대한 메모 (선택) — 평가와 함께 저장됨",
 
   modePickerTitle: "추천 방식 고르기",
   modeMakingShort: "만드는 중… (~10초)",
-  modeNoNew: "그 방식으로는 새 추천을 못 찾았어요 — 다른 방식을 시도해 보세요.",
+  modeNoNew: "그 방식으로는 새 추천을 찾지 못했습니다 — 다른 방식을 시도해 보세요.",
   modePickerHint:
-    "고른 방식으로 새 추천을 만들어요. 평가한 곡(좋아요·이미 앎)은 라이브러리에 반영됩니다.",
+    "고른 방식으로 새 추천을 만듭니다. 평가한 곡(좋아요·이미 앎)은 라이브러리에 반영됩니다.",
 
   modeMixLabel: "골고루",
   modeMixHint: "여러 방식을 섞어서",
