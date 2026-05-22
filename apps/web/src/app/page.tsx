@@ -154,14 +154,6 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* science */}
-      <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-600/20 via-fuchsia-600/10 to-transparent p-7 sm:p-10">
-        <h2 className="text-xl font-bold sm:text-2xl">{t.scienceTitle}</h2>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-300 sm:text-base">
-          {t.scienceBody}
-        </p>
-      </section>
-
       {/* features */}
       <section className="flex flex-col gap-6">
         <h2 className="text-center text-xl font-bold sm:text-2xl">{t.featuresTitle}</h2>
