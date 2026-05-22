@@ -27,7 +27,7 @@ async function upload(tracks: CapturedTrack[]): Promise<unknown> {
   if (!syncToken) {
     return {
       ok: false,
-      error: "확장이 연결되지 않았습니다 — 팝업에서 '웹에서 연결'을 누르세요",
+      error: 'Extension not connected — click "Connect via web" in the popup',
     };
   }
 
@@ -44,7 +44,7 @@ async function upload(tracks: CapturedTrack[]): Promise<unknown> {
     });
   } catch (err) {
     console.error("[Playlist Analyzer] network error", err);
-    return { ok: false, error: `백엔드 연결 실패 (${String(err)})` };
+    return { ok: false, error: `Backend connection failed (${String(err)})` };
   }
 
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;

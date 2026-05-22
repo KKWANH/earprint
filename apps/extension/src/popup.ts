@@ -7,21 +7,22 @@ const syncBtn = document.getElementById("sync") as HTMLButtonElement;
 
 void chrome.storage.sync.get(["syncToken"]).then((s) => {
   statusEl.textContent = s.syncToken
-    ? "✅ 연결됨 — 동기화할 수 있어요"
-    : "⚠ 연결이 필요합니다 — '웹에서 연결'을 누르세요";
+    ? "✅ Connected — ready to sync"
+    : '⚠ Not connected — click "Connect via web"';
 });
 
 connectBtn.addEventListener("click", () => {
   void chrome.tabs.create({ url: "https://earprint.kwanho.dev/connect" });
   msgEl.textContent =
-    "열린 페이지에서 Google 로그인하면 자동으로 연결됩니다. 그다음 이 팝업을 다시 열어주세요.";
+    "Sign in with Google on the page that opens — it connects automatically. Then reopen this popup.";
 });
 
 syncBtn.addEventListener("click", async () => {
-  msgEl.textContent = "동기화 중… 페이지를 자동 스크롤하며 전체 곡을 읽는 중입니다.";
+  msgEl.textContent = "Syncing… auto-scrolling the page to read your full list.";
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id || !tab.url?.includes("music.youtube.com")) {
-    msgEl.textContent = "music.youtube.com 의 좋아요(LM) 페이지를 연 상태로 실행하세요";
+    msgEl.textContent =
+      "Open the Liked Music (LM) page on music.youtube.com first.";
     return;
   }
   const tabId = tab.id;
@@ -33,7 +34,7 @@ syncBtn.addEventListener("click", async () => {
       .sendMessage(tabId, { type: "PA_PROGRESS" })
       .then((p: { count?: number } | undefined) => {
         if (!finished && p) {
-          msgEl.textContent = `수집 중… ${(p.count ?? 0).toLocaleString()}곡 (스크롤 진행 중)`;
+          msgEl.textContent = `Collecting… ${(p.count ?? 0).toLocaleString()} songs (scrolling)`;
         }
       })
       .catch(() => {});
@@ -63,21 +64,21 @@ syncBtn.addEventListener("click", async () => {
       const exp = res.expected ?? 0;
       let verdict = "";
       if (!exp || cap >= exp * 0.97) {
-        verdict = "✅ 전곡 수집 완료";
+        verdict = "✅ All songs collected";
       } else if (res.endedClean) {
-        verdict = `⚠ 목록 끝까지 도달했지만 유튜브가 ${cap}곡만 내려줌 (유튜브 측 한계 — 마지막 곡: ${res.lastTitle || "?"})`;
+        verdict = `⚠ Reached the end of the list, but YouTube only served ${cap} songs (a YouTube-side limit — last song: ${res.lastTitle || "?"})`;
       } else {
-        verdict = `⚠ ${cap}곡에서 로딩이 멈춤 (로딩 표시 잔존 — 재시도 필요)`;
+        verdict = `⚠ Loading stopped at ${cap} songs (still loading — please retry)`;
       }
       msgEl.textContent =
-        `완료 — 총 ${res.total ?? "?"} / 수집 ${cap}/${exp || "?"}곡` +
-        `${res.domPeak ? ` · 화면최대 ${res.domPeak}행` : ""}\n${verdict}`;
+        `Done — total ${res.total ?? "?"} / collected ${cap}/${exp || "?"}` +
+        `${res.domPeak ? ` · peak ${res.domPeak} rows` : ""}\n${verdict}`;
     } else {
-      msgEl.textContent = `실패: ${res?.error ?? `HTTP ${res?.status ?? "?"}`}`;
+      msgEl.textContent = `Failed: ${res?.error ?? `HTTP ${res?.status ?? "?"}`}`;
     }
   } catch (err) {
     finished = true;
     clearInterval(poll);
-    msgEl.textContent = `오류: ${String(err)} — 페이지를 새로고침 후 다시 시도하세요`;
+    msgEl.textContent = `Error: ${String(err)} — refresh the page and try again`;
   }
 });

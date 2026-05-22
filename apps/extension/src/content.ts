@@ -70,7 +70,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 async function runSync(): Promise<unknown> {
   if (!location.href.includes("list=LM")) {
-    return { ok: false, error: "좋아요(LM) 플레이리스트 페이지에서 실행하세요" };
+    return { ok: false, error: "Run this on the Liked Music (LM) playlist page" };
   }
   tracks.clear();
   lastProgress = 0;
@@ -97,7 +97,7 @@ async function runSync(): Promise<unknown> {
 
   const list = [...tracks.values()];
   if (list.length === 0) {
-    return { ok: false, error: "수집된 곡이 없습니다 (페이지를 새로고침 후 다시 시도)" };
+    return { ok: false, error: "No songs collected — refresh the page and try again" };
   }
 
   const expected = expectedCount();

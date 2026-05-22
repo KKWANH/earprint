@@ -9,7 +9,7 @@ const token = el?.getAttribute("data-token");
 if (token) {
   void chrome.storage.sync.set({ syncToken: token }).then(() => {
     const toast = document.createElement("div");
-    toast.textContent = "✓ Playlist Analyzer 확장에 연결되었습니다";
+    toast.textContent = "✓ Connected to the Earprint extension";
     toast.style.cssText =
       "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);" +
       "background:#059669;color:#fff;padding:10px 16px;border-radius:8px;" +

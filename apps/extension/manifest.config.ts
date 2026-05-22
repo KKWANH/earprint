@@ -15,7 +15,7 @@ import { defineManifest } from "@crxjs/vite-plugin";
 export default defineManifest({
   manifest_version: 3,
   name: "Earprint — YouTube Music collector",
-  version: "0.9.0",
+  version: "0.9.1",
   description:
     "Collects your YouTube Music liked songs so Earprint can analyze your music taste.",
   icons: {
