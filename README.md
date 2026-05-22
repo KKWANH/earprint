@@ -8,8 +8,8 @@ songs**, analyzes them, and turns them into an interactive picture of *why* you
 like what you like — grounded in music-psychology research, not just top-N
 charts.
 
-> Live: https://music.kwanho.dev
-> (Google OAuth is in test mode — when self-hosting, use your own credentials.)
+> Live: https://earprint.kwanho.dev
+> (When self-hosting, use your own Google OAuth credentials.)
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for design decisions and
 [DEPLOY.md](./DEPLOY.md) for deployment.
@@ -59,7 +59,7 @@ flowchart LR
     UI["Web UI"]
   end
   subgraph Cloudflare
-    WEB["Next.js Worker<br/>music.kwanho.dev"]
+    WEB["Next.js Worker<br/>earprint.kwanho.dev"]
     CRON["Cron Worker<br/>every minute"]
   end
   DB[("Neon Postgres<br/>+ pgvector")]

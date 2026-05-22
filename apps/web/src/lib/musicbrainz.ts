@@ -11,7 +11,7 @@
  * Free, no key, rate-limited to ~1 request/second — callers must space out.
  */
 const MB = "https://musicbrainz.org/ws/2";
-const UA = "PlaylistAnalyzer/1.0 (https://music.kwanho.dev)";
+const UA = "Earprint/1.0 (https://earprint.kwanho.dev)";
 
 /** Strips reissue / edition markers so the album matches its release group. */
 export function cleanAlbum(album: string): string {

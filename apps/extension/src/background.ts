@@ -5,7 +5,7 @@
  */
 import type { CapturedTrack, SyncRequest } from "@playlist-analyzer/shared";
 
-const BACKEND = "https://music.kwanho.dev";
+const BACKEND = "https://earprint.kwanho.dev";
 
 interface UploadMessage {
   type: "PA_UPLOAD";

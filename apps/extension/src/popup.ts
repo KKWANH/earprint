@@ -12,7 +12,7 @@ void chrome.storage.sync.get(["syncToken"]).then((s) => {
 });
 
 connectBtn.addEventListener("click", () => {
-  void chrome.tabs.create({ url: "https://music.kwanho.dev/connect" });
+  void chrome.tabs.create({ url: "https://earprint.kwanho.dev/connect" });
   msgEl.textContent =
     "열린 페이지에서 Google 로그인하면 자동으로 연결됩니다. 그다음 이 팝업을 다시 열어주세요.";
 });

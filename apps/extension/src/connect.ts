@@ -1,5 +1,5 @@
 /**
- * Content script on music.kwanho.dev — captures the sync token from the
+ * Content script on earprint.kwanho.dev — captures the sync token from the
  * /connect page so the user never has to copy-paste it. The page renders a
  * hidden #pa-sync-token element once the user is signed in with Google.
  */

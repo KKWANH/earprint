@@ -38,7 +38,7 @@ export default defineManifest({
     },
     {
       // Captures the sync token from the web app's /connect page.
-      matches: ["https://music.kwanho.dev/*"],
+      matches: ["https://earprint.kwanho.dev/*"],
       js: ["src/connect.ts"],
       run_at: "document_idle",
     },

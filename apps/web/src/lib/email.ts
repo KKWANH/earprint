@@ -10,7 +10,7 @@ import type { LibraryStats } from "./library";
  */
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const FROM = "Earprint <onboarding@resend.dev>";
-const APP_URL = "https://music.kwanho.dev";
+const APP_URL = "https://earprint.kwanho.dev";
 
 interface SendArgs {
   to: string;
@@ -136,7 +136,7 @@ export function buildCompletionEmail(stats: LibraryStats): { subject: string; ht
             전체 심리 분석 보기 →
           </a>
           <p style="margin:16px 0 0;color:#666;font-size:12px;">
-            Earprint · <a href="${APP_URL}" style="color:#888;">music.kwanho.dev</a>
+            Earprint · <a href="${APP_URL}" style="color:#888;">earprint.kwanho.dev</a>
           </p>
         </td></tr>
       </table>

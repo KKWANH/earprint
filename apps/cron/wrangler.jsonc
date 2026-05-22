@@ -6,7 +6,7 @@
   // Fires every minute; the scheduled handler pokes the web app's tick endpoint.
   "triggers": { "crons": ["* * * * *"] },
   "vars": {
-    "TICK_URL": "https://music.kwanho.dev/api/cron/tick"
+    "TICK_URL": "https://earprint.kwanho.dev/api/cron/tick"
   }
   // CRON_SECRET is a secret: wrangler secret put CRON_SECRET
 }

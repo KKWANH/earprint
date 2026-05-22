@@ -9,7 +9,7 @@
     "binding": "ASSETS"
   },
   // Custom domain on the kwanho.dev zone (DNS + cert auto-provisioned on deploy).
-  "routes": [{ "pattern": "music.kwanho.dev", "custom_domain": true }],
+  "routes": [{ "pattern": "earprint.kwanho.dev", "custom_domain": true }],
   // Secrets are not committed. Register them after deploy with:
   //   wrangler secret put DATABASE_URL
   //   wrangler secret put AUTH_SECRET
@@ -19,7 +19,7 @@
   //   wrangler secret put GEMINI_API_KEY
   // Only non-sensitive values belong in vars.
   "vars": {
-    "AUTH_URL": "https://music.kwanho.dev",
+    "AUTH_URL": "https://earprint.kwanho.dev",
     "AUTH_TRUST_HOST": "true"
   }
 }

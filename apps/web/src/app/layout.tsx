@@ -9,13 +9,13 @@ const DESC =
   "Turns your YouTube Music liked songs into a research-grounded portrait of your taste: Taste DNA, an interactive artist map, and recommendations.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://music.kwanho.dev"),
+  metadataBase: new URL("https://earprint.kwanho.dev"),
   title: "Earprint — understand your music taste",
   description: DESC,
   openGraph: {
     title: "Earprint",
     description: DESC,
-    url: "https://music.kwanho.dev",
+    url: "https://earprint.kwanho.dev",
     siteName: "Earprint",
     type: "website",
   },
