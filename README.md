@@ -14,6 +14,20 @@ charts.
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for design decisions and
 [DEPLOY.md](./DEPLOY.md) for deployment.
 
+## A look inside
+
+**Landing & shareable music personas**
+
+![Earprint landing](./assets/screenshot-main.png)
+
+**AI music-psychology profile**
+
+![Music-psychology profile](./assets/screenshot-psycology-en.png)
+
+**Interactive artist map**
+
+![Interactive artist map](./assets/screenshot-artist-map-en.png)
+
 ---
 
 ## What it does
