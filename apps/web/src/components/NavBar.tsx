@@ -30,21 +30,9 @@ export function NavBar({ locale }: { locale: Locale }) {
           onClick={() => setOpen(false)}
           className="flex shrink-0 items-center gap-1.5 text-sm font-bold tracking-tight"
         >
-          <svg viewBox="0 0 32 32" className="h-5 w-5" aria-hidden="true">
-            <rect width="32" height="32" rx="7" fill="#0a0a0b" />
-            <circle cx="16" cy="16" r="10" fill="none" stroke="#34d399" strokeWidth="2.2" />
-            <circle
-              cx="16"
-              cy="16"
-              r="6"
-              fill="none"
-              stroke="#34d399"
-              strokeWidth="1.4"
-              opacity="0.5"
-            />
-            <circle cx="16" cy="16" r="2.4" fill="#34d399" />
-          </svg>
-          Playlist<span className="text-emerald-400">Analyzer</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="" className="h-5 w-5" />
+          Ear<span className="text-emerald-400">print</span>
         </Link>
 
         <nav className="hidden gap-1 sm:flex">

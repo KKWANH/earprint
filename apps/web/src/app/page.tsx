@@ -25,7 +25,7 @@ export default async function LandingPage() {
           🎧 YouTube Music · taste analytics
         </span>
         <h1 className="mt-5 bg-gradient-to-br from-white via-white to-emerald-300 bg-clip-text text-4xl font-extrabold leading-tight text-transparent sm:text-6xl">
-          Playlist Analyzer
+          Earprint
         </h1>
         <p className="mt-4 max-w-xl text-lg font-medium text-neutral-200 sm:text-xl">
           {t.tagline}

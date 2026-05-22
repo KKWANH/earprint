@@ -9,18 +9,18 @@ const DESC =
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://music.kwanho.dev"),
-  title: "Playlist Analyzer — understand your music taste",
+  title: "Earprint — understand your music taste",
   description: DESC,
   openGraph: {
-    title: "Playlist Analyzer",
+    title: "Earprint",
     description: DESC,
     url: "https://music.kwanho.dev",
-    siteName: "Playlist Analyzer",
+    siteName: "Earprint",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Playlist Analyzer",
+    title: "Earprint",
     description: DESC,
   },
 };

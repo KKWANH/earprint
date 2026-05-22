@@ -9,7 +9,7 @@ import type { LibraryStats } from "./library";
  * delivery to the account owner's address — which is exactly our use case.
  */
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
-const FROM = "Playlist Analyzer <onboarding@resend.dev>";
+const FROM = "Earprint <onboarding@resend.dev>";
 const APP_URL = "https://music.kwanho.dev";
 
 interface SendArgs {
@@ -136,7 +136,7 @@ export function buildCompletionEmail(stats: LibraryStats): { subject: string; ht
             전체 심리 분석 보기 →
           </a>
           <p style="margin:16px 0 0;color:#666;font-size:12px;">
-            Playlist Analyzer · <a href="${APP_URL}" style="color:#888;">music.kwanho.dev</a>
+            Earprint · <a href="${APP_URL}" style="color:#888;">music.kwanho.dev</a>
           </p>
         </td></tr>
       </table>

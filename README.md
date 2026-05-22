@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="./assets/logo.svg" alt="Playlist Analyzer logo" width="96" height="96" />
-  <h1>Playlist Analyzer</h1>
+  <img src="./assets/logo.svg" alt="Earprint logo" width="96" height="96" />
+  <h1>Earprint</h1>
 </div>
 
 A web service + Chrome extension that collects your YouTube Music **liked

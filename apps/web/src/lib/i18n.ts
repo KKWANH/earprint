@@ -18,7 +18,7 @@ const en = {
   landing: {
     tagline: "Understand why you love the music you love.",
     intro:
-      "Playlist Analyzer collects your YouTube Music liked songs and turns them into a research-grounded portrait of your taste — not another year-end chart.",
+      "Earprint collects your YouTube Music liked songs and turns them into a research-grounded portrait of your taste — not another year-end chart.",
     ctaIn: "Open your dashboard →",
     ctaOut: "Sign in with Google",
     signedInAs: "Signed in as",
@@ -58,7 +58,7 @@ const ko: Dict = {
   landing: {
     tagline: "당신이 그 음악을 왜 좋아하는지 이해해 보세요.",
     intro:
-      "Playlist Analyzer 는 유튜브 뮤직 좋아요 곡을 모아, 연말 결산이 아닌 연구에 근거한 취향의 초상으로 바꿔 줍니다.",
+      "Earprint 는 유튜브 뮤직 좋아요 곡을 모아, 연말 결산이 아닌 연구에 근거한 취향의 초상으로 바꿔 줍니다.",
     ctaIn: "내 대시보드 열기 →",
     ctaOut: "Google 로 로그인",
     signedInAs: "로그인:",

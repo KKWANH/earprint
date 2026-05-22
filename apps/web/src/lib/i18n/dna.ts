@@ -1,7 +1,7 @@
 import type { Locale } from "../i18n";
 
 const en = {
-  metaTitle: "Taste DNA — Playlist Analyzer",
+  metaTitle: "Taste DNA — Earprint",
   loginButton: "Sign in with Google",
 
   pageTitle: "Taste DNA",
@@ -93,7 +93,7 @@ const en = {
 };
 
 const ko: typeof en = {
-  metaTitle: "취향 DNA — Playlist Analyzer",
+  metaTitle: "취향 DNA — Earprint",
   loginButton: "Google 로 로그인",
 
   pageTitle: "취향 DNA",
