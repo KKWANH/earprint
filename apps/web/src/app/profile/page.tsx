@@ -6,8 +6,10 @@ import { getLibraryStats, type AudioFeelAgg, type LibraryStats } from "@/lib/lib
 import type { AiProfile, Persona } from "@/lib/profile";
 import { getLocale } from "@/lib/i18n-server";
 import { profileDict } from "@/lib/i18n/profile";
+import { diggingPercentile, newShareId } from "@/lib/share";
 import { GenerateButton } from "./GenerateButton";
 import { GenreConstellation } from "./GenreConstellation";
+import { ShareButton } from "./ShareButton";
 
 export default async function ProfilePage() {
   const locale = await getLocale();
@@ -33,7 +35,7 @@ export default async function ProfilePage() {
   const { userId } = await ensureConnection();
   const sql = getSql();
   const rows = await sql`
-    SELECT ai_profile, ai_profile_en, ai_profile_ko, ai_generated_at, ai_locale
+    SELECT ai_profile, ai_profile_en, ai_profile_ko, ai_generated_at, ai_locale, share_id
     FROM taste_profiles WHERE user_id = ${userId}`;
   // Prefer the profile stored in the current language; fall back to the legacy
   // single-language column for rows generated before bilingual storage.
@@ -45,9 +47,20 @@ export default async function ProfilePage() {
   const aiLocale = rows[0]?.ai_locale as string | undefined;
   // Only legacy rows (no per-locale copy) can show the wrong language.
   const staleLocale = !perLocale && !!profile && !!aiLocale && aiLocale !== locale;
-  const [genreMap, stats] = await Promise.all([
+
+  // Backfill a share id for profiles generated before sharing existed.
+  let shareId = rows[0]?.share_id as string | undefined;
+  if (profile && !shareId) {
+    shareId = newShareId();
+    await sql`
+      UPDATE taste_profiles SET share_id = ${shareId}
+      WHERE user_id = ${userId} AND share_id IS NULL`;
+  }
+
+  const [genreMap, stats, percentile] = await Promise.all([
     getGenreMap(userId),
     getLibraryStats(userId),
+    profile ? diggingPercentile(profile.diggingScore) : Promise.resolve(null),
   ]);
 
   return (
@@ -67,6 +80,13 @@ export default async function ProfilePage() {
         )}
       </section>
 
+      {profile && shareId && (
+        <section className="flex flex-col gap-3 rounded-xl border border-emerald-900/50 bg-neutral-900 p-6">
+          <h2 className="font-semibold text-emerald-300">{t.shareHeading}</h2>
+          <ShareButton shareId={shareId} locale={locale} />
+        </section>
+      )}
+
       {stats.total > 0 && <StatsSection stats={stats} t={t} />}
 
       {genreMap.nodes.length > 0 && (
@@ -80,7 +100,7 @@ export default async function ProfilePage() {
       )}
 
       {profile ? (
-        <ProfileView profile={profile} t={t} />
+        <ProfileView profile={profile} percentile={percentile} t={t} />
       ) : (
         <p className="text-sm text-neutral-500">{t.noProfile}</p>
       )}
@@ -153,10 +173,25 @@ function FeelBars({ feel, t }: { feel: AudioFeelAgg; t: ProfileT }) {
   );
 }
 
-function ProfileView({ profile: p, t }: { profile: AiProfile; t: ProfileT }) {
+function ProfileView({
+  profile: p,
+  percentile,
+  t,
+}: {
+  profile: AiProfile;
+  percentile: number | null;
+  t: ProfileT;
+}) {
   return (
     <div className="flex flex-col gap-6">
-      {p.persona && <PersonaCard persona={p.persona} score={p.diggingScore} t={t} />}
+      {p.persona && (
+        <PersonaCard
+          persona={p.persona}
+          score={p.diggingScore}
+          percentile={percentile}
+          t={t}
+        />
+      )}
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <h2 className="text-xl font-bold text-indigo-300">{p.headline}</h2>
@@ -174,6 +209,11 @@ function ProfileView({ profile: p, t }: { profile: AiProfile; t: ProfileT }) {
         <div className="flex flex-col items-center">
           <div className="text-4xl font-bold text-emerald-400">{p.diggingScore}</div>
           <div className="text-xs text-neutral-500">{t.diggingScore}</div>
+          {percentile != null && (
+            <div className="mt-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+              {t.topPercent(percentile)}
+            </div>
+          )}
         </div>
         <p className="flex-1 text-sm text-neutral-300">{p.diggingComment}</p>
       </section>
@@ -209,10 +249,12 @@ function ProfileView({ profile: p, t }: { profile: AiProfile; t: ProfileT }) {
 function PersonaCard({
   persona,
   score,
+  percentile,
   t,
 }: {
   persona: Persona;
   score: number;
+  percentile: number | null;
   t: ProfileT;
 }) {
   return (
@@ -223,9 +265,16 @@ function PersonaCard({
       </p>
       <h2 className="mt-1 text-3xl font-extrabold leading-tight">{persona.name}</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-white/80">{persona.tagline}</p>
-      <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-black/40 px-4 py-1.5 text-sm">
-        <span className="font-bold text-emerald-300">{t.personaScore} {score}</span>
-        <span className="text-white/40">/ 100</span>
+      <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-2 text-sm">
+        <span className="inline-flex items-center gap-2 rounded-full bg-black/40 px-4 py-1.5">
+          <span className="font-bold text-emerald-300">{t.personaScore} {score}</span>
+          <span className="text-white/40">/ 100</span>
+        </span>
+        {percentile != null && (
+          <span className="rounded-full bg-black/40 px-4 py-1.5 font-bold text-amber-300">
+            {t.topPercent(percentile)}
+          </span>
+        )}
       </div>
     </section>
   );

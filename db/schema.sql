@@ -389,6 +389,10 @@ ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_locale       TEXT; -- lan
 -- backward compatibility with rows generated before this.
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_profile_en   jsonb; -- profile text in English
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_profile_ko   jsonb; -- profile text in Korean
+-- Unguessable id for the public read-only share page (/s/<share_id>).
+ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS share_id        TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_taste_profiles_share
+  ON taste_profiles (share_id);
 
 -- ── Phase B: save AI enrichment results ───────────────
 -- Enriches tracks the APIs couldn't fill via Gemini inference. If realArtist is present, remaps to the original artist.

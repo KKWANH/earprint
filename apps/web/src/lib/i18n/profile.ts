@@ -40,6 +40,15 @@ const en = {
     "This analysis was written in another language — regenerate it to read it in English.",
   capped:
     "🌙 Today's shared AI limit was reached — please try generating your analysis again tomorrow.",
+  shareHeading: "Share your music persona",
+  shareCopy: "Copy share link",
+  shareCopied: "Link copied",
+  shareOpen: "Open",
+  topArtists: "Top artists",
+  topPercent: (n: number) => `Top ${n}% digging`,
+  shareCtaLine: "Made with Earprint — discover your own music taste.",
+  shareCtaButton: "Analyze my taste →",
+  shareNotFound: "This shared profile doesn't exist.",
 };
 
 const ko: typeof en = {
@@ -82,6 +91,15 @@ const ko: typeof en = {
     "이 분석은 다른 언어로 작성되었습니다 — 한국어로 보려면 다시 생성하세요.",
   capped:
     "🌙 오늘의 공용 AI 한도에 도달했어요 — 내일 다시 분석을 생성해 주세요.",
+  shareHeading: "내 음악 페르소나 공유",
+  shareCopy: "공유 링크 복사",
+  shareCopied: "링크 복사됨",
+  shareOpen: "열기",
+  topArtists: "최다 아티스트",
+  topPercent: (n: number) => `디깅 상위 ${n}%`,
+  shareCtaLine: "Earprint 로 만든 결과 — 내 음악 취향도 알아보세요.",
+  shareCtaButton: "내 취향 분석하기 →",
+  shareNotFound: "존재하지 않는 공유 프로필입니다.",
 };
 
 export function profileDict(locale: Locale) {
