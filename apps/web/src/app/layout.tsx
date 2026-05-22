@@ -24,6 +24,9 @@ export const metadata: Metadata = {
     title: "Earprint",
     description: DESC,
   },
+  verification: {
+    google: "eW858xx9u5r9SCiOWqOoW9fzPyacwUxJlYT1B0tEXBQ",
+  },
 };
 
 export const viewport: Viewport = {
