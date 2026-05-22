@@ -9,7 +9,7 @@ import type { LibraryStats } from "./library";
  * delivery to the account owner's address — which is exactly our use case.
  */
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
-const FROM = "Earprint <onboarding@resend.dev>";
+const FROM = "Earprint <noreply@earprint.kwanho.dev>";
 // Replies to report emails land in a real inbox the owner monitors.
 const REPLY_TO = "kwanho0096@gmail.com";
 const APP_URL = "https://earprint.kwanho.dev";
