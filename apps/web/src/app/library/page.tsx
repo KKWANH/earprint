@@ -81,6 +81,7 @@ export default async function LibraryPage() {
         items={stats.topGenres}
         color="bg-indigo-500"
         empty={t.genreEmpty}
+        linkGenre
         locale={locale}
       />
       <BarCard
@@ -233,6 +234,7 @@ function BarCard({
   empty,
   excludable,
   linkArtist,
+  linkGenre,
   locale,
 }: {
   title: string;
@@ -241,9 +243,16 @@ function BarCard({
   empty: string;
   excludable?: boolean;
   linkArtist?: boolean;
+  linkGenre?: boolean;
   locale: Locale;
 }) {
   const max = Math.max(1, ...items.map((i) => i.count));
+  const hrefFor = (n: string) =>
+    linkArtist
+      ? `/artist/${encodeURIComponent(n)}`
+      : linkGenre
+        ? `/genre/${encodeURIComponent(n)}`
+        : null;
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
       <h2 className="font-semibold">{title}</h2>
@@ -251,11 +260,13 @@ function BarCard({
         <p className="text-sm text-neutral-500">{empty}</p>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {items.map((it) => (
+          {items.map((it) => {
+            const href = hrefFor(it.name);
+            return (
             <div key={it.name} className="flex items-center gap-3 text-sm">
-              {linkArtist ? (
+              {href ? (
                 <Link
-                  href={`/artist/${encodeURIComponent(it.name)}`}
+                  href={href}
                   className="w-32 shrink-0 truncate text-neutral-300 hover:text-white hover:underline"
                 >
                   {it.name}
@@ -272,7 +283,8 @@ function BarCard({
               <span className="w-10 shrink-0 text-right text-neutral-500">{it.count}</span>
               {excludable && <ExcludeButton artist={it.name} locale={locale} />}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>

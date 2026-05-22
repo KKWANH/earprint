@@ -559,3 +559,14 @@ CREATE TABLE IF NOT EXISTS app_whitelist (
   email    TEXT PRIMARY KEY,                       -- lowercased
   added_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ── Genre info — built once per genre (AI description + Last.fm top
+--    artists/tracks) and cached, so the genre detail page just loads it. ──
+CREATE TABLE IF NOT EXISTS genre_info (
+  genre          TEXT PRIMARY KEY,                  -- lowercased
+  description_en TEXT,
+  description_ko TEXT,
+  top_artists    JSONB,                             -- string[]
+  top_tracks     JSONB,                             -- {artist,title}[]
+  generated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -83,9 +83,13 @@ export default async function ArtistPage({
         <Section title={t.genres}>
           <div className="flex flex-wrap gap-1.5">
             {d.genres.map((g) => (
-              <span key={g.name} className="rounded-full bg-indigo-900/60 px-2.5 py-1 text-xs">
+              <Link
+                key={g.name}
+                href={`/genre/${encodeURIComponent(g.name)}`}
+                className="rounded-full bg-indigo-900/60 px-2.5 py-1 text-xs hover:bg-indigo-800/70"
+              >
                 {g.name}
-              </span>
+              </Link>
             ))}
           </div>
         </Section>
