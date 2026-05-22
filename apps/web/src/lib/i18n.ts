@@ -40,6 +40,9 @@ const en = {
     s1: "Install the Chrome extension",
     s2: "Sync your liked songs from YouTube Music",
     s3: "Explore your Taste DNA, artist map and recommendations",
+    galleryTitle: "Your music, as a persona",
+    gallerySubtitle:
+      "Earprint turns your liked songs into a shareable music character — here are a few examples.",
     footer: "A personal, research-grounded music-taste tool.",
   },
 };
@@ -78,6 +81,9 @@ const ko: Dict = {
     s1: "크롬 확장프로그램 설치",
     s2: "유튜브 뮤직에서 좋아요 곡 동기화",
     s3: "취향 DNA·아티스트 맵·추천 탐색",
+    galleryTitle: "내 음악이 하나의 페르소나로",
+    gallerySubtitle:
+      "Earprint 는 좋아요한 곡을 공유 가능한 음악 캐릭터로 바꿔 줍니다 — 아래는 예시입니다.",
     footer: "연구에 근거한 개인용 음악 취향 도구.",
   },
 };

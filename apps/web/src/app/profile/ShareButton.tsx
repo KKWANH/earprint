@@ -35,6 +35,13 @@ export function ShareButton({ shareId, locale }: { shareId: string; locale: Loca
       >
         {t.shareOpen} ↗
       </a>
+      <a
+        href={`/s/${shareId}/opengraph-image`}
+        download="earprint.png"
+        className="rounded-md border border-white/10 px-4 py-2 text-sm text-neutral-300 hover:text-white"
+      >
+        {t.shareImage}
+      </a>
     </div>
   );
 }

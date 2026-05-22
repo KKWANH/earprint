@@ -1,7 +1,79 @@
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
-import { getDict } from "@/lib/i18n";
+import { getDict, type Locale } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
+import { PersonaCard } from "@/components/PersonaCard";
+
+/** Illustrative personas for the landing-page gallery (not real users). */
+const SAMPLE_PERSONAS: Record<
+  Locale,
+  { persona: { emoji: string; archetype: string; name: string; tagline: string }; score: number; percentile: number | null }[]
+> = {
+  en: [
+    {
+      persona: {
+        emoji: "🌃",
+        archetype: "City-pop dreamer",
+        name: "Midnight City-Pop Dreamer",
+        tagline: "Neon-lit nostalgia on a late-night drive.",
+      },
+      score: 78,
+      percentile: 14,
+    },
+    {
+      persona: {
+        emoji: "🌫️",
+        archetype: "Shoegaze romantic",
+        name: "Reverb-Drenched Romantic",
+        tagline: "Feelings turned all the way up, vocals all the way down.",
+      },
+      score: 86,
+      percentile: 6,
+    },
+    {
+      persona: {
+        emoji: "🎐",
+        archetype: "Lo-fi wanderer",
+        name: "Lo-fi Afternoon Wanderer",
+        tagline: "Soft beats for a slow, unhurried world.",
+      },
+      score: 61,
+      percentile: null,
+    },
+  ],
+  ko: [
+    {
+      persona: {
+        emoji: "🌃",
+        archetype: "시티팝 드리머",
+        name: "심야의 시티팝 드리머",
+        tagline: "네온 불빛 아래 늦은 밤 드라이브의 노스탤지어.",
+      },
+      score: 78,
+      percentile: 14,
+    },
+    {
+      persona: {
+        emoji: "🌫️",
+        archetype: "슈게이즈 로맨티스트",
+        name: "리버브에 잠긴 로맨티스트",
+        tagline: "감정은 끝까지 올리고, 보컬은 안개 속으로.",
+      },
+      score: 86,
+      percentile: 6,
+    },
+    {
+      persona: {
+        emoji: "🎐",
+        archetype: "로파이 방랑자",
+        name: "로파이 오후의 산책자",
+        tagline: "느리고 여유로운 세계를 위한 부드러운 비트.",
+      },
+      score: 61,
+      percentile: null,
+    },
+  ],
+};
 
 export default async function LandingPage() {
   const locale = await getLocale();
@@ -59,6 +131,27 @@ export default async function LandingPage() {
             {t.signedInAs} {session!.user!.email}
           </p>
         )}
+      </section>
+
+      {/* sample persona gallery */}
+      <section className="flex flex-col gap-6">
+        <div className="text-center">
+          <h2 className="text-xl font-bold sm:text-2xl">{t.galleryTitle}</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-neutral-400">
+            {t.gallerySubtitle}
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {SAMPLE_PERSONAS[locale].map((s) => (
+            <PersonaCard
+              key={s.persona.name}
+              persona={s.persona}
+              score={s.score}
+              percentile={s.percentile}
+              locale={locale}
+            />
+          ))}
+        </div>
       </section>
 
       {/* science */}
@@ -125,9 +218,6 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-white/10 pt-6 text-center text-xs text-neutral-600">
-        {t.footer}
-      </footer>
     </main>
   );
 }

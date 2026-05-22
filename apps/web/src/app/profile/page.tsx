@@ -3,10 +3,12 @@ import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { getGenreMap } from "@/lib/genreMap";
 import { getLibraryStats, type AudioFeelAgg, type LibraryStats } from "@/lib/library";
-import type { AiProfile, Persona } from "@/lib/profile";
+import type { AiProfile } from "@/lib/profile";
+import type { Locale } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { profileDict } from "@/lib/i18n/profile";
 import { diggingPercentile, newShareId } from "@/lib/share";
+import { PersonaCard } from "@/components/PersonaCard";
 import { GenerateButton } from "./GenerateButton";
 import { GenreConstellation } from "./GenreConstellation";
 import { ShareButton } from "./ShareButton";
@@ -100,7 +102,7 @@ export default async function ProfilePage() {
       )}
 
       {profile ? (
-        <ProfileView profile={profile} percentile={percentile} t={t} />
+        <ProfileView profile={profile} percentile={percentile} locale={locale} t={t} />
       ) : (
         <p className="text-sm text-neutral-500">{t.noProfile}</p>
       )}
@@ -176,10 +178,12 @@ function FeelBars({ feel, t }: { feel: AudioFeelAgg; t: ProfileT }) {
 function ProfileView({
   profile: p,
   percentile,
+  locale,
   t,
 }: {
   profile: AiProfile;
   percentile: number | null;
+  locale: Locale;
   t: ProfileT;
 }) {
   return (
@@ -189,7 +193,7 @@ function ProfileView({
           persona={p.persona}
           score={p.diggingScore}
           percentile={percentile}
-          t={t}
+          locale={locale}
         />
       )}
 
@@ -243,40 +247,6 @@ function ProfileView({
         </section>
       )}
     </div>
-  );
-}
-
-function PersonaCard({
-  persona,
-  score,
-  percentile,
-  t,
-}: {
-  persona: Persona;
-  score: number;
-  percentile: number | null;
-  t: ProfileT;
-}) {
-  return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-600/40 via-fuchsia-600/30 to-amber-500/25 p-8 text-center">
-      <div className="text-6xl">{persona.emoji}</div>
-      <p className="mt-3 text-xs uppercase tracking-[0.2em] text-white/60">
-        {persona.archetype}
-      </p>
-      <h2 className="mt-1 text-3xl font-extrabold leading-tight">{persona.name}</h2>
-      <p className="mx-auto mt-2 max-w-md text-sm text-white/80">{persona.tagline}</p>
-      <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-2 text-sm">
-        <span className="inline-flex items-center gap-2 rounded-full bg-black/40 px-4 py-1.5">
-          <span className="font-bold text-emerald-300">{t.personaScore} {score}</span>
-          <span className="text-white/40">/ 100</span>
-        </span>
-        {percentile != null && (
-          <span className="rounded-full bg-black/40 px-4 py-1.5 font-bold text-amber-300">
-            {t.topPercent(percentile)}
-          </span>
-        )}
-      </div>
-    </section>
   );
 }
 

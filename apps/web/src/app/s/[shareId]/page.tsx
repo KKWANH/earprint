@@ -6,6 +6,7 @@ import { getLocale } from "@/lib/i18n-server";
 import { profileDict } from "@/lib/i18n/profile";
 import type { AiProfile } from "@/lib/profile";
 import { diggingPercentile } from "@/lib/share";
+import { PersonaCard } from "@/components/PersonaCard";
 
 interface SharedRow {
   user_id: string;
@@ -75,33 +76,13 @@ export default async function SharePage({
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 py-8 sm:px-6 sm:py-12">
-      {/* persona card */}
       {profile.persona && (
-        <section className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-600/40 via-fuchsia-600/30 to-amber-500/25 p-8 text-center">
-          <div className="text-6xl">{profile.persona.emoji}</div>
-          <p className="mt-3 text-xs uppercase tracking-[0.2em] text-white/60">
-            {profile.persona.archetype}
-          </p>
-          <h1 className="mt-1 text-3xl font-extrabold leading-tight">
-            {profile.persona.name}
-          </h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-white/80">
-            {profile.persona.tagline}
-          </p>
-          <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-2 text-sm">
-            <span className="inline-flex items-center gap-2 rounded-full bg-black/40 px-4 py-1.5">
-              <span className="font-bold text-emerald-300">
-                {t.personaScore} {profile.diggingScore}
-              </span>
-              <span className="text-white/40">/ 100</span>
-            </span>
-            {percentile != null && (
-              <span className="rounded-full bg-black/40 px-4 py-1.5 font-bold text-amber-300">
-                {t.topPercent(percentile)}
-              </span>
-            )}
-          </div>
-        </section>
+        <PersonaCard
+          persona={profile.persona}
+          score={profile.diggingScore}
+          percentile={percentile}
+          locale={locale}
+        />
       )}
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
