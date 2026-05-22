@@ -3,6 +3,7 @@
  * lookup for the release year (used by the reminiscence-bump analysis).
  * Yields album, preview, popularity rank, release year and a match score.
  */
+import { getSql } from "./db";
 import { getJson } from "./http";
 
 const API = "https://api.deezer.com";
@@ -60,6 +61,17 @@ export async function searchDeezer(
   opts: { withYear?: boolean } = {},
 ): Promise<DeezerMatch> {
   const withYear = opts.withYear ?? true;
+  const cacheKey = `${artist.toLowerCase().trim()}|${title.toLowerCase().trim()}`;
+  const sql = getSql();
+
+  // Cached match — avoids a repeat Deezer call (faster, fewer rate limits).
+  try {
+    const hitRow = await sql`SELECT payload FROM deezer_match WHERE cache_key = ${cacheKey}`;
+    if (hitRow.length > 0) return hitRow[0].payload as DeezerMatch;
+  } catch {
+    /* fall through to a live lookup */
+  }
+
   const cleanTitle = norm(title) || title;
   const advanced = `artist:"${artist.replace(/"/g, "")}" track:"${cleanTitle}"`;
 
@@ -83,7 +95,7 @@ export async function searchDeezer(
     }
   }
 
-  return {
+  const result: DeezerMatch = {
     deezerId: hit.id ?? null,
     album: hit.album?.title ?? null,
     coverUrl: hit.album?.cover_big || hit.album?.cover_medium || null,
@@ -92,4 +104,15 @@ export async function searchDeezer(
     rank: typeof hit.rank === "number" ? hit.rank : null,
     matchConfidence: scoreMatch(title, hit.title ?? ""),
   };
+  if (result.deezerId != null) {
+    try {
+      await sql`
+        INSERT INTO deezer_match (cache_key, payload)
+        VALUES (${cacheKey}, ${JSON.stringify(result)}::jsonb)
+        ON CONFLICT (cache_key) DO NOTHING`;
+    } catch {
+      /* caching is best-effort */
+    }
+  }
+  return result;
 }

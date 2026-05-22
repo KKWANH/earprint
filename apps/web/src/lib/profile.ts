@@ -1,4 +1,5 @@
 import { geminiJson } from "./gemini";
+import type { Locale } from "./i18n";
 import { getLibraryStats } from "./library";
 
 /** A music persona — the listener anthropomorphized as a shareable character. */
@@ -56,9 +57,13 @@ const SCHEMA = {
 };
 
 /** Library stats → Gemini psychological analysis. Saving to taste_profiles is the caller's job. */
-export async function generateProfile(userId: string): Promise<AiProfile> {
+export async function generateProfile(
+  userId: string,
+  locale: Locale,
+): Promise<AiProfile> {
   const s = await getLibraryStats(userId);
   const diversity = s.total > 0 ? s.distinctArtists / s.total : 0;
+  const lang = locale === "ko" ? "한국어" : "영어(English)";
 
   const prompt = `당신은 통찰력 있는 음악 취향 분석가입니다. 한 리스너의 유튜브 뮤직 "좋아요" 라이브러리 통계를 보고 심리·취향 프로파일과 '취향 보강 가이드'를 작성하세요.
 
@@ -79,14 +84,14 @@ export async function generateProfile(userId: string): Promise<AiProfile> {
 - 깊게 판 앨범: ${s.topAlbums.slice(0, 6).map((a) => `${a.name}(${a.count}곡)`).join(", ") || "데이터 없음"}
 
 [작성 지시]
-- 한국어로, 친근하면서도 날카롭게.
+- ★ 모든 출력 텍스트(persona·headline·personality·traits·각 장르명·tips 등)는 반드시 ${lang}(으)로 작성. 친근하면서도 날카롭게.
 - persona: 이 리스너를 '음악 캐릭터'로 의인화. 재미있고 공유하고 싶게.
   ★ 실제 아티스트·밴드·곡 이름은 절대 쓰지 말 것. 대신 장르·악기·분위기 기반의 '유형 틀'에서 골라 조합한다.
   유형 예시(데이터의 장르 분포에 맞는 것을 고를 것):
   락커 / 랩퍼 / 인디 음유시인 / EDM 레이버 / 피아노 낭만가 / 시티팝 드리머 / 재즈 보헤미안 /
   발라드 센티멘털리스트 / 메탈헤드 / 포크 방랑자 / 디스코 펑크 / R&B 크루너 / 슈게이저 /
   앰비언트 명상가 / 펑크 반항아 / 신스팝 몽상가 / 로파이 산책자.
-  · name: '[수식어] [유형]' 형태의 멋진 한국어 별칭 (예: "심야의 시티팝 드리머", "낭만적인 피아노 음유시인", "질주하는 펑크 반항아").
+  · name: '[수식어] [유형]' 형태의 멋진 ${lang} 별칭 (한국어 예: "심야의 시티팝 드리머" / 영어 예: "Midnight City-Pop Dreamer").
   · archetype: 위 유형 중 핵심 하나.
   · emoji: 캐릭터에 어울리는 이모지 1개.
   · tagline: 임팩트 있는 한 줄.

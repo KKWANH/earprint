@@ -20,9 +20,6 @@ const en = {
   // counts
   countsRated: "Rated",
 
-  // blurb loading
-  blurbLoading: "Loading the song's story…",
-
   // swipe hint
   swipeHint: "← Pass · → Like · ↑ Love it",
 
@@ -75,8 +72,6 @@ const ko: typeof en = {
   generate: "추천 만들기",
 
   countsRated: "평가",
-
-  blurbLoading: "곡 이야기 불러오는 중…",
 
   swipeHint: "← 별로 · → 좋아요 · ↑ 정말 좋아요",
 

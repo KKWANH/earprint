@@ -367,6 +367,19 @@ CREATE TABLE IF NOT EXISTS lastfm_similar (
   fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ── External-API response caches (shared) — recommendations & enrichment ──
+-- Cuts repeat Last.fm / Deezer calls: faster, and avoids rate-limit flakiness.
+CREATE TABLE IF NOT EXISTS lastfm_cache (
+  cache_key  TEXT PRIMARY KEY,
+  payload    JSONB NOT NULL,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS deezer_match (
+  cache_key  TEXT PRIMARY KEY,
+  payload    JSONB NOT NULL,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ── taste_profiles: AI-generated psychology / taste profile ──
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_profile      jsonb;
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_generated_at TIMESTAMPTZ;

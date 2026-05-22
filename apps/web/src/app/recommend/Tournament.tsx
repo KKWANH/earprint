@@ -14,7 +14,6 @@ export interface Rec {
   deezerId: number | null;
   seedTrack: string | null;
   score: number | null;
-  blurb: string | null;
   recType: "song" | "genre" | "unheard" | "indie";
 }
 
@@ -62,7 +61,6 @@ export function Tournament({
   const [comment, setComment] = useState("");
   const [counts, setCounts] = useState({ rated, likes, dislikes });
   const [history, setHistory] = useState<string[]>([]);
-  const [blurbs, setBlurbs] = useState<Map<string, string>>(new Map());
   const [playing, setPlaying] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(false);
 
@@ -83,24 +81,6 @@ export function Tournament({
       );
     }
   }, [idx, initial.length]);
-
-  // Lazily fetch the history blurb for the current and next card.
-  useEffect(() => {
-    for (const rec of [initial[idx], initial[idx + 1]]) {
-      if (!rec || rec.blurb || blurbs.has(rec.id)) continue;
-      void fetch("/api/recommend/blurb", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: rec.id }),
-      })
-        .then((r) => r.json())
-        .then((d: { blurb?: string }) => {
-          if (d.blurb) setBlurbs((m) => new Map(m).set(rec.id, d.blurb as string));
-        })
-        .catch(() => {});
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx]);
 
   function stopAudio() {
     audioRef.current?.pause();
@@ -237,7 +217,6 @@ export function Tournament({
     );
   }
 
-  const blurb = current.blurb ?? blurbs.get(current.id) ?? null;
   const hd = HEADER[current.recType] ?? HEADER.song;
   const tf = flyOff ?? drag ?? { x: 0, y: 0 };
   const transform = `translate(${tf.x}px, ${tf.y}px) rotate(${tf.x * 0.05}deg)`;
@@ -288,7 +267,7 @@ export function Tournament({
           </div>
 
           {/* cover */}
-          <div className="relative h-40 shrink-0 bg-neutral-800">
+          <div className="relative flex-1 bg-neutral-800">
             {current.coverUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -328,12 +307,6 @@ export function Tournament({
             </SwipeBadge>
           </div>
 
-          {/* blurb */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <p className="text-[15px] leading-relaxed text-neutral-300">
-              {blurb ?? <span className="text-neutral-600">{t.blurbLoading}</span>}
-            </p>
-          </div>
         </div>
       </div>
 

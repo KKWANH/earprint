@@ -36,53 +36,87 @@ interface Cand {
   recType: RecRow["recType"];
 }
 
+/**
+ * Runs a Last.fm fetch through a shared DB cache. Similar tracks / genre top
+ * tracks barely change, so a cache hit skips the network call entirely.
+ * Empty results (often a transient failure) are not cached.
+ */
+async function cachedLastfm<T extends unknown[]>(
+  cacheKey: string,
+  fetchFn: () => Promise<T>,
+): Promise<T> {
+  const sql = getSql();
+  try {
+    const hit = await sql`SELECT payload FROM lastfm_cache WHERE cache_key = ${cacheKey}`;
+    if (hit.length > 0) return hit[0].payload as T;
+  } catch {
+    /* fall through */
+  }
+  const fresh = await fetchFn();
+  if (fresh.length > 0) {
+    try {
+      await sql`
+        INSERT INTO lastfm_cache (cache_key, payload)
+        VALUES (${cacheKey}, ${JSON.stringify(fresh)}::jsonb)
+        ON CONFLICT (cache_key) DO NOTHING`;
+    } catch {
+      /* best-effort */
+    }
+  }
+  return fresh;
+}
+
 /** Last.fm similar tracks for a seed song. */
 async function lastfmSimilar(artist: string, track: string): Promise<Cand[]> {
   const key = process.env.LASTFM_API_KEY;
   if (!key) return [];
-  try {
-    const data = await getJson(
-      `${LASTFM}?method=track.getsimilar&autocorrect=1&format=json&limit=25` +
-        `&artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&api_key=${key}`,
-    );
-    let t = data?.similartracks?.track;
-    if (!t) return [];
-    if (!Array.isArray(t)) t = [t];
-    return t
-      .map((x: any) => ({
-        artist: String(x?.artist?.name ?? "").trim(),
-        title: String(x?.name ?? "").trim(),
-        match: Math.max(0, Math.min(1, Number(x?.match ?? 0))),
-        seedTrack: "",
-        recType: "song" as const,
-      }))
-      .filter((x: Cand) => x.artist && x.title);
-  } catch {
-    return [];
-  }
+  return cachedLastfm(`sim:${artist.toLowerCase()}|${track.toLowerCase()}`, async () => {
+    try {
+      const data = await getJson(
+        `${LASTFM}?method=track.getsimilar&autocorrect=1&format=json&limit=25` +
+          `&artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(track)}&api_key=${key}`,
+      );
+      let t = data?.similartracks?.track;
+      if (!t) return [];
+      if (!Array.isArray(t)) t = [t];
+      return t
+        .map((x: any) => ({
+          artist: String(x?.artist?.name ?? "").trim(),
+          title: String(x?.name ?? "").trim(),
+          match: Math.max(0, Math.min(1, Number(x?.match ?? 0))),
+          seedTrack: "",
+          recType: "song" as const,
+        }))
+        .filter((x: Cand) => x.artist && x.title);
+    } catch {
+      return [];
+    }
+  });
 }
 
 /** Last.fm top tracks for a genre tag. */
 async function tagTopTracks(tag: string): Promise<{ artist: string; title: string }[]> {
   const key = process.env.LASTFM_API_KEY;
   if (!key) return [];
-  try {
-    const data = await getJson(
-      `${LASTFM}?method=tag.gettoptracks&format=json&limit=70` +
-        `&tag=${encodeURIComponent(tag)}&api_key=${key}`,
-    );
-    let t = data?.tracks?.track;
-    if (!t) return [];
-    if (!Array.isArray(t)) t = [t];
-    return t
-      .map((x: any) => ({
-        artist: String(x?.artist?.name ?? "").trim(),
-        title: String(x?.name ?? "").trim(),
-      }))
-      .filter((x: { artist: string; title: string }) => x.artist && x.title);
-  } catch {
-    return [];
-  }
+  return cachedLastfm(`tag:${tag.toLowerCase()}`, async () => {
+    try {
+      const data = await getJson(
+        `${LASTFM}?method=tag.gettoptracks&format=json&limit=70` +
+          `&tag=${encodeURIComponent(tag)}&api_key=${key}`,
+      );
+      let t = data?.tracks?.track;
+      if (!t) return [];
+      if (!Array.isArray(t)) t = [t];
+      return t
+        .map((x: any) => ({
+          artist: String(x?.artist?.name ?? "").trim(),
+          title: String(x?.name ?? "").trim(),
+        }))
+        .filter((x: { artist: string; title: string }) => x.artist && x.title);
+    } catch {
+      return [];
+    }
+  });
 }
 
 function shuffle<T>(arr: T[]): T[] {

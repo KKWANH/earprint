@@ -1,5 +1,6 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
+import { getLocale } from "@/lib/i18n-server";
 import { generateProfile } from "@/lib/profile";
 import { json } from "@/lib/http";
 
@@ -13,7 +14,7 @@ export async function POST() {
   }
 
   try {
-    const profile = await generateProfile(userId);
+    const profile = await generateProfile(userId, await getLocale());
     const sql = getSql();
     await sql`
       INSERT INTO taste_profiles (user_id, ai_profile, ai_generated_at)
