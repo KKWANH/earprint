@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { libraryDict } from "@/lib/i18n/library";
+import { useAudioPlayer } from "@/lib/useAudioPlayer";
 
-/**
- * 30-second preview button.
- * Deezer preview URLs expire, so a fresh URL is fetched from /api/preview
- * right before playback.
- */
+/** 30-second Deezer preview button. */
 export function PreviewButton({
   deezerId,
   locale,
@@ -17,47 +13,8 @@ export function PreviewButton({
   locale: Locale;
 }) {
   const t = libraryDict(locale);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [playing, setPlaying] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  // Stop and release the audio element when the component unmounts.
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-      audioRef.current = null;
-    };
-  }, []);
-
+  const { playing, loading, toggle } = useAudioPlayer(deezerId);
   if (!deezerId) return null;
-
-  async function toggle() {
-    if (playing) {
-      audioRef.current?.pause();
-      setPlaying(false);
-      return;
-    }
-    if (audioRef.current) {
-      void audioRef.current.play();
-      setPlaying(true);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/preview?deezerId=${deezerId}`);
-      const d = (await res.json()) as { url?: string };
-      if (d.url) {
-        const a = new Audio(d.url);
-        a.onended = () => setPlaying(false);
-        audioRef.current = a;
-        void a.play();
-        setPlaying(true);
-      }
-    } catch {
-      /* playback failed — ignore */
-    }
-    setLoading(false);
-  }
 
   return (
     <button

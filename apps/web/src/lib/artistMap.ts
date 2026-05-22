@@ -63,23 +63,27 @@ export async function getArtistMap(userId: string): Promise<ArtistMapData> {
   const affinities = await getAffinities(userId);
 
   // Per (artist, genre): how many of the artist's liked tracks carry that genre.
+  // Per-artist track counts are computed once in a CTE (the old LATERAL
+  // re-ran the count for every track row — O(tracks × artists)).
   const rows = await sql`
+    WITH artist_counts AS (
+      SELECT t.artist AS artist, count(*)::int AS n
+      FROM user_tracks ut
+      JOIN tracks t ON t.id = ut.track_id
+      WHERE ut.user_id = ${userId}
+      GROUP BY t.artist
+    )
     SELECT t.artist                       AS artist,
-           cnt.n                          AS track_count,
+           ac.n                           AS track_count,
            g.key                          AS genre,
            count(*)::int                  AS genre_count
     FROM user_tracks ut
     JOIN tracks t ON t.id = ut.track_id
-    JOIN LATERAL (
-      SELECT count(*)::int AS n
-      FROM user_tracks ut2
-      JOIN tracks t2 ON t2.id = ut2.track_id
-      WHERE ut2.user_id = ${userId} AND t2.artist = t.artist
-    ) cnt ON true
+    JOIN artist_counts ac ON ac.artist = t.artist
     LEFT JOIN analysis a ON a.track_id = t.id AND a.analysis_version = 1
     LEFT JOIN LATERAL jsonb_object_keys(a.genres) AS g(key) ON true
     WHERE ut.user_id = ${userId} AND t.artist <> ALL(${excluded}::text[])
-    GROUP BY t.artist, cnt.n, g.key`;
+    GROUP BY t.artist, ac.n, g.key`;
 
   interface Acc {
     display: string;

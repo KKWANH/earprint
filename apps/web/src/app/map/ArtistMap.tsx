@@ -3,18 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArtistMapData, GhostArtist } from "@/lib/artistMap";
+import { genreHue, stepPhysics, type Sim } from "@/lib/forceGraph";
 import type { Locale } from "@/lib/i18n";
 import { mapDict } from "@/lib/i18n/map";
-
-/** Live physics state for one node. */
-interface Sim {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  r: number;
-  hue: number;
-}
 
 /** A unified map node — a liked artist, or an unheard "ghost" recommendation. */
 interface MapNode {
@@ -31,12 +22,6 @@ interface Edge {
   b: number;
   sim: number;
   ghost: boolean;
-}
-
-function genreHue(g: string): number {
-  let h = 0;
-  for (let i = 0; i < g.length; i++) h = (h * 31 + g.charCodeAt(i)) | 0;
-  return Math.abs(h) % 360;
 }
 
 function cosineSim(a: Map<string, number>, b: Map<string, number>): number {
@@ -245,51 +230,21 @@ export function ArtistMap({
     ro.observe(wrap);
 
     const sim = simRef.current;
+    const physEdges = edges.map((e) => ({
+      a: e.a,
+      b: e.b,
+      target: 70 + (1 - e.sim) * 150,
+    }));
 
     const step = () => {
       const a = alpha.current;
       if (a > 0.015) {
-        for (let i = 0; i < N; i++) {
-          const ni = sim[i];
-          for (let j = i + 1; j < N; j++) {
-            const nj = sim[j];
-            let dx = ni.x - nj.x;
-            let dy = ni.y - nj.y;
-            let d2 = dx * dx + dy * dy;
-            if (d2 < 1) {
-              d2 = 1;
-              dx = Math.random() - 0.5;
-              dy = Math.random() - 0.5;
-            }
-            const f = (2400 * a) / d2;
-            const d = Math.sqrt(d2);
-            ni.vx += (dx / d) * f;
-            ni.vy += (dy / d) * f;
-            nj.vx -= (dx / d) * f;
-            nj.vy -= (dy / d) * f;
-          }
-        }
-        for (const e of edges) {
-          const na = sim[e.a];
-          const nb = sim[e.b];
-          const dx = nb.x - na.x;
-          const dy = nb.y - na.y;
-          const d = Math.sqrt(dx * dx + dy * dy) || 1;
-          const target = 70 + (1 - e.sim) * 150;
-          const f = (d - target) * 0.018 * a;
-          na.vx += (dx / d) * f;
-          na.vy += (dy / d) * f;
-          nb.vx -= (dx / d) * f;
-          nb.vy -= (dy / d) * f;
-        }
-        for (const n of sim) {
-          n.vx -= n.x * 0.004 * a;
-          n.vy -= n.y * 0.004 * a;
-          n.vx *= 0.82;
-          n.vy *= 0.82;
-          n.x += n.vx;
-          n.y += n.vy;
-        }
+        stepPhysics(sim, physEdges, a, {
+          repulsion: 2400,
+          springK: 0.018,
+          gravity: 0.004,
+          damping: 0.82,
+        });
         alpha.current = a * 0.992;
       }
 

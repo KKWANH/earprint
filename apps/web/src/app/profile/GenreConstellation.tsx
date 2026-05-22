@@ -1,24 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { genreHue, stepPhysics, type Sim } from "@/lib/forceGraph";
 import type { GenreMapData } from "@/lib/genreMap";
 import type { Locale } from "@/lib/i18n";
 import { profileDict } from "@/lib/i18n/profile";
-
-interface Sim {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  r: number;
-  hue: number;
-}
-
-function genreHue(g: string): number {
-  let h = 0;
-  for (let i = 0; i < g.length; i++) h = (h * 31 + g.charCodeAt(i)) | 0;
-  return Math.abs(h) % 360;
-}
 
 /**
  * Interactive taste constellation — genres as stars, linked when they
@@ -83,6 +69,11 @@ export function GenreConstellation({
     let w = 0;
     let h = 0;
     const maxW = Math.max(1, ...edges.map((e) => e.weight));
+    const physEdges = edges.map((e) => ({
+      a: e.a,
+      b: e.b,
+      target: 150 - (e.weight / maxW) * 86,
+    }));
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -106,47 +97,12 @@ export function GenreConstellation({
     const step = () => {
       const a = alpha.current;
       if (a > 0.015) {
-        for (let i = 0; i < N; i++) {
-          for (let j = i + 1; j < N; j++) {
-            const ni = sim[i]!;
-            const nj = sim[j]!;
-            let dx = ni.x - nj.x;
-            let dy = ni.y - nj.y;
-            let d2 = dx * dx + dy * dy;
-            if (d2 < 1) {
-              d2 = 1;
-              dx = Math.random() - 0.5;
-              dy = Math.random() - 0.5;
-            }
-            const f = (1800 * a) / d2;
-            const d = Math.sqrt(d2);
-            ni.vx += (dx / d) * f;
-            ni.vy += (dy / d) * f;
-            nj.vx -= (dx / d) * f;
-            nj.vy -= (dy / d) * f;
-          }
-        }
-        for (const e of edges) {
-          const na = sim[e.a]!;
-          const nb = sim[e.b]!;
-          const dx = nb.x - na.x;
-          const dy = nb.y - na.y;
-          const d = Math.sqrt(dx * dx + dy * dy) || 1;
-          const target = 150 - (e.weight / maxW) * 86;
-          const f = (d - target) * 0.02 * a;
-          na.vx += (dx / d) * f;
-          na.vy += (dy / d) * f;
-          nb.vx -= (dx / d) * f;
-          nb.vy -= (dy / d) * f;
-        }
-        for (const n of sim) {
-          n.vx -= n.x * 0.005 * a;
-          n.vy -= n.y * 0.005 * a;
-          n.vx *= 0.82;
-          n.vy *= 0.82;
-          n.x += n.vx;
-          n.y += n.vy;
-        }
+        stepPhysics(sim, physEdges, a, {
+          repulsion: 1800,
+          springK: 0.02,
+          gravity: 0.005,
+          damping: 0.82,
+        });
         alpha.current = a * 0.99;
       }
 

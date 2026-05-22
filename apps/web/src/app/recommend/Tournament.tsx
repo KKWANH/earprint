@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
 import { recommendDict } from "@/lib/i18n/recommend";
+import { useAudioPlayer } from "@/lib/useAudioPlayer";
 
 export interface Rec {
   id: string;
@@ -61,16 +62,13 @@ export function Tournament({
   const [comment, setComment] = useState("");
   const [counts, setCounts] = useState({ rated, likes, dislikes });
   const [history, setHistory] = useState<string[]>([]);
-  const [playing, setPlaying] = useState(false);
-  const [loadingAudio, setLoadingAudio] = useState(false);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const prefetch = useRef<Promise<unknown> | null>(null);
 
   const current = initial[idx];
-
-  useEffect(() => () => audioRef.current?.pause(), []);
+  const { playing, loading: loadingAudio, toggle: togglePlay, stop: stopAudio } =
+    useAudioPlayer(current?.deezerId ?? null);
 
   // Generate the next batch a few cards early — by the time the user reaches
   // the end it is ready, so there is no ~10s wait.
@@ -81,41 +79,6 @@ export function Tournament({
       );
     }
   }, [idx, initial.length]);
-
-  function stopAudio() {
-    audioRef.current?.pause();
-    audioRef.current = null;
-    setPlaying(false);
-  }
-
-  async function togglePlay() {
-    if (!current?.deezerId) return;
-    if (playing) {
-      audioRef.current?.pause();
-      setPlaying(false);
-      return;
-    }
-    if (audioRef.current) {
-      void audioRef.current.play();
-      setPlaying(true);
-      return;
-    }
-    setLoadingAudio(true);
-    try {
-      const res = await fetch(`/api/preview?deezerId=${current.deezerId}`);
-      const d = (await res.json()) as { url?: string };
-      if (d.url) {
-        const a = new Audio(d.url);
-        a.onended = () => setPlaying(false);
-        audioRef.current = a;
-        void a.play();
-        setPlaying(true);
-      }
-    } catch {
-      /* playback failed — ignore */
-    }
-    setLoadingAudio(false);
-  }
 
   async function commit(rating: Rating) {
     if (!current || busy) return;
