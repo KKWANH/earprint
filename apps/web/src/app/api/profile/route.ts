@@ -2,7 +2,7 @@ import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { generateProfile, translateProfile } from "@/lib/profile";
-import { GEMINI_CAP_ERROR } from "@/lib/usage";
+import { GEMINI_CAP_ERROR, isWhitelisted } from "@/lib/usage";
 import { json } from "@/lib/http";
 
 /** Generates a music psychology/taste profile via Gemini and stores it in taste_profiles. */
@@ -16,10 +16,15 @@ export async function POST() {
 
   try {
     const locale = await getLocale();
+    const bypassCap = await isWhitelisted(userId);
     // Generate once, then translate — the profile is stored in both languages
     // so switching the UI language later needs no Gemini call.
-    const profile = await generateProfile(userId, locale);
-    const translated = await translateProfile(profile, locale === "ko" ? "en" : "ko");
+    const profile = await generateProfile(userId, locale, bypassCap);
+    const translated = await translateProfile(
+      profile,
+      locale === "ko" ? "en" : "ko",
+      bypassCap,
+    );
     const en = locale === "en" ? profile : translated;
     const ko = locale === "ko" ? profile : translated;
     const sql = getSql();

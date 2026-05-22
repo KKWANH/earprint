@@ -548,3 +548,10 @@ CREATE TABLE IF NOT EXISTS api_usage (
   count INT  NOT NULL DEFAULT 0,
   PRIMARY KEY (day, kind)
 );
+
+-- ── Whitelist — these emails bypass the daily Gemini cap entirely, so the
+--    owner and trusted accounts always have full AI access. ──
+CREATE TABLE IF NOT EXISTS app_whitelist (
+  email    TEXT PRIMARY KEY,                       -- lowercased
+  added_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

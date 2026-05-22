@@ -3,6 +3,7 @@ import { enrichTrack } from "./enrich";
 import { aiAnalyzeBatch } from "./aiAnalyze";
 import { buildCompletionEmail, sendEmail } from "./email";
 import { getLibraryStats } from "./library";
+import { isWhitelisted } from "./usage";
 
 export type JobStatus = "running" | "stopped" | "done" | "idle";
 export type Phase = "enrich" | "ai" | "done";
@@ -49,6 +50,7 @@ export async function runAiAnalysisBatch(userId: string): Promise<number> {
         artist: t.artist as string,
         title: t.title as string,
       })),
+      await isWhitelisted(userId),
     );
     await sql`SELECT save_ai_analysis(${JSON.stringify(rows)}::jsonb)`;
   }

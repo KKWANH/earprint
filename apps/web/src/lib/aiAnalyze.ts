@@ -66,9 +66,13 @@ function toObj(arr: unknown, maxLen: number): Record<string, number> {
 
 /**
  * Analyzes several tracks in one Gemini call. Throws if the call fails so the
- * caller can retry the batch.
+ * caller can retry the batch. Whitelisted users pass bypassCap to skip the
+ * daily Gemini ceiling.
  */
-export async function aiAnalyzeBatch(tracks: AiAnalysisInput[]): Promise<AiAnalysisRow[]> {
+export async function aiAnalyzeBatch(
+  tracks: AiAnalysisInput[],
+  bypassCap = false,
+): Promise<AiAnalysisRow[]> {
   if (tracks.length === 0) return [];
 
   const list = tracks.map((t) => `[${t.id}] ${t.artist} — ${t.title}`).join("\n");
@@ -86,7 +90,7 @@ export async function aiAnalyzeBatch(tracks: AiAnalysisInput[]): Promise<AiAnaly
 
 ${list}`;
 
-  const parsed = await geminiJson<{ results?: any[] }>(prompt, SCHEMA);
+  const parsed = await geminiJson<{ results?: any[] }>(prompt, SCHEMA, { bypassCap });
   const byId = new Map<string, any>();
   for (const r of parsed.results ?? []) {
     if (r?.id) byId.set(String(r.id), r);

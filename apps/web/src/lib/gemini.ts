@@ -10,11 +10,16 @@ const MODEL = "gemini-3.5-flash";
  *
  * Every call counts against a global daily cap (see lib/usage) — once it is
  * exhausted this throws GEMINI_CAP_ERROR so cost can't run away on launch day.
+ * Whitelisted users pass `bypassCap` to skip that ceiling.
  */
-export async function geminiJson<T>(prompt: string, schema: object): Promise<T> {
+export async function geminiJson<T>(
+  prompt: string,
+  schema: object,
+  opts?: { bypassCap?: boolean },
+): Promise<T> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
-  if (await geminiOverCap()) throw new Error(GEMINI_CAP_ERROR);
+  if (!opts?.bypassCap && (await geminiOverCap())) throw new Error(GEMINI_CAP_ERROR);
   await recordGemini();
 
   const res = await fetch(`${ENDPOINT}/${MODEL}:generateContent?key=${key}`, {

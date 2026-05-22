@@ -33,3 +33,20 @@ export async function recordGemini(): Promise<void> {
     /* best-effort */
   }
 }
+
+/**
+ * True if the user's email is on the whitelist — those accounts bypass the
+ * daily Gemini cap entirely (the owner and trusted users always have access).
+ */
+export async function isWhitelisted(userId: string): Promise<boolean> {
+  const sql = getSql();
+  try {
+    const r = await sql`
+      SELECT 1 FROM app_whitelist w
+      JOIN users u ON lower(u.email) = w.email
+      WHERE u.id = ${userId}`;
+    return r.length > 0;
+  } catch {
+    return false;
+  }
+}

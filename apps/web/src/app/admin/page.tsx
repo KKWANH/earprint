@@ -1,7 +1,33 @@
+import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { getSql } from "@/lib/db";
 
 const ADMIN_EMAIL = "kwanho0096@gmail.com";
+
+async function requireAdmin() {
+  const session = await auth();
+  if (session?.user?.email !== ADMIN_EMAIL) throw new Error("forbidden");
+}
+
+/** Adds an email to the Gemini-cap whitelist. */
+async function addWhitelist(formData: FormData) {
+  "use server";
+  await requireAdmin();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!email) return;
+  await getSql()`
+    INSERT INTO app_whitelist (email) VALUES (${email}) ON CONFLICT DO NOTHING`;
+  revalidatePath("/admin");
+}
+
+/** Removes an email from the whitelist. */
+async function removeWhitelist(formData: FormData) {
+  "use server";
+  await requireAdmin();
+  const email = String(formData.get("email") ?? "");
+  await getSql()`DELETE FROM app_whitelist WHERE email = ${email}`;
+  revalidatePath("/admin");
+}
 
 export default async function AdminPage() {
   const session = await auth();
@@ -31,6 +57,11 @@ export default async function AdminPage() {
     SELECT artist, title, rating, comment, rated_at
     FROM recommendations WHERE rating IS NOT NULL
     ORDER BY rated_at DESC LIMIT 15`;
+  const whitelist = await sql`
+    SELECT email, added_at FROM app_whitelist ORDER BY added_at`;
+  const usageRows = await sql`
+    SELECT count FROM api_usage WHERE day = current_date AND kind = 'gemini'`;
+  const geminiToday = usageRows.length > 0 ? (usageRows[0].count as number) : 0;
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-12">
@@ -51,6 +82,44 @@ export default async function AdminPage() {
         Cloudflare 대시보드 → Workers &amp; Pages → playlist-analyzer-web →
         Metrics/Logs 에서 확인하세요. 실시간 로그는{" "}
         <code className="rounded bg-neutral-800 px-1">npx wrangler tail</code>.
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+        <h2 className="font-semibold">
+          화이트리스트{" "}
+          <span className="text-xs font-normal text-neutral-500">
+            · Gemini 일일 캡 무시 · 오늘 호출 {geminiToday.toLocaleString()}회
+          </span>
+        </h2>
+        <form action={addWhitelist} className="flex gap-2">
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="email@example.com"
+            className="flex-1 rounded-md border border-white/10 bg-black/30 px-3 py-1.5 text-sm outline-none focus:border-emerald-500/60"
+          />
+          <button className="shrink-0 rounded-md bg-emerald-500 px-4 py-1.5 text-sm font-medium text-black">
+            추가
+          </button>
+        </form>
+        <ul className="flex flex-col gap-1 text-sm">
+          {whitelist.length === 0 ? (
+            <li className="text-neutral-600">비어 있음 — 본인 이메일을 추가하세요.</li>
+          ) : (
+            whitelist.map((w, i) => (
+              <li key={i} className="flex items-center justify-between gap-3">
+                <span className="truncate text-neutral-300">{w.email as string}</span>
+                <form action={removeWhitelist}>
+                  <input type="hidden" name="email" value={w.email as string} />
+                  <button className="shrink-0 text-xs text-neutral-500 hover:text-rose-400">
+                    삭제
+                  </button>
+                </form>
+              </li>
+            ))
+          )}
+        </ul>
       </section>
 
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
