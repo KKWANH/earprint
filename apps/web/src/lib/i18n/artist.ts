@@ -34,7 +34,7 @@ const en = {
 
 const ko: typeof en = {
   back: "← 뒤로",
-  inLibrary: (n: number) => `라이브러리에 좋아요한 곡 ${n}개`,
+  inLibrary: (n: number) => `라이브러리에 좋아요한 곡 ${n}곡`,
   notInLibrary: "아직 라이브러리에 없는 아티스트",
   notInLibraryHint:
     "이 아티스트는 라이브러리에 없어요. 추가하면 대표곡이 좋아요 곡으로 들어갑니다.",

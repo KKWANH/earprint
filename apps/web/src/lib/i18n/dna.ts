@@ -97,14 +97,14 @@ const ko: typeof en = {
   loginButton: "Google 로 로그인",
 
   pageTitle: "취향 DNA",
-  pageIntroLead: "당신이",
+  pageIntroLead: "그저",
   pageIntroWhy: "무엇을",
   pageIntroMid: "듣는지가 아니라,",
   pageIntroEm: "왜",
   pageIntroTail:
-    " 좋아하고 음악 인생의 어디쯤에 있는지를 봅니다.",
+    " 좋아하는지, 그리고 음악 인생의 어디쯤에 있는지를 봐요.",
 
-  citationPrefix: "근거 연구 · 회상 융기:",
+  citationPrefix: "근거 연구 · 회상 효과:",
   citationFrontiers: "Frontiers in Psychology (2024)",
   citationPredictionLabel: "예측과 보상:",
   citationGold: "Gold et al., J. Neuroscience (2019)",
@@ -112,39 +112,39 @@ const ko: typeof en = {
   citationPersonalityLabel: "취향과 성격:",
   citationRentfrow: "Rentfrow & Gosling (2003)",
 
-  stageDiggingTitle: "현재진행형 디깅형",
+  stageDiggingTitle: "지금도 디깅 중",
   stageDiggingBody:
-    "최근 음악의 비중이 높습니다. 발견 욕구(개방성)가 여전히 강한 패턴 — 나이와 무관하게 새 사운드를 계속 탐색하는 취향입니다.",
+    "최근에 나온 음악 비중이 높네요. 나이와 상관없이 새로운 사운드를 계속 찾아 듣는 타입 — '개방성'이 높은 패턴이에요.",
   stageImprintTitle: "각인형",
   stageImprintBody:
-    "10대 후반~20대 초의 음악이 라이브러리의 뼈대를 이룹니다. 그 시절 강한 감정과 함께 신경망에 새겨진 곡들이 지금도 취향을 지배하고 있습니다.",
+    "10대 후반~20대 초반에 듣던 음악이 라이브러리의 중심이에요. 그 시절의 강한 감정과 함께 뇌에 새겨진 곡들이 지금도 취향을 좌우합니다.",
   stageBalancedTitle: "균형형",
   stageBalancedBody:
-    "각인기 음악과 새로운 음악이 고르게 섞여 있습니다. 뿌리를 유지하면서도 탐색을 멈추지 않는 상태입니다.",
+    "각인기 음악과 새 음악이 골고루 섞여 있어요. 뿌리는 지키면서 새로운 것도 계속 찾아 듣는 타입이에요.",
   stageUnknownTitle: "데이터 부족",
   stageUnknownBody:
-    "발매연도가 있는 곡이 아직 적습니다. 곡 분석을 더 돌리면 정확해집니다.",
+    "발매연도가 확인된 곡이 아직 적어요. 곡 분석을 더 돌리면 정확해집니다.",
 
-  imprintHeading: "🧬 각인 코어 — 회상 융기",
+  imprintHeading: "🧬 각인 코어 — 회상 효과",
   imprintIntro:
-    "15~25세(정서 정점 ≈ 17세)에 들은 음악은 사춘기 호르몬과 함께 뇌에 강하게 새겨집니다. 라이브러리의 발매연도에서 그 시기를 찾아봅니다.",
+    "15~25세(정서가 가장 강렬한 17세 무렵)에 듣던 음악은 사춘기 호르몬과 함께 뇌에 강하게 새겨져요. 라이브러리 곡들의 발매연도에서 그 시기를 찾아봅니다.",
   birthYearLabel: (year: number) => `출생연도: ${year}년`,
-  birthYearPrompt: "출생연도를 입력하면 각인 구간이 표시됩니다",
+  birthYearPrompt: "출생연도를 입력하면 각인 시기를 보여 드릴게요",
 
   noYearDataWarning:
-    "아직 발매연도 데이터가 없습니다. 아래 버튼으로 Deezer 에서 곡별 발매연도를 불러오세요. (“곡 분석”은 장르·무드만 채우고, 발매연도는 별도입니다.)",
+    "아직 발매연도 데이터가 없어요. 아래 버튼을 눌러 Deezer 에서 곡별 발매연도를 가져오세요. (“곡 분석”은 장르·무드만 채우고, 발매연도는 따로 가져옵니다.)",
   yearCoverage: (count: string) => `발매연도가 확인된 곡 ${count}곡 · 전체 좋아요의 `,
   yearCoveragePctSuffix: "%",
-  yearCoverageLowNote: " — Deezer 매칭이 안 된 곡은 연도를 알 수 없습니다",
+  yearCoverageLowNote: " — Deezer 매칭이 안 된 곡은 연도를 알 수 없어요",
 
   statImprintShare: "각인기 비중",
   statImprintShareSub: (start: number, end: number) => `${start}~${end}년`,
-  statImprintShareNoYear: "출생연도 필요",
+  statImprintShareNoYear: "출생연도를 입력해 주세요",
   statRecent: "최근 3년",
-  statRecentSub: "현재진행형 디깅",
+  statRecentSub: "지금도 디깅 중",
   statCentroid: "취향 무게중심",
   statCentroidYear: (year: number) => `${year}년`,
-  statCentroidSub: (age: number) => `당신 ${age}세 무렵`,
+  statCentroidSub: (age: number) => `${age}세 무렵`,
   statCentroidSubFallback: "곡의 중앙값",
   statPeak: "최다 발매연도",
   statPeakYear: (year: number) => `${year}년`,
@@ -153,35 +153,35 @@ const ko: typeof en = {
 
   histTooltipUnit: (count: number) => `${count}곡`,
   histLegend: (start: number, end: number) =>
-    `■ 초록 막대 = ${start}~${end}년 (당신의 15~25세 각인기)`,
+    `■ 초록 막대 = ${start}~${end}년 (15~25세 각인기)`,
 
   noveltyHeading: "🎯 예측 · 신선함 지수",
   noveltyIntroLead: "음악의 쾌감은",
   noveltyIntroEm: "예측이 적당히 맞거나 기분 좋게 빗나갈 때",
   noveltyIntroTail:
-    " 정점에 닿습니다. 당신의 취향이 익숙함과 신선함 사이 어디에 있는지 봅니다.",
+    " 가장 커져요. 익숙함과 신선함 사이 어디에 있는지 봐요.",
   noveltyAxisFamiliar: "익숙함 · 예측 가능",
   noveltyAxisSweet: "스위트 스폿",
   noveltyAxisNovel: "신선함 · 모험",
   noveltyTopGenre: (name: string, share: number, distinct: number, analyzed: string) =>
-    `가장 비중 큰 장르: ${name} (${share}%) · 서로 다른 장르 ${distinct}종 · 분석된 곡 ${analyzed}곡`,
+    `가장 많이 듣는 장르: ${name} (${share}%) · 서로 다른 장르 ${distinct}종 · 분석된 곡 ${analyzed}곡`,
 
   // BirthYearInput
-  birthYearError: "연도를 다시 확인하세요 (예: 1996)",
-  birthYearSaveError: "저장에 실패했습니다",
+  birthYearError: "연도를 다시 확인해 주세요 (예: 1996)",
+  birthYearSaveError: "저장에 실패했어요",
   birthYearPlaceholder: "태어난 해 (예: 1996)",
   birthYearEdit: "수정",
   birthYearSave: "저장",
 
   // YearBackfill
-  backfillDoneSome: (count: number) => `✅ 발매연도 ${count}곡을 새로 불러왔습니다.`,
-  backfillDoneNone: "✅ 발매연도가 모두 최신입니다 (Deezer 매칭된 곡은 모두 확인됨).",
+  backfillDoneSome: (count: number) => `✅ 발매연도 ${count}곡을 새로 가져왔어요.`,
+  backfillDoneNone: "✅ 발매연도가 모두 최신이에요 (Deezer 에 매칭된 곡은 다 확인됐어요).",
   backfillRunning: (done: number, remaining: number) =>
-    `불러오는 중… ${done}곡 (남은 ${remaining})`,
-  backfillStart: "발매연도 불러오기",
-  backfillMore: "발매연도 더 불러오기",
+    `가져오는 중… ${done}곡 (남은 ${remaining})`,
+  backfillStart: "발매연도 가져오기",
+  backfillMore: "발매연도 더 가져오기",
   backfillHelp:
-    "MusicBrainz 에서 원곡(리마스터 아닌) 발매연도를 가져옵니다 — 곡 수에 따라 수 분 걸리니 창을 열어두세요.",
+    "MusicBrainz 에서 원곡(리마스터 아닌) 발매연도를 가져와요. 곡 수에 따라 몇 분 걸리니 창을 닫지 말아 주세요.",
 };
 
 export function dnaDict(locale: Locale) {

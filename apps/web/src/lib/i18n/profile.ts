@@ -56,13 +56,13 @@ const ko: typeof en = {
   signInWithGoogle: "Google 로 로그인",
   pageTitle: "AI 음악 심리분석",
   introText:
-    "좋아요 라이브러리의 장르·무드·아티스트 분포를 Gemini 가 해석해 취향·성격을 프로파일링합니다. 분석을 더 돌릴수록 정확해집니다.",
-  generatedAt: "생성:",
+    "좋아요 라이브러리의 장르·무드·아티스트 분포를 Gemini 가 해석해서 취향과 성격을 프로파일링해요. 분석을 더 돌릴수록 정확해집니다.",
+  generatedAt: "생성일:",
   constellationTitle: "취향 별자리",
   constellationDesc:
-    "장르를 별로, 같은 곡에 함께 태그된 장르를 선으로 잇습니다. 자주 섞어 듣는 장르일수록 가까이 모입니다.",
+    "장르를 별로, 같은 곡에 함께 태그된 장르를 선으로 이어요. 자주 섞어 듣는 장르일수록 가까이 모입니다.",
   noProfile:
-    "아직 AI 분석이 없습니다. 위 버튼으로 생성하세요. (라이브러리 분석을 먼저 돌리면 장르·무드 데이터가 채워져 더 정확합니다.)",
+    "아직 AI 분석이 없어요. 위 버튼으로 만들어 보세요. (라이브러리 분석을 먼저 돌리면 장르·무드 데이터가 채워져 더 정확해집니다.)",
   diggingScore: "디깅 점수",
   favoriteGenres: "좋아하는 장르",
   avoidedGenres: "피하는 장르",
@@ -73,12 +73,12 @@ const ko: typeof en = {
   emptyChip: "—",
   generating: "Gemini 분석 중… (~10초)",
   reanalyze: "다시 분석하기",
-  generate: "AI 분석 생성",
+  generate: "AI 분석 만들기",
   errorPrefix: "오류:",
   errorStatus: "오류",
   constellationHint: "드래그·휠로 탐색 · 별을 눌러 함께 쓰는 장르 보기",
   statsTitle: "분석의 바탕이 된 데이터",
-  statsDesc: "AI 가 읽은 라이브러리 수치입니다. 분석을 더 돌릴수록 또렷해집니다.",
+  statsDesc: "AI 가 읽은 라이브러리 수치예요. 분석을 더 돌릴수록 또렷해집니다.",
   statSongs: "좋아요 곡",
   statArtists: "아티스트",
   statGenres: "장르",
@@ -89,7 +89,7 @@ const ko: typeof en = {
   feelTempo: "템포",
   feelAcoustic: "어쿠스틱",
   localeMismatch:
-    "이 분석은 다른 언어로 작성되었습니다 — 한국어로 보려면 다시 생성하세요.",
+    "이 분석은 다른 언어로 작성됐어요 — 한국어로 보려면 다시 생성해 주세요.",
   capped:
     "🌙 오늘의 공용 AI 한도에 도달했어요 — 내일 다시 분석을 생성해 주세요.",
   shareHeading: "내 음악 페르소나 공유",
@@ -101,7 +101,7 @@ const ko: typeof en = {
   topPercent: (n: number) => `디깅 상위 ${n}%`,
   shareCtaLine: "Earprint 로 만든 결과 — 내 음악 취향도 알아보세요.",
   shareCtaButton: "내 취향 분석하기 →",
-  shareNotFound: "존재하지 않는 공유 프로필입니다.",
+  shareNotFound: "존재하지 않는 공유 프로필이에요.",
 };
 
 export function profileDict(locale: Locale) {
