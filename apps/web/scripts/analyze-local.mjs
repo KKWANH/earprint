@@ -113,7 +113,9 @@ async function searchDeezer(artist, title) {
     deezerId: hit.id ?? null,
     album: hit.album?.title ?? null,
     previewUrl: hit.preview || null,
-    releaseYear: meta.year,
+    // Release year is left to backfill:years (MusicBrainz) — Deezer's date is
+    // the remaster edition's, which corrupts the reminiscence-bump analysis.
+    releaseYear: null,
     rank: meta.rank ?? (typeof hit.rank === "number" ? hit.rank : null),
     bpm: null,
     genres: null,
@@ -201,46 +203,6 @@ async function enrichPhase() {
     await q("SELECT save_enrichments($1::jsonb)", [JSON.stringify(out)]);
     done += rows.length;
     process.stdout.write(`\r  1/2 보강(Deezer): ${done}곡`);
-  }
-  if (done) console.log();
-  return done;
-}
-
-// ── Backfill: release year + popularity for tracks enriched before ──
-// (the reminiscence-bump / novelty analyses need these)
-async function backfillPhase() {
-  let done = 0;
-  let stall = 0;
-  for (;;) {
-    const { rows } = await q(
-      `SELECT t.id, t.deezer_id
-       FROM tracks t
-       JOIN user_tracks ut ON ut.track_id = t.id
-       WHERE t.deezer_id IS NOT NULL AND t.release_year IS NULL
-       GROUP BY t.id, t.deezer_id
-       LIMIT 15`,
-    );
-    if (rows.length === 0) break;
-    const out = [];
-    for (const t of rows) {
-      const meta = await deezerTrackMeta(t.deezer_id);
-      // Skip fetch failures (stay NULL → retried); 0 = genuinely no date.
-      if (meta.ok) out.push({ trackId: t.id, releaseYear: meta.year ?? 0, rank: meta.rank });
-    }
-    if (out.length > 0) {
-      await q("SELECT save_track_meta($1::jsonb)", [JSON.stringify(out)]);
-      done += out.length;
-      stall = 0;
-    } else {
-      // whole batch failed (Deezer throttling) — back off, then give up
-      if (++stall >= 6) {
-        console.log("\n  ⚠ Deezer 응답이 계속 실패해 발매연도 보강을 멈춥니다 (나중에 재시도).");
-        break;
-      }
-      await sleep(3000);
-    }
-    process.stdout.write(`\r  발매연도 보강: ${done}곡`);
-    await sleep(700); // spaced — stay under Deezer's rate limit
   }
   if (done) console.log();
   return done;
@@ -349,7 +311,6 @@ async function checkLocalAi() {
 try {
   console.log("🎧 로컬 분석 시작 — Deezer 보강 + 로컬 모델 분석 (API 비용 0원)\n");
   await enrichPhase();
-  await backfillPhase();
   if (!(await checkLocalAi())) process.exit(1);
   await aiPhase();
 
