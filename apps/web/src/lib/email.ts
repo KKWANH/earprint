@@ -10,6 +10,8 @@ import type { LibraryStats } from "./library";
  */
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const FROM = "Earprint <onboarding@resend.dev>";
+// Replies to report emails land in a real inbox the owner monitors.
+const REPLY_TO = "kwanho0096@gmail.com";
 const APP_URL = "https://earprint.kwanho.dev";
 
 interface SendArgs {
@@ -38,7 +40,7 @@ export async function sendEmail({ to, subject, html }: SendArgs): Promise<SendRe
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
       },
-      body: JSON.stringify({ from: FROM, to, subject, html }),
+      body: JSON.stringify({ from: FROM, to, subject, html, reply_to: REPLY_TO }),
       signal: AbortSignal.timeout(15000),
     });
     return res.ok ? "sent" : "failed";
