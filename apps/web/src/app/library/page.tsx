@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getLibraryStats, type Count, type AudioFeelAgg } from "@/lib/library";
@@ -71,6 +72,7 @@ export default async function LibraryPage() {
         color="bg-amber-500"
         empty={t.topArtistsEmpty}
         excludable
+        linkArtist
         locale={locale}
       />
       <BarCard
@@ -139,7 +141,12 @@ export default async function LibraryPage() {
                 <tr key={i} className="border-b border-neutral-800/60 last:border-0">
                   <td className="max-w-[14rem] truncate py-1.5 pr-3">{t.title}</td>
                   <td className="max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400">
-                    {t.artist}
+                    <Link
+                      href={`/artist/${encodeURIComponent(t.artist)}`}
+                      className="hover:text-white hover:underline"
+                    >
+                      {t.artist}
+                    </Link>
                   </td>
                   <td className="max-w-[11rem] truncate py-1.5 pr-3 text-neutral-400">
                     {t.genres?.slice(0, 2).join(", ") ?? "—"}
@@ -216,6 +223,7 @@ function BarCard({
   color,
   empty,
   excludable,
+  linkArtist,
   locale,
 }: {
   title: string;
@@ -223,6 +231,7 @@ function BarCard({
   color: string;
   empty: string;
   excludable?: boolean;
+  linkArtist?: boolean;
   locale: Locale;
 }) {
   const max = Math.max(1, ...items.map((i) => i.count));
@@ -235,7 +244,16 @@ function BarCard({
         <div className="flex flex-col gap-1.5">
           {items.map((it) => (
             <div key={it.name} className="flex items-center gap-3 text-sm">
-              <span className="w-32 shrink-0 truncate text-neutral-300">{it.name}</span>
+              {linkArtist ? (
+                <Link
+                  href={`/artist/${encodeURIComponent(it.name)}`}
+                  className="w-32 shrink-0 truncate text-neutral-300 hover:text-white hover:underline"
+                >
+                  {it.name}
+                </Link>
+              ) : (
+                <span className="w-32 shrink-0 truncate text-neutral-300">{it.name}</span>
+              )}
               <div className="h-4 flex-1 overflow-hidden rounded bg-neutral-800">
                 <div
                   className={`h-full ${color}`}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArtistMapData, GhostArtist } from "@/lib/artistMap";
@@ -595,6 +596,13 @@ export function ArtistMap({
               ✕
             </button>
           </div>
+
+          <Link
+            href={`/artist/${encodeURIComponent(sel.name)}`}
+            className="mt-1 inline-block text-xs text-emerald-400 hover:text-emerald-300 hover:underline"
+          >
+            {t.viewDetail}
+          </Link>
 
           {sel.ghost ? (
             <>

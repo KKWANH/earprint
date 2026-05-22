@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
 import { recommendDict } from "@/lib/i18n/recommend";
@@ -246,7 +247,13 @@ export function Tournament({
             )}
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 to-transparent p-3">
               <h2 className="truncate text-lg font-bold">{current.title}</h2>
-              <p className="truncate text-sm text-neutral-300">{current.artist}</p>
+              <Link
+                href={`/artist/${encodeURIComponent(current.artist)}`}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="block truncate text-sm text-neutral-300 hover:text-white hover:underline"
+              >
+                {current.artist}
+              </Link>
             </div>
             <button
               onPointerDown={(e) => e.stopPropagation()}

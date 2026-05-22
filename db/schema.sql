@@ -384,6 +384,11 @@ CREATE TABLE IF NOT EXISTS deezer_match (
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_profile      jsonb;
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_generated_at TIMESTAMPTZ;
 ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_locale       TEXT; -- language the profile text was generated in
+-- The profile is stored in both languages at generation time, so switching
+-- the UI language needs no extra Gemini call. ai_profile/ai_locale stay for
+-- backward compatibility with rows generated before this.
+ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_profile_en   jsonb; -- profile text in English
+ALTER TABLE taste_profiles ADD COLUMN IF NOT EXISTS ai_profile_ko   jsonb; -- profile text in Korean
 
 -- ── Phase B: save AI enrichment results ───────────────
 -- Enriches tracks the APIs couldn't fill via Gemini inference. If realArtist is present, remaps to the original artist.

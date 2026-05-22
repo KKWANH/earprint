@@ -124,6 +124,20 @@ function shuffle<T>(arr: T[]): T[] {
   return arr.map((v) => ({ v, k: Math.random() })).sort((a, b) => a.k - b.k).map((x) => x.v);
 }
 
+/**
+ * Round-robin merge — takes the i-th item of every list in turn. A slice of
+ * the result is balanced across all sources, so recommendations don't end up
+ * dominated by a single seed song / genre.
+ */
+function interleave<T>(lists: T[][]): T[] {
+  const out: T[] = [];
+  const max = Math.max(0, ...lists.map((l) => l.length));
+  for (let i = 0; i < max; i++) {
+    for (const l of lists) if (i < l.length) out.push(l[i]);
+  }
+  return out;
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
@@ -190,21 +204,26 @@ export async function generateRecommendations(
   );
 
   // ── candidate pools ──
+  // Each pool round-robins its sources (seeds / genres) so a slice taken later
+  // is balanced — the batch doesn't all stem from one seed song or genre.
   const songPool = async (): Promise<Cand[]> => {
     const lists = await Promise.all(seeds.map((s) => lastfmSimilar(s.artist as string, s.title as string)));
-    return lists
-      .flatMap((sims, i) =>
-        sims.map((c) => ({ ...c, seedTrack: `${seeds[i].artist} - ${seeds[i].title}` })),
-      )
-      .sort((a, b) => b.match - a.match);
+    const perSeed = lists.map((sims, i) =>
+      sims
+        .map((c) => ({ ...c, seedTrack: `${seeds[i].artist} - ${seeds[i].title}` }))
+        .sort((a, b) => b.match - a.match),
+    );
+    return interleave(perSeed);
   };
   const genrePool = async (): Promise<Cand[]> => {
     const gs = shuffle(topGenres).slice(0, 4);
     const lists = await Promise.all(gs.map((g) => tagTopTracks(g)));
-    return lists.flatMap((ts, i) =>
-      shuffle(ts).map((t) => ({
-        artist: t.artist, title: t.title, match: 0, seedTrack: gs[i], recType: "genre" as const,
-      })),
+    return interleave(
+      lists.map((ts, i) =>
+        shuffle(ts).map((t) => ({
+          artist: t.artist, title: t.title, match: 0, seedTrack: gs[i], recType: "genre" as const,
+        })),
+      ),
     );
   };
   const unheardPool = async (): Promise<Cand[]> => {
@@ -220,10 +239,12 @@ export async function generateRecommendations(
     const leastExplored = [...BROAD_GENRES].sort((a, b) => presence(a) - presence(b));
     const gs = shuffle(leastExplored.slice(0, 6)).slice(0, 3);
     const lists = await Promise.all(gs.map((g) => tagTopTracks(g)));
-    return lists.flatMap((ts, i) =>
-      shuffle(ts).map((t) => ({
-        artist: t.artist, title: t.title, match: 0, seedTrack: gs[i], recType: "unheard" as const,
-      })),
+    return interleave(
+      lists.map((ts, i) =>
+        shuffle(ts).map((t) => ({
+          artist: t.artist, title: t.title, match: 0, seedTrack: gs[i], recType: "unheard" as const,
+        })),
+      ),
     );
   };
 
@@ -233,7 +254,7 @@ export async function generateRecommendations(
   else if (mode === "unheard") pool = await unheardPool();
   else {
     const [a, b] = await Promise.all([songPool(), unheardPool()]);
-    pool = [...a, ...b];
+    pool = interleave([a, b]);
   }
 
   // ── dedup + exclude ──

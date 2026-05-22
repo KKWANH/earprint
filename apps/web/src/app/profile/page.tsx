@@ -33,12 +33,18 @@ export default async function ProfilePage() {
   const { userId } = await ensureConnection();
   const sql = getSql();
   const rows = await sql`
-    SELECT ai_profile, ai_generated_at, ai_locale
+    SELECT ai_profile, ai_profile_en, ai_profile_ko, ai_generated_at, ai_locale
     FROM taste_profiles WHERE user_id = ${userId}`;
-  const profile = (rows[0]?.ai_profile as AiProfile | undefined) ?? null;
+  // Prefer the profile stored in the current language; fall back to the legacy
+  // single-language column for rows generated before bilingual storage.
+  const perLocale = (locale === "ko"
+    ? rows[0]?.ai_profile_ko
+    : rows[0]?.ai_profile_en) as AiProfile | undefined;
+  const profile = perLocale ?? (rows[0]?.ai_profile as AiProfile | undefined) ?? null;
   const generatedAt = rows[0]?.ai_generated_at as string | undefined;
   const aiLocale = rows[0]?.ai_locale as string | undefined;
-  const staleLocale = !!profile && !!aiLocale && aiLocale !== locale;
+  // Only legacy rows (no per-locale copy) can show the wrong language.
+  const staleLocale = !perLocale && !!profile && !!aiLocale && aiLocale !== locale;
   const [genreMap, stats] = await Promise.all([
     getGenreMap(userId),
     getLibraryStats(userId),

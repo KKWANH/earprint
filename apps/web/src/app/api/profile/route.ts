@@ -1,7 +1,7 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
-import { generateProfile } from "@/lib/profile";
+import { generateProfile, translateProfile } from "@/lib/profile";
 import { json } from "@/lib/http";
 
 /** Generates a music psychology/taste profile via Gemini and stores it in taste_profiles. */
@@ -15,13 +15,23 @@ export async function POST() {
 
   try {
     const locale = await getLocale();
+    // Generate once, then translate — the profile is stored in both languages
+    // so switching the UI language later needs no Gemini call.
     const profile = await generateProfile(userId, locale);
+    const translated = await translateProfile(profile, locale === "ko" ? "en" : "ko");
+    const en = locale === "en" ? profile : translated;
+    const ko = locale === "ko" ? profile : translated;
     const sql = getSql();
     await sql`
-      INSERT INTO taste_profiles (user_id, ai_profile, ai_generated_at, ai_locale)
-      VALUES (${userId}, ${JSON.stringify(profile)}::jsonb, now(), ${locale})
+      INSERT INTO taste_profiles
+        (user_id, ai_profile, ai_profile_en, ai_profile_ko, ai_generated_at, ai_locale)
+      VALUES (
+        ${userId}, ${JSON.stringify(profile)}::jsonb,
+        ${JSON.stringify(en)}::jsonb, ${JSON.stringify(ko)}::jsonb, now(), ${locale})
       ON CONFLICT (user_id) DO UPDATE
         SET ai_profile = EXCLUDED.ai_profile,
+            ai_profile_en = EXCLUDED.ai_profile_en,
+            ai_profile_ko = EXCLUDED.ai_profile_ko,
             ai_generated_at = now(),
             ai_locale = EXCLUDED.ai_locale`;
     return json({ ok: true }, 200);

@@ -109,3 +109,27 @@ export async function generateProfile(
 
   return geminiJson<AiProfile>(prompt, SCHEMA);
 }
+
+/**
+ * Translates an already-generated profile into the other locale. Used so a
+ * profile is stored in both languages at generation time — switching the UI
+ * language then needs no Gemini call. The analysis itself is unchanged; only
+ * the human-readable text is translated.
+ */
+export async function translateProfile(
+  profile: AiProfile,
+  target: Locale,
+): Promise<AiProfile> {
+  const lang = target === "ko" ? "한국어" : "영어(English)";
+  const prompt = `다음은 음악 취향·심리 프로파일 JSON입니다. 모든 사람이 읽는 텍스트(persona.name·persona.archetype·persona.tagline·headline·personality·traits·favoriteGenres·avoidedGenres·unexploredGenres·moodProfile·diggingComment·improvementTips)를 자연스러운 ${lang}(으)로 번역하세요.
+
+규칙:
+- 의미·뉘앙스·길이를 그대로 유지하며 번역만 한다. 새 내용을 추가하거나 빼지 않는다.
+- diggingScore(정수)와 persona.emoji 는 절대 바꾸지 말고 그대로 둔다.
+- JSON 구조와 배열 길이를 그대로 유지한다.
+
+[원본 JSON]
+${JSON.stringify(profile)}`;
+
+  return geminiJson<AiProfile>(prompt, SCHEMA);
+}
