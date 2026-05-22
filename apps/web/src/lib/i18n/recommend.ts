@@ -10,7 +10,7 @@ const en = {
   headerSong: "Similar to songs you love",
   headerGenre: "Your core genres",
   headerUnheard: "Outside your taste",
-  headerIndie: "Hidden indie gems",
+  headerIndie: "A hidden gem",
 
   // empty state
   emptyNoRecs: "No recommendations to rate.",
@@ -53,8 +53,8 @@ const en = {
   modeGenreHint: "Standout tracks from your core genres",
   modeUnheardLabel: "Unheard genres",
   modeUnheardHint: "New genres outside your taste",
-  modeIndieLabel: "Hidden indie",
-  modeIndieHint: "Lesser-known small artists",
+  modeIndieLabel: "Hidden gems",
+  modeIndieHint: "Great tracks below the big listener counts",
 };
 
 const ko: typeof en = {
@@ -66,7 +66,7 @@ const ko: typeof en = {
   headerSong: "좋아한 곡과 비슷",
   headerGenre: "내 핵심 장르",
   headerUnheard: "취향 밖 탐험",
-  headerIndie: "숨은 인디",
+  headerIndie: "숨은 명곡",
 
   emptyNoRecs: "평가할 추천이 없어요.",
   generating: "추천 만드는 중… (~10초)",
@@ -101,8 +101,8 @@ const ko: typeof en = {
   modeGenreHint: "내 핵심 장르의 명곡",
   modeUnheardLabel: "안 들어본 장르",
   modeUnheardHint: "취향 밖 새 장르",
-  modeIndieLabel: "숨은 인디",
-  modeIndieHint: "덜 알려진 영세 아티스트",
+  modeIndieLabel: "숨은 명곡",
+  modeIndieHint: "청취자 수가 적은, 덜 알려진 좋은 곡",
 };
 
 export function recommendDict(locale: Locale) {

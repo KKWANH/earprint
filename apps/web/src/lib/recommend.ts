@@ -19,7 +19,8 @@ export interface RecRow {
 }
 
 const LASTFM = "https://ws.audioscrobbler.com/2.0/";
-const INDIE_MAX_RANK = 280_000; // Deezer rank below this ≈ a smaller / indie act
+// Deezer rank above this ≈ a well-known hit; "hidden gems" must sit below it.
+const HIDDEN_GEM_MAX_RANK = 200_000;
 
 // Broad genres for the "unheard" mode — picks from outside the usual taste.
 const BROAD_GENRES = [
@@ -129,8 +130,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * Builds recommendation candidates for one mode:
  *   song    — Last.fm similar tracks of random liked songs
  *   genre   — top tracks of the user's own dominant genres
- *   unheard — top tracks of broad genres the user barely touches
- *   indie   — like "song", but kept only if the Deezer popularity is low
+ *   unheard — top tracks of the broad genres the user has explored least
+ *   indie   — "hidden gems": similar tracks, kept only if low-popularity
  *   mix     — a blend of song + unheard
  * Already-liked / disliked / previously-recommended artists are excluded.
  */
@@ -184,6 +185,9 @@ export async function generateRecommendations(
   const dislikedArtists = new Set(dislikedRows.map((r) => r.a as string));
   const userGenres = genreRows.map((r) => r.g as string);
   const topGenres = userGenres.slice(0, 10);
+  const genreCount = new Map<string, number>(
+    genreRows.map((r) => [r.g as string, r.c as number]),
+  );
 
   // ── candidate pools ──
   const songPool = async (): Promise<Cand[]> => {
@@ -204,9 +208,17 @@ export async function generateRecommendations(
     );
   };
   const unheardPool = async (): Promise<Cand[]> => {
-    const gs = shuffle(
-      BROAD_GENRES.filter((g) => !userGenres.some((ug) => ug.includes(g) || g.includes(ug))),
-    ).slice(0, 3);
+    // The broad genres the user has explored *least* — a broad listener may
+    // have a little of everything, so "genres entirely absent" is often empty.
+    const presence = (g: string) => {
+      let n = 0;
+      for (const [ug, c] of genreCount) {
+        if (ug.includes(g) || g.includes(ug)) n += c;
+      }
+      return n;
+    };
+    const leastExplored = [...BROAD_GENRES].sort((a, b) => presence(a) - presence(b));
+    const gs = shuffle(leastExplored.slice(0, 6)).slice(0, 3);
     const lists = await Promise.all(gs.map((g) => tagTopTracks(g)));
     return lists.flatMap((ts, i) =>
       shuffle(ts).map((t) => ({
@@ -240,7 +252,9 @@ export async function generateRecommendations(
   // Chunked + spaced so we stay well under Deezer's rate limit — bursts here
   // were getting the whole Worker IP throttled, breaking playback elsewhere.
   const TARGET = 12;
-  const slice = filtered.slice(0, mode === "indie" ? 30 : 20);
+  // "indie" (hidden gems) discards most candidates to the popularity filter,
+  // so it needs a much larger pool to resolve.
+  const slice = filtered.slice(0, mode === "indie" ? 50 : 20);
   const rows: RecRow[] = [];
   for (let i = 0; i < slice.length && rows.length < TARGET; i += 6) {
     const chunk = slice.slice(i, i + 6);
@@ -251,7 +265,7 @@ export async function generateRecommendations(
       if (rows.length >= TARGET) return;
       const d = matches[k];
       if (!d.previewUrl) return;
-      if (mode === "indie" && (d.rank == null || d.rank > INDIE_MAX_RANK)) return;
+      if (mode === "indie" && (d.rank == null || d.rank > HIDDEN_GEM_MAX_RANK)) return;
       rows.push({
         artist: c.artist,
         title: c.title,
