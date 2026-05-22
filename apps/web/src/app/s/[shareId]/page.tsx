@@ -51,8 +51,12 @@ export default async function SharePage({
   const locale = await getLocale();
   const t = profileDict(locale);
   const row = await loadShared(shareId);
+  const profile = row
+    ? (((locale === "ko" ? row.ai_profile_ko : row.ai_profile_en) ??
+        row.ai_profile) as AiProfile | null)
+    : null;
 
-  if (!row) {
+  if (!row || !profile) {
     return (
       <main className="mx-auto flex max-w-md flex-col items-center gap-4 px-6 py-24 text-center">
         <p className="text-sm text-neutral-400">{t.shareNotFound}</p>
@@ -66,8 +70,6 @@ export default async function SharePage({
     );
   }
 
-  const profile = ((locale === "ko" ? row.ai_profile_ko : row.ai_profile_en) ??
-    row.ai_profile) as AiProfile;
   const [stats, percentile] = await Promise.all([
     getLibraryStats(row.user_id),
     diggingPercentile(profile.diggingScore),

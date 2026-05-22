@@ -51,12 +51,17 @@ export default async function ProfilePage() {
   const staleLocale = !perLocale && !!profile && !!aiLocale && aiLocale !== locale;
 
   // Backfill a share id for profiles generated before sharing existed.
+  // RETURNING + re-read keeps it correct if two renders race the update.
   let shareId = rows[0]?.share_id as string | undefined;
   if (profile && !shareId) {
-    shareId = newShareId();
-    await sql`
-      UPDATE taste_profiles SET share_id = ${shareId}
-      WHERE user_id = ${userId} AND share_id IS NULL`;
+    const upd = await sql`
+      UPDATE taste_profiles SET share_id = ${newShareId()}
+      WHERE user_id = ${userId} AND share_id IS NULL
+      RETURNING share_id`;
+    shareId =
+      (upd[0]?.share_id as string | undefined) ??
+      ((await sql`SELECT share_id FROM taste_profiles WHERE user_id = ${userId}`)[0]
+        ?.share_id as string | undefined);
   }
 
   const [genreMap, stats, percentile] = await Promise.all([
