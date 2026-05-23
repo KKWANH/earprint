@@ -5,18 +5,19 @@ import type { Locale } from "@/lib/i18n";
 import { profileDict } from "@/lib/i18n/profile";
 import { ALL_ZODIACS, type MusicZodiac, type Zodiac } from "@/lib/musicZodiac";
 
-/** Twinkly background stars — deterministic positions so they don't flicker. */
-const BG_STARS = Array.from({ length: 70 }, (_, i) => {
-  const sx = (i * 9301 + 49297) % 233280;
-  const sy = ((i + 1) * 14013 + 27179) % 233280;
-  const sr = ((i + 1) * 7919) % 233280;
-  return {
-    x: (sx / 233280) * 100,
-    y: (sy / 233280) * 60,
-    r: 0.18 + (sr / 233280) * 0.6,
-    o: 0.25 + ((i * 13) % 7) * 0.08,
-  };
-});
+/** A few quiet ambient stars in the corners of the sky. */
+const AMBIENT_STARS: { x: number; y: number; r: number; o: number }[] = [
+  { x: 7, y: 12, r: 0.6, o: 0.55 },
+  { x: 22, y: 50, r: 0.4, o: 0.4 },
+  { x: 92, y: 18, r: 0.7, o: 0.6 },
+  { x: 85, y: 46, r: 0.5, o: 0.45 },
+  { x: 50, y: 6, r: 0.35, o: 0.35 },
+  { x: 95, y: 55, r: 0.55, o: 0.5 },
+  { x: 14, y: 32, r: 0.35, o: 0.35 },
+  { x: 78, y: 8, r: 0.4, o: 0.4 },
+  { x: 4, y: 55, r: 0.45, o: 0.45 },
+  { x: 88, y: 32, r: 0.45, o: 0.4 },
+];
 
 // VS15 forces text-style presentation of the zodiac symbol so it renders as
 // a glyph rather than the platform's emoji image.
@@ -134,7 +135,7 @@ export function MusicZodiacCard({
   );
 }
 
-/** Star field + the active sign's actual constellation lines. */
+/** Quiet ambient stars + the active sign's constellation drawn across the sky. */
 function CosmicBackground({ zodiac }: { zodiac: Zodiac }) {
   return (
     <svg
@@ -143,10 +144,11 @@ function CosmicBackground({ zodiac }: { zodiac: Zodiac }) {
       preserveAspectRatio="xMidYMid slice"
       aria-hidden
     >
-      {BG_STARS.map((s, i) => (
+      {AMBIENT_STARS.map((s, i) => (
         <circle key={i} cx={s.x} cy={s.y} r={s.r} fill="#fff" opacity={s.o} />
       ))}
-      <g transform="translate(32 12) scale(0.36)" opacity="0.6">
+      {/* The matched constellation, drawn larger across the sky. */}
+      <g transform="translate(20 3) scale(0.6)" opacity="0.7">
         {zodiac.constellation.edges.map(([a, b], i) => {
           const sa = zodiac.constellation.stars[a];
           const sb = zodiac.constellation.stars[b];
@@ -158,13 +160,19 @@ function CosmicBackground({ zodiac }: { zodiac: Zodiac }) {
               x2={sb.x}
               y2={sb.y}
               stroke="#fcd34d"
-              strokeWidth="0.45"
+              strokeWidth="0.55"
               opacity="0.45"
+              strokeLinecap="round"
             />
           );
         })}
         {zodiac.constellation.stars.map((s, i) => (
-          <circle key={i} cx={s.x} cy={s.y} r={1.4} fill="#fcd34d" opacity="0.85" />
+          <g key={i}>
+            {/* outer glow */}
+            <circle cx={s.x} cy={s.y} r={3.2} fill="#fcd34d" opacity="0.18" />
+            {/* star body */}
+            <circle cx={s.x} cy={s.y} r={1.6} fill="#fde68a" opacity="0.95" />
+          </g>
         ))}
       </g>
     </svg>
