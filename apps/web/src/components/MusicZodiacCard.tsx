@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { profileDict } from "@/lib/i18n/profile";
 import { ALL_ZODIACS, type MusicZodiac, type Zodiac } from "@/lib/musicZodiac";
@@ -10,12 +13,16 @@ const BG_STARS = Array.from({ length: 70 }, (_, i) => {
   return {
     x: (sx / 233280) * 100,
     y: (sy / 233280) * 60,
-    r: 0.18 + ((sr / 233280) * 0.6),
+    r: 0.18 + (sr / 233280) * 0.6,
     o: 0.25 + ((i * 13) % 7) * 0.08,
   };
 });
 
-/** The matched user's zodiac, with cosmic background and the twelve-sign strip. */
+// VS15 forces text-style presentation of the zodiac symbol so it renders as
+// a glyph rather than the platform's emoji image.
+const TEXT_STYLE = "︎";
+
+/** The user's zodiac as a cosmic scene; the twelve-sign strip is browsable. */
 export function MusicZodiacCard({
   data,
   locale,
@@ -24,14 +31,16 @@ export function MusicZodiacCard({
   locale: Locale;
 }) {
   const t = profileDict(locale);
-  const z = data.zodiac;
-  const name = locale === "ko" ? z.nameKo : z.nameEn;
-  const archetype = locale === "ko" ? z.archetypeKo : z.archetypeEn;
-  const blurb = locale === "ko" ? z.blurbKo : z.blurbEn;
+  const matchedSign = data.zodiac.sign;
+  const [active, setActive] = useState<Zodiac>(data.zodiac);
+  const isMatched = active.sign === matchedSign;
+
+  const name = locale === "ko" ? active.nameKo : active.nameEn;
+  const archetype = locale === "ko" ? active.archetypeKo : active.archetypeEn;
+  const blurb = locale === "ko" ? active.blurbKo : active.blurbEn;
 
   return (
     <section className="flex flex-col gap-3">
-      {/* Featured zodiac */}
       <div
         className="relative overflow-hidden rounded-2xl border border-white/10 px-6 py-8 text-center"
         style={{
@@ -39,14 +48,25 @@ export function MusicZodiacCard({
             "radial-gradient(ellipse at top, #1e1b4b 0%, #0a0a0b 55%, #1c0a2e 100%)",
         }}
       >
-        <CosmicBackground zodiac={z} />
+        <CosmicBackground zodiac={active} />
+
+        {!isMatched && (
+          <button
+            onClick={() => setActive(data.zodiac)}
+            className="absolute right-3 top-3 z-10 rounded-full bg-black/40 px-2.5 py-1 text-[11px] text-amber-200 hover:bg-black/60"
+          >
+            ← {data.zodiac.symbol}
+            {TEXT_STYLE}
+          </button>
+        )}
 
         <div className="relative">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
             {t.zodiacHeading}
           </p>
-          <div className="mt-3 text-7xl leading-none text-amber-300 drop-shadow-[0_0_24px_rgba(252,211,77,0.4)]">
-            {z.symbol}
+          <div className="mt-3 font-serif text-8xl leading-none text-amber-300 drop-shadow-[0_0_24px_rgba(252,211,77,0.4)]">
+            {active.symbol}
+            {TEXT_STYLE}
           </div>
           <p className="mt-4 text-xs uppercase tracking-[0.18em] text-white/55">
             {name}
@@ -57,8 +77,8 @@ export function MusicZodiacCard({
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/75">
             {blurb}
           </p>
-          {data.matched.length > 0 && (
-            <div className="mt-5 flex flex-wrap justify-center items-center gap-1.5">
+          {isMatched && data.matched.length > 0 && (
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
               <span className="text-[11px] uppercase tracking-wider text-white/45">
                 {t.zodiacMatched}
               </span>
@@ -75,30 +95,38 @@ export function MusicZodiacCard({
         </div>
       </div>
 
-      {/* All twelve signs — user's pick highlighted */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {ALL_ZODIACS.map((other) => {
-          const active = other.sign === z.sign;
+          const isMatch = other.sign === matchedSign;
+          const isActive = other.sign === active.sign;
           return (
-            <div
+            <button
               key={other.sign}
+              onClick={() => setActive(other)}
               className={`flex shrink-0 flex-col items-center gap-0.5 rounded-lg border px-3 py-2 transition-colors ${
-                active
-                  ? "border-amber-400/50 bg-amber-500/10 ring-1 ring-amber-400/30"
-                  : "border-white/10 bg-white/[0.03]"
+                isMatch
+                  ? "border-amber-400/60 bg-amber-500/10 ring-1 ring-amber-400/40"
+                  : isActive
+                    ? "border-white/30 bg-white/10"
+                    : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
               }`}
             >
               <span
-                className={`text-xl leading-none ${active ? "text-amber-300" : "text-neutral-600"}`}
+                className={`text-xl leading-none ${
+                  isMatch ? "text-amber-300" : isActive ? "text-white" : "text-neutral-500"
+                }`}
               >
                 {other.symbol}
+                {TEXT_STYLE}
               </span>
               <span
-                className={`text-[10px] ${active ? "text-amber-200" : "text-neutral-500"}`}
+                className={`text-[10px] ${
+                  isMatch ? "text-amber-200" : isActive ? "text-white" : "text-neutral-500"
+                }`}
               >
                 {locale === "ko" ? other.nameKo : other.nameEn}
               </span>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -106,7 +134,7 @@ export function MusicZodiacCard({
   );
 }
 
-/** Star field + the matched sign's actual constellation lines. */
+/** Star field + the active sign's actual constellation lines. */
 function CosmicBackground({ zodiac }: { zodiac: Zodiac }) {
   return (
     <svg
@@ -118,7 +146,6 @@ function CosmicBackground({ zodiac }: { zodiac: Zodiac }) {
       {BG_STARS.map((s, i) => (
         <circle key={i} cx={s.x} cy={s.y} r={s.r} fill="#fff" opacity={s.o} />
       ))}
-      {/* Constellation overlay — centred, occupying x:32..68, y:12..48 */}
       <g transform="translate(32 12) scale(0.36)" opacity="0.6">
         {zodiac.constellation.edges.map(([a, b], i) => {
           const sa = zodiac.constellation.stars[a];
