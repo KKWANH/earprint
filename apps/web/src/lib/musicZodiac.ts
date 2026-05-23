@@ -1,12 +1,11 @@
 import type { LibraryStats } from "./library";
 
 /**
- * Music zodiac — each of the twelve signs maps to a musical archetype.
+ * Music zodiac — twelve signs, each mapping to a distinct musical tribe.
  * The user's top genres and moods are matched against each sign's keyword
- * list; the highest-scoring sign wins. Pure data, no fabricated metric.
- *
- * Each sign also carries a simplified constellation pattern (normalised to
- * a 0..100 viewBox) that the card renders as a cosmic-background overlay.
+ * list. To avoid double-counting (e.g. "indie rock" matching both "indie
+ * rock" and a generic "rock"), each user genre is attributed to a single
+ * sign — the one with the most specific matching keyword.
  */
 export interface Star {
   x: number;
@@ -33,7 +32,7 @@ export interface Zodiac {
 
 export interface MusicZodiac {
   zodiac: Zodiac;
-  matched: string[]; // genre/mood names from the user's library that scored
+  matched: string[];
 }
 
 export const ALL_ZODIACS: Zodiac[] = [
@@ -42,17 +41,19 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♈",
     nameKo: "양자리",
     nameEn: "Aries",
-    archetypeKo: "강렬한 로커",
-    archetypeEn: "Hard Rocker",
-    blurbKo: "크고 빠르고 거침없는 사운드.",
-    blurbEn: "Loud, fast, fearless.",
+    archetypeKo: "록커",
+    archetypeEn: "Rocker",
+    blurbKo: "기타가 울려야 사는 사람.",
+    blurbEn: "Lives for the sound of a guitar.",
     genres: [
-      "rock", "hard rock", "punk", "metal", "heavy metal", "garage rock",
-      "post-punk", "grunge", "alternative rock", "modern rock", "nu-metal",
-      "screamo", "hardcore", "hardcore punk", "thrash", "death metal",
-      "black metal", "metalcore", "math rock", "noise rock",
+      "hard rock", "classic rock", "alternative rock", "modern rock",
+      "punk rock", "punk", "grunge", "garage rock", "post-punk",
+      "psychedelic rock", "blues rock", "blues", "progressive rock",
+      "prog rock", "art rock", "krautrock", "pop rock", "southern rock",
+      "stoner rock", "roots rock", "britpop", "math rock", "alt-rock",
+      "korean rock",
     ],
-    moods: ["energetic", "aggressive", "intense", "raw", "fierce", "powerful"],
+    moods: ["energetic", "raw", "fierce", "powerful"],
     constellation: {
       stars: [{ x: 10, y: 75 }, { x: 32, y: 50 }, { x: 60, y: 35 }, { x: 88, y: 48 }],
       edges: [[0, 1], [1, 2], [2, 3]],
@@ -64,13 +65,13 @@ export const ALL_ZODIACS: Zodiac[] = [
     nameKo: "황소자리",
     nameEn: "Taurus",
     archetypeKo: "어쿠스틱 발라더",
-    archetypeEn: "Mellow Acoustic",
+    archetypeEn: "Acoustic Wanderer",
     blurbKo: "따뜻한 목소리와 어쿠스틱 사운드.",
     blurbEn: "Warm voices, acoustic textures.",
     genres: [
-      "folk", "acoustic", "country", "singer-songwriter", "ballad", "americana",
-      "alt-country", "indie folk", "folk rock", "bluegrass", "k-ballad",
-      "acoustic pop", "neo-folk",
+      "folk", "acoustic", "country", "singer-songwriter", "ballad",
+      "americana", "alt-country", "indie folk", "folk rock", "bluegrass",
+      "k-ballad", "acoustic pop", "neo-folk",
     ],
     moods: ["warm", "cozy", "calm", "gentle", "soft", "intimate", "peaceful"],
     constellation: {
@@ -84,14 +85,13 @@ export const ALL_ZODIACS: Zodiac[] = [
     nameKo: "쌍둥이자리",
     nameEn: "Gemini",
     archetypeKo: "다채로운 팝",
-    archetypeEn: "Eclectic Pop",
+    archetypeEn: "Pop Chameleon",
     blurbKo: "장르를 넘나드는 다채로운 팝.",
     blurbEn: "Pop in many colours.",
     genres: [
-      "pop", "k-pop", "j-pop", "dance-pop", "electropop", "art pop",
-      "indie pop", "synth-pop", "synthpop", "britpop", "pop rock", "hyperpop",
-      "bubblegum pop", "teen pop", "alt-pop", "chamber pop", "power pop",
-      "city pop", "mandopop",
+      "k-pop", "j-pop", "dance-pop", "electropop", "art pop", "synth-pop",
+      "synthpop", "hyperpop", "bubblegum pop", "teen pop", "alt-pop",
+      "chamber pop", "power pop", "mandopop", "pop punk", "twee pop",
     ],
     moods: ["playful", "upbeat", "fun", "bright", "cheerful", "catchy"],
     constellation: {
@@ -118,7 +118,7 @@ export const ALL_ZODIACS: Zodiac[] = [
     ],
     moods: [
       "melancholic", "nostalgic", "emotional", "tender", "introspective",
-      "sad", "wistful", "longing", "bittersweet",
+      "sad", "wistful", "bittersweet", "longing",
     ],
     constellation: {
       stars: [{ x: 28, y: 22 }, { x: 72, y: 22 }, { x: 50, y: 50 }, { x: 50, y: 82 }],
@@ -137,7 +137,8 @@ export const ALL_ZODIACS: Zodiac[] = [
     genres: [
       "disco", "funk", "soul", "r&b", "neo-soul", "motown", "nu-disco",
       "future funk", "electro-funk", "afrobeats", "alternative r&b",
-      "contemporary r&b", "hip-hop soul", "rare groove", "boogie", "blue-eyed soul",
+      "contemporary r&b", "hip-hop soul", "rare groove", "boogie",
+      "blue-eyed soul", "k-r&b",
     ],
     moods: ["groovy", "confident", "danceable", "celebratory", "joyful", "smooth"],
     constellation: {
@@ -153,15 +154,15 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♍",
     nameKo: "처녀자리",
     nameEn: "Virgo",
-    archetypeKo: "정제된 재즈",
-    archetypeEn: "Refined Jazz",
+    archetypeKo: "정제된 재즈·클래식",
+    archetypeEn: "Refined Jazz · Classical",
     blurbKo: "복잡함을 우아하게 풀어내는 사운드.",
     blurbEn: "Complexity, tuned to elegance.",
     genres: [
       "jazz", "bebop", "swing", "vocal jazz", "classical", "neo-classical",
       "baroque", "contemporary classical", "modern classical", "big band",
       "fusion jazz", "jazz fusion", "post-bop", "free jazz", "chamber music",
-      "minimalism", "modern composition",
+      "minimalism", "modern composition", "orchestral",
     ],
     moods: ["sophisticated", "refined", "complex", "elegant", "intricate"],
     constellation: {
@@ -179,9 +180,9 @@ export const ALL_ZODIACS: Zodiac[] = [
     blurbKo: "도시의 밤, 매끈한 균형감.",
     blurbEn: "Smooth, balanced, after-dark city.",
     genres: [
-      "soft rock", "smooth jazz", "lounge", "bossa nova", "yacht rock",
-      "easy listening", "japanese city pop", "soft pop", "adult contemporary",
-      "quiet storm", "aor",
+      "city pop", "soft rock", "smooth jazz", "lounge", "bossa nova",
+      "yacht rock", "easy listening", "japanese city pop", "soft pop",
+      "adult contemporary", "quiet storm", "aor",
     ],
     moods: ["smooth", "mellow", "balanced", "refined", "sleek", "laid-back"],
     constellation: {
@@ -194,18 +195,18 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♏",
     nameKo: "전갈자리",
     nameEn: "Scorpio",
-    archetypeKo: "전자음의 여행자",
-    archetypeEn: "Electronic Voyager",
-    blurbKo: "다양한 결의 전자음 사이를 누비는 사람.",
-    blurbEn: "Travels through every shade of electronic sound.",
+    archetypeKo: "메탈헤드",
+    archetypeEn: "Metalhead",
+    blurbKo: "묵직하고 거센 사운드.",
+    blurbEn: "Heavy, ferocious sound.",
     genres: [
-      "electronic", "electronica", "techno", "minimal techno", "tech house",
-      "house", "deep house", "progressive house", "edm", "big room", "trance",
-      "psy-trance", "industrial", "darkwave", "synthwave", "ebm", "electro",
-      "dnb", "drum and bass", "dubstep", "future bass", "future garage",
-      "uk garage", "trap", "glitch", "breakbeat", "footwork", "jungle",
+      "metal", "heavy metal", "death metal", "black metal", "thrash",
+      "thrash metal", "metalcore", "deathcore", "hardcore", "hardcore punk",
+      "screamo", "grindcore", "doom", "doom metal", "sludge",
+      "post-metal", "nu-metal", "noise rock", "djent", "power metal",
+      "symphonic metal", "progressive metal", "speed metal",
     ],
-    moods: ["dark", "intense", "mysterious", "brooding", "hypnotic", "electric"],
+    moods: ["aggressive", "dark", "intense", "brooding", "heavy"],
     constellation: {
       stars: [
         { x: 18, y: 18 }, { x: 28, y: 32 }, { x: 38, y: 44 },
@@ -225,9 +226,9 @@ export const ALL_ZODIACS: Zodiac[] = [
     blurbKo: "국경을 넘는 사운드.",
     blurbEn: "Sounds without borders.",
     genres: [
-      "world", "latin", "afrobeat", "afrobeats", "reggae", "ska", "gypsy",
-      "world music", "salsa", "samba", "bossa", "kuduro", "k-traditional",
-      "k-folk", "cumbia", "flamenco", "tango", "calypso", "soca", "ethiopian",
+      "world", "latin", "afrobeat", "reggae", "ska", "gypsy", "world music",
+      "salsa", "samba", "bossa", "kuduro", "k-traditional", "k-folk",
+      "cumbia", "flamenco", "tango", "calypso", "soca", "ethiopian",
       "balkan", "celtic", "global pop",
     ],
     moods: ["adventurous", "free", "expansive", "exotic"],
@@ -244,16 +245,18 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♑",
     nameKo: "염소자리",
     nameEn: "Capricorn",
-    archetypeKo: "클래식 록 빌더",
-    archetypeEn: "Classic Builder",
-    blurbKo: "구조 있고 무게 있는 정통 사운드.",
-    blurbEn: "Built to last — heavy and structured.",
+    archetypeKo: "힙합 스토리텔러",
+    archetypeEn: "Hip-hop Storyteller",
+    blurbKo: "비트 위에 펼치는 이야기.",
+    blurbEn: "Stories laid down over the beat.",
     genres: [
-      "classic rock", "progressive rock", "prog rock", "blues rock", "blues",
-      "opera", "psychedelic rock", "krautrock", "art rock", "rock opera",
-      "southern rock", "stoner rock", "heartland rock", "roots rock",
+      "hip-hop", "hip hop", "rap", "trap", "conscious rap",
+      "alternative hip hop", "alt-hip-hop", "boom bap", "drill", "mumble rap",
+      "lyrical hip hop", "gangsta rap", "west coast hip hop",
+      "east coast hip hop", "southern hip hop", "korean hip hop", "k-rap",
+      "k-hiphop", "cloud rap", "emo rap", "uk drill", "phonk",
     ],
-    moods: ["structured", "serious", "monumental", "traditional", "epic"],
+    moods: ["confident", "narrative", "gritty", "swagger"],
     constellation: {
       stars: [{ x: 22, y: 70 }, { x: 50, y: 22 }, { x: 78, y: 70 }],
       edges: [[0, 1], [1, 2], [2, 0]],
@@ -264,17 +267,19 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♒",
     nameKo: "물병자리",
     nameEn: "Aquarius",
-    archetypeKo: "공간 사운드 탐험가",
-    archetypeEn: "Space Sound Explorer",
-    blurbKo: "공기 같고 실험적인 사운드.",
-    blurbEn: "Airy, experimental textures.",
+    archetypeKo: "전자음의 여행자",
+    archetypeEn: "Electronic Voyager",
+    blurbKo: "댄스플로어를 누비는 전자음.",
+    blurbEn: "Electronic sound for the dance-floor.",
     genres: [
-      "ambient", "experimental", "idm", "post-rock", "drone", "minimal",
-      "vaporwave", "downtempo", "trip-hop", "chillout", "ambient pop",
-      "lo-fi hip hop", "lo-fi beats", "future garage", "ambient electronic",
-      "modular synth", "new age",
+      "electronic", "electronica", "techno", "minimal techno", "tech house",
+      "house", "deep house", "progressive house", "edm", "big room",
+      "trance", "psy-trance", "industrial", "darkwave", "synthwave", "ebm",
+      "electro", "dnb", "drum and bass", "dubstep", "future bass",
+      "future garage", "uk garage", "breakbeat", "footwork", "jungle",
+      "hard techno", "acid house", "garage", "bassline",
     ],
-    moods: ["ethereal", "abstract", "atmospheric", "futuristic", "dreamlike", "spacious"],
+    moods: ["electric", "hypnotic", "futuristic", "pulsing"],
     constellation: {
       stars: [
         { x: 28, y: 30 }, { x: 50, y: 42 }, { x: 72, y: 30 },
@@ -288,15 +293,18 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♓",
     nameKo: "물고기자리",
     nameEn: "Pisces",
-    archetypeKo: "슈게이즈 드리머",
-    archetypeEn: "Shoegaze Dreamer",
-    blurbKo: "리버브에 잠긴 꿈결.",
-    blurbEn: "Reverb-drenched daydream.",
+    archetypeKo: "공간의 드리머",
+    archetypeEn: "Atmospheric Dreamer",
+    blurbKo: "리버브에 잠긴, 공기 같은 사운드.",
+    blurbEn: "Reverb-soaked, airy textures.",
     genres: [
       "shoegaze", "dream pop", "chillwave", "nu-gaze", "ethereal wave",
-      "blackgaze", "dreamgaze", "post-shoegaze",
+      "blackgaze", "dreamgaze", "post-shoegaze", "ambient", "experimental",
+      "idm", "post-rock", "drone", "minimal", "vaporwave", "downtempo",
+      "trip-hop", "chillout", "ambient pop", "lo-fi hip hop", "lo-fi beats",
+      "modular synth", "new age", "ambient electronic",
     ],
-    moods: ["dreamy", "hazy", "romantic", "surreal"],
+    moods: ["dreamy", "hazy", "romantic", "surreal", "ethereal", "abstract", "atmospheric", "spacious"],
     constellation: {
       stars: [{ x: 14, y: 30 }, { x: 32, y: 22 }, { x: 50, y: 40 }, { x: 68, y: 22 }, { x: 86, y: 30 }],
       edges: [[0, 1], [1, 2], [2, 3], [3, 4]],
@@ -304,32 +312,50 @@ export const ALL_ZODIACS: Zodiac[] = [
   },
 ];
 
-/** Picks the best-matching zodiac for a listener. */
+/**
+ * Picks the best-matching zodiac. Each user genre/mood is attributed to a
+ * single sign — the one whose most-specific keyword matches it — so that a
+ * single track tag doesn't inflate multiple signs at once.
+ */
 export function getMusicZodiac(stats: LibraryStats): MusicZodiac | null {
   if (stats.topGenres.length === 0 && stats.topMoods.length === 0) return null;
 
-  let best: { z: Zodiac; score: number; matched: string[] } | null = null;
-  for (const z of ALL_ZODIACS) {
-    let score = 0;
-    const matched: string[] = [];
-    for (const g of stats.topGenres) {
-      const name = g.name.toLowerCase();
-      if (z.genres.some((zg) => name === zg || name.includes(zg) || zg.includes(name))) {
-        score += g.count;
-        matched.push(g.name);
+  const scores = new Map<string, number>();
+  const matched = new Map<string, string[]>();
+
+  const assign = (name: string, original: string, count: number, list: "genres" | "moods") => {
+    let bestSign: string | null = null;
+    let bestLen = 0;
+    for (const z of ALL_ZODIACS) {
+      for (const kw of z[list]) {
+        if (name === kw || name.includes(kw) || kw.includes(name)) {
+          if (kw.length > bestLen) {
+            bestSign = z.sign;
+            bestLen = kw.length;
+          }
+        }
       }
     }
-    for (const m of stats.topMoods) {
-      const name = m.name.toLowerCase();
-      if (z.moods.some((zm) => name === zm || name.includes(zm) || zm.includes(name))) {
-        score += m.count;
-        matched.push(m.name);
-      }
+    if (bestSign) {
+      scores.set(bestSign, (scores.get(bestSign) ?? 0) + count);
+      const arr = matched.get(bestSign) ?? [];
+      arr.push(original);
+      matched.set(bestSign, arr);
     }
-    if (score > 0 && (!best || score > best.score)) {
-      best = { z, score, matched };
+  };
+
+  for (const g of stats.topGenres) assign(g.name.toLowerCase(), g.name, g.count, "genres");
+  for (const m of stats.topMoods) assign(m.name.toLowerCase(), m.name, m.count, "moods");
+
+  let bestSign: string | null = null;
+  let bestScore = 0;
+  for (const [sign, score] of scores) {
+    if (score > bestScore) {
+      bestScore = score;
+      bestSign = sign;
     }
   }
-  if (!best) return null;
-  return { zodiac: best.z, matched: best.matched };
+  if (!bestSign) return null;
+  const z = ALL_ZODIACS.find((x) => x.sign === bestSign)!;
+  return { zodiac: z, matched: matched.get(bestSign) ?? [] };
 }
