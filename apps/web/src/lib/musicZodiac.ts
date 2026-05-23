@@ -3,9 +3,20 @@ import type { LibraryStats } from "./library";
 /**
  * Music zodiac — each of the twelve signs maps to a musical archetype.
  * The user's top genres and moods are matched against each sign's keyword
- * list; the highest-scoring sign wins. Pure data, no fabricated metric —
- * we surface what the existing analysis already says about the listener.
+ * list; the highest-scoring sign wins. Pure data, no fabricated metric.
+ *
+ * Each sign also carries a simplified constellation pattern (normalised to
+ * a 0..100 viewBox) that the card renders as a cosmic-background overlay.
  */
+export interface Star {
+  x: number;
+  y: number;
+}
+export interface Constellation {
+  stars: Star[];
+  edges: [number, number][];
+}
+
 export interface Zodiac {
   sign: string;
   symbol: string;
@@ -17,6 +28,7 @@ export interface Zodiac {
   blurbEn: string;
   genres: string[];
   moods: string[];
+  constellation: Constellation;
 }
 
 export interface MusicZodiac {
@@ -24,7 +36,7 @@ export interface MusicZodiac {
   matched: string[]; // genre/mood names from the user's library that scored
 }
 
-const ZODIACS: Zodiac[] = [
+export const ALL_ZODIACS: Zodiac[] = [
   {
     sign: "aries",
     symbol: "♈",
@@ -36,6 +48,10 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Loud, fast, fearless.",
     genres: ["rock", "hard rock", "punk", "metal", "heavy metal", "garage rock", "post-punk", "grunge"],
     moods: ["energetic", "aggressive", "intense", "raw"],
+    constellation: {
+      stars: [{ x: 10, y: 75 }, { x: 32, y: 50 }, { x: 60, y: 35 }, { x: 88, y: 48 }],
+      edges: [[0, 1], [1, 2], [2, 3]],
+    },
   },
   {
     sign: "taurus",
@@ -48,6 +64,10 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Warm voices, acoustic textures.",
     genres: ["folk", "acoustic", "country", "singer-songwriter", "ballad", "americana"],
     moods: ["warm", "cozy", "calm", "gentle", "soft"],
+    constellation: {
+      stars: [{ x: 18, y: 18 }, { x: 38, y: 38 }, { x: 50, y: 60 }, { x: 62, y: 38 }, { x: 82, y: 18 }],
+      edges: [[0, 1], [1, 2], [2, 3], [3, 4]],
+    },
   },
   {
     sign: "gemini",
@@ -58,8 +78,15 @@ const ZODIACS: Zodiac[] = [
     archetypeEn: "Eclectic Pop",
     blurbKo: "장르를 넘나드는 다채로운 팝.",
     blurbEn: "Pop in many colours.",
-    genres: ["pop", "k-pop", "j-pop", "dance-pop", "electropop", "art pop", "indie pop", "synth-pop"],
-    moods: ["playful", "upbeat", "fun", "bright"],
+    genres: ["pop", "k-pop", "j-pop", "dance-pop", "electropop", "art pop", "indie pop", "synth-pop", "synthpop", "britpop", "pop rock"],
+    moods: ["playful", "upbeat", "fun", "bright", "cheerful"],
+    constellation: {
+      stars: [
+        { x: 28, y: 18 }, { x: 28, y: 50 }, { x: 28, y: 82 },
+        { x: 72, y: 18 }, { x: 72, y: 50 }, { x: 72, y: 82 },
+      ],
+      edges: [[0, 1], [1, 2], [3, 4], [4, 5], [0, 3]],
+    },
   },
   {
     sign: "cancer",
@@ -72,6 +99,10 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Bedroom-quiet, heart on sleeve.",
     genres: ["indie", "indie pop", "indie rock", "bedroom pop", "lo-fi"],
     moods: ["melancholic", "nostalgic", "emotional", "tender", "introspective"],
+    constellation: {
+      stars: [{ x: 28, y: 22 }, { x: 72, y: 22 }, { x: 50, y: 50 }, { x: 50, y: 82 }],
+      edges: [[0, 2], [1, 2], [2, 3]],
+    },
   },
   {
     sign: "leo",
@@ -84,6 +115,13 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Funk, soul and disco under the lights.",
     genres: ["disco", "funk", "soul", "r&b", "neo-soul", "motown"],
     moods: ["groovy", "confident", "danceable", "celebratory"],
+    constellation: {
+      stars: [
+        { x: 18, y: 32 }, { x: 30, y: 16 }, { x: 50, y: 16 },
+        { x: 66, y: 30 }, { x: 76, y: 55 }, { x: 70, y: 82 },
+      ],
+      edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5]],
+    },
   },
   {
     sign: "virgo",
@@ -96,6 +134,10 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Complexity, tuned to elegance.",
     genres: ["jazz", "bebop", "swing", "vocal jazz", "classical", "neo-classical", "baroque"],
     moods: ["sophisticated", "refined", "complex", "elegant"],
+    constellation: {
+      stars: [{ x: 14, y: 22 }, { x: 30, y: 38 }, { x: 50, y: 50 }, { x: 70, y: 60 }, { x: 86, y: 75 }],
+      edges: [[0, 1], [1, 2], [2, 3], [3, 4]],
+    },
   },
   {
     sign: "libra",
@@ -108,6 +150,10 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Smooth, balanced, after-dark city.",
     genres: ["city pop", "soft rock", "smooth jazz", "lounge", "bossa nova", "yacht rock"],
     moods: ["smooth", "mellow", "balanced", "refined"],
+    constellation: {
+      stars: [{ x: 50, y: 15 }, { x: 20, y: 50 }, { x: 80, y: 50 }, { x: 50, y: 85 }],
+      edges: [[0, 1], [0, 2], [1, 3], [2, 3]],
+    },
   },
   {
     sign: "scorpio",
@@ -120,6 +166,14 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Heavy, brooding electronics.",
     genres: ["electronic", "techno", "industrial", "darkwave", "edm", "house", "trance"],
     moods: ["dark", "intense", "mysterious", "brooding"],
+    constellation: {
+      stars: [
+        { x: 18, y: 18 }, { x: 28, y: 32 }, { x: 38, y: 44 },
+        { x: 52, y: 50 }, { x: 68, y: 50 }, { x: 80, y: 60 },
+        { x: 76, y: 76 }, { x: 60, y: 80 },
+      ],
+      edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7]],
+    },
   },
   {
     sign: "sagittarius",
@@ -132,6 +186,13 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Sounds without borders.",
     genres: ["world", "latin", "afrobeat", "reggae", "ska", "gypsy", "world music"],
     moods: ["adventurous", "free", "expansive"],
+    constellation: {
+      stars: [
+        { x: 20, y: 42 }, { x: 38, y: 28 }, { x: 60, y: 28 },
+        { x: 80, y: 42 }, { x: 70, y: 64 }, { x: 30, y: 64 },
+      ],
+      edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0]],
+    },
   },
   {
     sign: "capricorn",
@@ -142,8 +203,12 @@ const ZODIACS: Zodiac[] = [
     archetypeEn: "Classic Builder",
     blurbKo: "구조 있고 무게 있는 정통 사운드.",
     blurbEn: "Built to last — heavy and structured.",
-    genres: ["classic rock", "progressive rock", "blues rock", "blues", "opera"],
+    genres: ["classic rock", "progressive rock", "blues rock", "blues", "opera", "psychedelic rock"],
     moods: ["structured", "serious", "monumental", "traditional"],
+    constellation: {
+      stars: [{ x: 22, y: 70 }, { x: 50, y: 22 }, { x: 78, y: 70 }],
+      edges: [[0, 1], [1, 2], [2, 0]],
+    },
   },
   {
     sign: "aquarius",
@@ -156,6 +221,13 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Airy, experimental textures.",
     genres: ["ambient", "experimental", "idm", "post-rock", "drone", "minimal"],
     moods: ["ethereal", "abstract", "atmospheric", "futuristic"],
+    constellation: {
+      stars: [
+        { x: 28, y: 30 }, { x: 50, y: 42 }, { x: 72, y: 30 },
+        { x: 40, y: 62 }, { x: 60, y: 62 }, { x: 50, y: 82 },
+      ],
+      edges: [[0, 1], [1, 2], [1, 3], [1, 4], [3, 5], [4, 5]],
+    },
   },
   {
     sign: "pisces",
@@ -168,6 +240,10 @@ const ZODIACS: Zodiac[] = [
     blurbEn: "Reverb-drenched daydream.",
     genres: ["shoegaze", "dream pop", "chillwave"],
     moods: ["dreamy", "hazy", "romantic"],
+    constellation: {
+      stars: [{ x: 14, y: 30 }, { x: 32, y: 22 }, { x: 50, y: 40 }, { x: 68, y: 22 }, { x: 86, y: 30 }],
+      edges: [[0, 1], [1, 2], [2, 3], [3, 4]],
+    },
   },
 ];
 
@@ -176,7 +252,7 @@ export function getMusicZodiac(stats: LibraryStats): MusicZodiac | null {
   if (stats.topGenres.length === 0 && stats.topMoods.length === 0) return null;
 
   let best: { z: Zodiac; score: number; matched: string[] } | null = null;
-  for (const z of ZODIACS) {
+  for (const z of ALL_ZODIACS) {
     let score = 0;
     const matched: string[] = [];
     for (const g of stats.topGenres) {

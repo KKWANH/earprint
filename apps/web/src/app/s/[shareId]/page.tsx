@@ -5,9 +5,7 @@ import { getLibraryStats } from "@/lib/library";
 import { getLocale } from "@/lib/i18n-server";
 import { profileDict } from "@/lib/i18n/profile";
 import type { AiProfile } from "@/lib/profile";
-import { diggingPercentile } from "@/lib/share";
 import { getMusicZodiac } from "@/lib/musicZodiac";
-import { PersonaCard } from "@/components/PersonaCard";
 import { MusicZodiacCard } from "@/components/MusicZodiacCard";
 
 interface SharedRow {
@@ -72,24 +70,12 @@ export default async function SharePage({
     );
   }
 
-  const [stats, percentile] = await Promise.all([
-    getLibraryStats(row.user_id),
-    diggingPercentile(profile.diggingScore),
-  ]);
+  const stats = await getLibraryStats(row.user_id);
   const feel = stats.audioFeel;
   const zodiac = getMusicZodiac(stats);
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 py-8 sm:px-6 sm:py-12">
-      {profile.persona && (
-        <PersonaCard
-          persona={profile.persona}
-          score={profile.diggingScore}
-          percentile={percentile}
-          locale={locale}
-        />
-      )}
-
       {zodiac && <MusicZodiacCard data={zodiac} locale={locale} />}
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">

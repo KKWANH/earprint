@@ -9,7 +9,6 @@ import { getLocale } from "@/lib/i18n-server";
 import { profileDict } from "@/lib/i18n/profile";
 import { diggingPercentile, newShareId } from "@/lib/share";
 import { getMusicZodiac, type MusicZodiac } from "@/lib/musicZodiac";
-import { PersonaCard } from "@/components/PersonaCard";
 import { MusicZodiacCard } from "@/components/MusicZodiacCard";
 import { GenerateButton } from "./GenerateButton";
 import { GenreConstellation } from "./GenreConstellation";
@@ -204,15 +203,6 @@ function ProfileView({
 }) {
   return (
     <div className="flex flex-col gap-6">
-      {p.persona && (
-        <PersonaCard
-          persona={p.persona}
-          score={p.diggingScore}
-          percentile={percentile}
-          locale={locale}
-        />
-      )}
-
       {zodiac && <MusicZodiacCard data={zodiac} locale={locale} />}
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
