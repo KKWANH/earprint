@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
@@ -5,6 +6,11 @@ import { getLocale } from "@/lib/i18n-server";
 import { recommendDict } from "@/lib/i18n/recommend";
 import { ModePicker } from "./ModePicker";
 import { Tournament, type Rec } from "./Tournament";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = recommendDict(await getLocale());
+  return { title: `${t.pageTitle} — Earprint` };
+}
 
 /** Maps a stored rec_type (incl. legacy values) to the current union. */
 function mapRecType(t: string): Rec["recType"] {

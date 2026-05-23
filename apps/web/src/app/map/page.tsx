@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getArtistMap, getGhostArtists } from "@/lib/artistMap";
 import { getLocale } from "@/lib/i18n-server";
 import { mapDict } from "@/lib/i18n/map";
 import { ArtistMap } from "./ArtistMap";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = mapDict(await getLocale());
+  return { title: `${t.pageTitle} — Earprint` };
+}
 
 export default async function MapPage() {
   const session = await auth();

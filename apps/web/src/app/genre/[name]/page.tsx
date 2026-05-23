@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
@@ -6,6 +7,15 @@ import { genreHue } from "@/lib/forceGraph";
 import { getLocale } from "@/lib/i18n-server";
 import { genreDict } from "@/lib/i18n/genre";
 import { PreviewButton } from "../../library/PreviewButton";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ name: string }>;
+}): Promise<Metadata> {
+  const { name } = await params;
+  return { title: `${decodeURIComponent(name)} — Earprint` };
+}
 
 /** Shared genre detail page — reachable from the library and artist pages. */
 export default async function GenrePage({

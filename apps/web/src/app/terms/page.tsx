@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { getLocale } from "@/lib/i18n-server";
 import { LegalDoc, type LegalSection } from "@/components/LegalDoc";
 
-export const metadata: Metadata = { title: "Terms of Service — Earprint" };
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  return {
+    title: `${locale === "ko" ? "이용약관" : "Terms of Service"} — Earprint`,
+  };
+}
 
 const CONTACT = "kwanho0096@gmail.com";
 

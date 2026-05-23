@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
@@ -6,6 +7,15 @@ import { getLocale } from "@/lib/i18n-server";
 import { artistDict } from "@/lib/i18n/artist";
 import { PreviewButton } from "../../library/PreviewButton";
 import { ArtistActions } from "./ArtistActions";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ name: string }>;
+}): Promise<Metadata> {
+  const { name } = await params;
+  return { title: `${decodeURIComponent(name)} — Earprint` };
+}
 
 /** Shared artist detail page — reachable from the library, map and recommendations. */
 export default async function ArtistPage({

@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection, getLibrarySummary } from "@/lib/connection";
 import { getLocale } from "@/lib/i18n-server";
 import { connectDict } from "@/lib/i18n/connect";
 import { TokenBox } from "./TokenBox";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = connectDict(await getLocale());
+  return { title: `${t.pageTitle} — Earprint` };
+}
 
 export default async function ConnectPage() {
   const session = await auth();

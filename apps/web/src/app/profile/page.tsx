@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
@@ -13,6 +14,11 @@ import { MusicZodiacCard } from "@/components/MusicZodiacCard";
 import { GenerateButton } from "./GenerateButton";
 import { GenreConstellation } from "./GenreConstellation";
 import { ShareButton } from "./ShareButton";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = profileDict(await getLocale());
+  return { title: `${t.pageTitle} — Earprint` };
+}
 
 export default async function ProfilePage() {
   const locale = await getLocale();

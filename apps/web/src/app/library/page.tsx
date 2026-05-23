@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
@@ -10,6 +11,11 @@ import { DeleteAccountButton } from "./DeleteAccountButton";
 import { getLocale } from "@/lib/i18n-server";
 import { libraryDict } from "@/lib/i18n/library";
 import type { Locale } from "@/lib/i18n";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = libraryDict(await getLocale());
+  return { title: `${t.pageTitle} — Earprint` };
+}
 
 export default async function LibraryPage() {
   const locale = await getLocale();
