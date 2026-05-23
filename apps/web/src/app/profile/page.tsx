@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
@@ -237,9 +238,9 @@ function ProfileView({
       </section>
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <ChipList title={t.favoriteGenres} items={p.favoriteGenres ?? []} color="bg-indigo-900/60" t={t} />
-        <ChipList title={t.avoidedGenres} items={p.avoidedGenres ?? []} color="bg-rose-900/60" t={t} />
-        <ChipList title={t.unexploredGenres} items={p.unexploredGenres ?? []} color="bg-amber-900/60" t={t} />
+        <ChipList title={t.favoriteGenres} items={p.favoriteGenres ?? []} color="bg-indigo-900/60" linkable t={t} />
+        <ChipList title={t.avoidedGenres} items={p.avoidedGenres ?? []} color="bg-rose-900/60" linkable t={t} />
+        <ChipList title={t.unexploredGenres} items={p.unexploredGenres ?? []} color="bg-amber-900/60" linkable t={t} />
       </section>
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">
@@ -268,11 +269,13 @@ function ChipList({
   title,
   items,
   color,
+  linkable,
   t,
 }: {
   title: string;
   items: string[];
   color: string;
+  linkable?: boolean;
   t: ProfileT;
 }) {
   return (
@@ -282,11 +285,21 @@ function ChipList({
         {items.length === 0 ? (
           <span className="text-xs text-neutral-600">{t.emptyChip}</span>
         ) : (
-          items.map((it) => (
-            <span key={it} className={`rounded-md ${color} px-2 py-0.5 text-xs`}>
-              {it}
-            </span>
-          ))
+          items.map((it) =>
+            linkable ? (
+              <Link
+                key={it}
+                href={`/genre/${encodeURIComponent(it)}`}
+                className={`rounded-md ${color} px-2 py-0.5 text-xs hover:brightness-125`}
+              >
+                {it}
+              </Link>
+            ) : (
+              <span key={it} className={`rounded-md ${color} px-2 py-0.5 text-xs`}>
+                {it}
+              </span>
+            ),
+          )
         )}
       </div>
     </div>

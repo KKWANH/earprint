@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { profileDict } from "@/lib/i18n/profile";
-import { ALL_ZODIACS, type MusicZodiac, type Zodiac } from "@/lib/musicZodiac";
+import {
+  ALL_ZODIACS,
+  type MusicZodiac,
+  type SignBreakdown,
+  type Zodiac,
+} from "@/lib/musicZodiac";
 
 /** A few quiet ambient stars in the corners of the sky. */
 const AMBIENT_STARS: { x: number; y: number; r: number; o: number }[] = [
@@ -23,7 +29,12 @@ const AMBIENT_STARS: { x: number; y: number; r: number; o: number }[] = [
 // a glyph rather than the platform's emoji image.
 const TEXT_STYLE = "︎";
 
-/** The user's zodiac as a cosmic scene; the twelve-sign strip is browsable. */
+/**
+ * The user's zodiac as a cosmic scene; the twelve-sign strip is browsable.
+ * Each strip cell shows that sign's match share — even non-winning signs
+ * surface "what little of you lives here", and selecting a cell swaps the
+ * displayed archetype, blurb and matched tags.
+ */
 export function MusicZodiacCard({
   data,
   locale,
@@ -35,6 +46,19 @@ export function MusicZodiacCard({
   const matchedSign = data.zodiac.sign;
   const [active, setActive] = useState<Zodiac>(data.zodiac);
   const isMatched = active.sign === matchedSign;
+
+  // Lookup map for breakdown by sign — used for both the active card and the
+  // strip cells. The breakdown array is sorted by share desc but we render
+  // the strip in zodiacal order for consistency.
+  const bySign = useMemo(() => {
+    const m = new Map<string, SignBreakdown>();
+    for (const b of data.breakdown) m.set(b.sign, b);
+    return m;
+  }, [data.breakdown]);
+
+  const activeBreakdown = bySign.get(active.sign);
+  const activeShare = activeBreakdown?.share ?? 0;
+  const activeMatched = activeBreakdown?.matched ?? [];
 
   const name = locale === "ko" ? active.nameKo : active.nameEn;
   const archetype = locale === "ko" ? active.archetypeKo : active.archetypeEn;
@@ -78,19 +102,34 @@ export function MusicZodiacCard({
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/75">
             {blurb}
           </p>
-          {isMatched && data.matched.length > 0 && (
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-1.5">
+          {/* Per-sign match rate. Even non-winning signs surface their share
+              so users see "what little of you lives here". */}
+          <p className="mt-3 text-[11px] uppercase tracking-wider text-white/45">
+            {t.zodiacMatch} {Math.round(activeShare * 100)}%
+          </p>
+          {activeMatched.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
               <span className="text-[11px] uppercase tracking-wider text-white/45">
                 {t.zodiacMatched}
               </span>
-              {data.matched.slice(0, 6).map((m) => (
-                <span
-                  key={m}
-                  className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-200"
-                >
-                  {m}
-                </span>
-              ))}
+              {activeMatched.slice(0, 8).map((m) =>
+                m.type === "genre" ? (
+                  <Link
+                    key={`${m.type}:${m.name}`}
+                    href={`/genre/${encodeURIComponent(m.name)}`}
+                    className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-200 hover:bg-amber-500/25"
+                  >
+                    {m.name}
+                  </Link>
+                ) : (
+                  <span
+                    key={`${m.type}:${m.name}`}
+                    className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/70"
+                  >
+                    {m.name}
+                  </span>
+                ),
+              )}
             </div>
           )}
         </div>
@@ -100,6 +139,8 @@ export function MusicZodiacCard({
         {ALL_ZODIACS.map((other) => {
           const isMatch = other.sign === matchedSign;
           const isActive = other.sign === active.sign;
+          const share = bySign.get(other.sign)?.share ?? 0;
+          const pct = Math.round(share * 100);
           return (
             <button
               key={other.sign}
@@ -126,6 +167,17 @@ export function MusicZodiacCard({
                 }`}
               >
                 {locale === "ko" ? other.nameKo : other.nameEn}
+              </span>
+              <span
+                className={`text-[9px] tabular-nums ${
+                  isMatch
+                    ? "text-amber-300/80"
+                    : pct > 0
+                      ? "text-white/55"
+                      : "text-neutral-600"
+                }`}
+              >
+                {pct}%
               </span>
             </button>
           );

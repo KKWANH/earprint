@@ -10,6 +10,7 @@ const en = {
   topArtists: "Defining artists",
   topTracks: "Essential tracks",
   yourTracks: "Your tracks in this genre",
+  allGenres: "All genres →",
 };
 
 const ko: typeof en = {
@@ -21,6 +22,7 @@ const ko: typeof en = {
   topArtists: "대표 아티스트",
   topTracks: "대표곡",
   yourTracks: "내 라이브러리의 이 장르 곡",
+  allGenres: "전체 장르 보기 →",
 };
 
 export function genreDict(locale: Locale) {

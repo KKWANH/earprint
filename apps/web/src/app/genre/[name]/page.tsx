@@ -53,9 +53,14 @@ export default async function GenrePage({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
-      <Link href="/library" className="text-xs text-neutral-500 hover:text-white">
-        {t.back}
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/library" className="text-xs text-neutral-500 hover:text-white">
+          {t.back}
+        </Link>
+        <Link href="/genres" className="text-xs text-neutral-500 hover:text-white">
+          {t.allGenres}
+        </Link>
+      </div>
 
       {/* coloured genre banner */}
       <header

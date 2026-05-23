@@ -90,12 +90,13 @@ export default async function SharePage({
           <h2 className="text-sm font-semibold text-neutral-400">{t.favoriteGenres}</h2>
           <div className="flex flex-wrap gap-1.5">
             {stats.topGenres.slice(0, 8).map((g) => (
-              <span
+              <Link
                 key={g.name}
-                className="rounded-md bg-indigo-900/60 px-2 py-0.5 text-xs"
+                href={`/genre/${encodeURIComponent(g.name)}`}
+                className="rounded-md bg-indigo-900/60 px-2 py-0.5 text-xs hover:brightness-125"
               >
                 {g.name}
-              </span>
+              </Link>
             ))}
           </div>
         </section>

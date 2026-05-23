@@ -88,6 +88,8 @@ export default async function LibraryPage() {
         color="bg-indigo-500"
         empty={t.genreEmpty}
         linkGenre
+        footerHref="/genres"
+        footerLabel={t.viewAllGenres}
         locale={locale}
       />
       <BarCard
@@ -241,6 +243,8 @@ function BarCard({
   excludable,
   linkArtist,
   linkGenre,
+  footerHref,
+  footerLabel,
   locale,
 }: {
   title: string;
@@ -250,6 +254,8 @@ function BarCard({
   excludable?: boolean;
   linkArtist?: boolean;
   linkGenre?: boolean;
+  footerHref?: string;
+  footerLabel?: string;
   locale: Locale;
 }) {
   const max = Math.max(1, ...items.map((i) => i.count));
@@ -292,6 +298,14 @@ function BarCard({
             );
           })}
         </div>
+      )}
+      {footerHref && footerLabel && items.length > 0 && (
+        <Link
+          href={footerHref}
+          className="self-end text-xs text-neutral-400 hover:text-white"
+        >
+          {footerLabel}
+        </Link>
       )}
     </section>
   );
