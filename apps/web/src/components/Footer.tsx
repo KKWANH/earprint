@@ -1,20 +1,9 @@
 import Link from "next/link";
-import type { Locale } from "@/lib/i18n";
+import { dicts, type Locale } from "@/lib/i18n";
 
 /** Site footer — brand mark and links to the legal pages. */
 export function Footer({ locale }: { locale: Locale }) {
-  const t =
-    locale === "ko"
-      ? {
-          privacy: "개인정보처리방침",
-          terms: "이용약관",
-          tagline: "연구에 근거한 개인용 음악 취향 도구",
-        }
-      : {
-          privacy: "Privacy",
-          terms: "Terms",
-          tagline: "A research-grounded personal music-taste tool",
-        };
+  const t = dicts[locale].footer;
   return (
     <footer className="mt-auto border-t border-white/10 px-4 py-6 sm:px-6">
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 text-center sm:flex-row sm:justify-between sm:text-left">

@@ -37,7 +37,11 @@ const en = {
     s3: "Explore your Taste DNA, artist map and recommendations",
     galleryTitle: "Sample outputs",
     gallerySubtitle: "Three example personas from an Earprint analysis.",
-    footer: "A personal music-taste tool.",
+  },
+  footer: {
+    privacy: "Privacy",
+    terms: "Terms",
+    tagline: "A personal music-taste tool",
   },
 };
 
@@ -74,7 +78,11 @@ const ko: Dict = {
     s3: "취향 DNA·아티스트 맵·추천 둘러보기",
     galleryTitle: "결과 예시",
     gallerySubtitle: "Earprint 분석 결과 예시 3가지.",
-    footer: "개인용 음악 취향 분석 도구",
+  },
+  footer: {
+    privacy: "개인정보처리방침",
+    terms: "이용약관",
+    tagline: "개인용 음악 취향 분석 도구",
   },
 };
 
