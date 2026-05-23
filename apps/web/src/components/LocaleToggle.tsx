@@ -16,6 +16,11 @@ export function LocaleToggle({ locale }: { locale: Locale }) {
 
   const pick = (l: Locale) => {
     if (l === locale || pending) return;
+    // Write the cookie client-side first — the server action's Set-Cookie
+    // can otherwise arrive after router.refresh() has already re-fetched,
+    // leaving the page on the old locale (this is why EN→KO got "stuck"
+    // and KO→EN looked slow, since "en" is the fallback default).
+    document.cookie = `locale=${l};path=/;max-age=${60 * 60 * 24 * 365};samesite=lax`;
     startTransition(async () => {
       await setLocale(l);
       router.refresh();
