@@ -37,11 +37,27 @@ const en = {
     s3: "Explore your Taste DNA, artist map and recommendations",
     galleryTitle: "Sample outputs",
     gallerySubtitle: "Three example personas from an Earprint analysis.",
+    installTitle: "Add the Chrome extension",
+    installSubtitle:
+      "Earprint needs a tiny browser extension to read your YouTube Music likes — it runs locally and never sees your password.",
+    installCta: "Add to Chrome",
+    installNote: "Free · No account required to install",
+    installGuide: "Read the setup guide →",
   },
   footer: {
     privacy: "Privacy",
     terms: "Terms",
     tagline: "A personal music-taste tool",
+    guide: "Guide",
+  },
+  errors: {
+    title: "Something went wrong",
+    body: "An unexpected error occurred. This is usually temporary — please try again.",
+    retry: "Try again",
+    home: "Back to home",
+    notFoundTitle: "Page not found",
+    notFoundBody:
+      "The page you were looking for doesn't exist, or has moved.",
   },
 };
 
@@ -78,11 +94,26 @@ const ko: Dict = {
     s3: "취향 DNA·아티스트 맵·추천 둘러보기",
     galleryTitle: "결과 예시",
     gallerySubtitle: "Earprint 분석 결과 예시 3가지.",
+    installTitle: "크롬 확장 설치",
+    installSubtitle:
+      "유튜브 뮤직 좋아요 곡을 읽기 위해 작은 브라우저 확장이 필요합니다. 로컬에서만 동작하고 비밀번호는 보지 않습니다.",
+    installCta: "Chrome 에 추가",
+    installNote: "무료 · 설치만 하면 됨",
+    installGuide: "설치·사용 가이드 →",
   },
   footer: {
     privacy: "개인정보처리방침",
     terms: "이용약관",
     tagline: "개인용 음악 취향 분석 도구",
+    guide: "가이드",
+  },
+  errors: {
+    title: "문제가 발생했습니다",
+    body: "예상치 못한 오류가 발생했습니다. 보통 일시적인 문제니 다시 시도해 보세요.",
+    retry: "다시 시도",
+    home: "홈으로",
+    notFoundTitle: "페이지를 찾을 수 없습니다",
+    notFoundBody: "찾는 페이지가 없거나 이동했습니다.",
   },
 };
 

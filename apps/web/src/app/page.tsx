@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
+import { CHROME_WEB_STORE_URL } from "@/lib/constants";
 import { getDict, type Locale } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { PersonaCard } from "@/components/PersonaCard";
@@ -90,13 +91,13 @@ export default async function LandingPage() {
   const steps = [t.s1, t.s2, t.s3];
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-20 px-4 py-14 sm:px-6 sm:py-20">
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-16 px-4 py-12 sm:gap-20 sm:px-6 sm:py-20">
       {/* hero */}
       <section className="flex flex-col items-center text-center">
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-400">
           🎧 YouTube Music · taste analytics
         </span>
-        <h1 className="mt-5 bg-gradient-to-br from-white via-white to-emerald-300 bg-clip-text text-4xl font-extrabold leading-tight text-transparent sm:text-6xl">
+        <h1 className="mt-5 bg-gradient-to-br from-white to-emerald-300 bg-clip-text text-4xl font-extrabold leading-tight text-transparent sm:text-6xl">
           Earprint
         </h1>
         <p className="mt-4 max-w-xl text-lg font-medium text-neutral-200 sm:text-xl">
@@ -131,6 +132,36 @@ export default async function LandingPage() {
             {t.signedInAs} {session!.user!.email}
           </p>
         )}
+      </section>
+
+      {/* Chrome Web Store install card — primary funnel since the extension
+          is the only way liked songs reach Earprint. */}
+      <section className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-8 text-center">
+        <div className="flex items-center gap-2 text-2xl" aria-hidden>
+          <span>🧩</span>
+        </div>
+        <h2 className="text-xl font-bold sm:text-2xl">{t.installTitle}</h2>
+        <p className="max-w-md text-sm leading-relaxed text-neutral-400">
+          {t.installSubtitle}
+        </p>
+        <a
+          href={CHROME_WEB_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
+        >
+          <ChromeMark />
+          {t.installCta}
+        </a>
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-[11px] text-neutral-500">{t.installNote}</span>
+          <Link
+            href="/guide"
+            className="text-xs text-neutral-400 underline-offset-2 hover:text-white hover:underline"
+          >
+            {t.installGuide}
+          </Link>
+        </div>
       </section>
 
       {/* sample persona gallery */}
@@ -187,7 +218,7 @@ export default async function LandingPage() {
             </div>
           ))}
         </div>
-        <div className="text-center">
+        <div className="flex flex-col items-center gap-3">
           {signedIn ? (
             <Link
               href="/connect"
@@ -207,9 +238,32 @@ export default async function LandingPage() {
               </button>
             </form>
           )}
+          <Link
+            href="/guide"
+            className="text-xs text-neutral-500 underline-offset-2 hover:text-white hover:underline"
+          >
+            {t.installGuide}
+          </Link>
         </div>
       </section>
 
     </main>
+  );
+}
+
+/**
+ * Simplified Chrome mark for the install button — three-colour outer ring +
+ * blue centre. Recognisable at 16px without the path complexity of the
+ * official mark.
+ */
+function ChromeMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+      <circle cx="12" cy="12" r="11" fill="#fff" />
+      <path d="M12 1 a11 11 0 0 1 9.5 5.5 H12 z" fill="#EA4335" />
+      <path d="M2.5 6.5 A11 11 0 0 0 7.5 21 L12 13 H2.5 z" fill="#FBBC05" />
+      <path d="M7.5 21 A11 11 0 0 0 21.5 17.5 L17 13 z" fill="#34A853" />
+      <circle cx="12" cy="12" r="4.5" fill="#4285F4" />
+    </svg>
   );
 }
