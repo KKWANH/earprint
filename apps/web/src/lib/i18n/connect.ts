@@ -15,6 +15,18 @@ const en = {
   // TokenBox.tsx
   copy: "Copy",
   copied: "Copied",
+
+  // API sync card (sub-method, mobile-friendly)
+  apiSyncTitle: "Sync via API (mobile-friendly)",
+  apiSyncDesc:
+    "Pulls your YouTube Liked Videos via the official Data API. No extension needed — works on any device. Coverage is partial: pure-audio YT Music likes without a video may be missing. Use the extension on desktop for full coverage.",
+  apiSyncButton: "Sync from YouTube",
+  apiSyncRunning: "Syncing…",
+  apiSyncSuccess: (captured: number, expected: number) =>
+    `✓ Synced ${captured.toLocaleString()} of ${expected.toLocaleString()} likes`,
+  apiSyncFailed: "Sync failed",
+  apiSyncNeedScope:
+    "Your session is missing the YouTube scope — sign out and sign in again to grant access.",
 };
 
 const ko: typeof en = {
@@ -31,6 +43,18 @@ const ko: typeof en = {
   // TokenBox.tsx
   copy: "복사",
   copied: "복사됨",
+
+  // API sync card (sub-method, mobile-friendly)
+  apiSyncTitle: "API 동기화 (모바일 가능)",
+  apiSyncDesc:
+    "공식 Data API 로 유튜브 좋아요 영상을 가져옵니다. 확장 없이도, 어디서나 동작합니다. 영상이 없는 순수 음원 형태의 YT Music 좋아요는 빠질 수 있습니다 — 완전한 동기화는 데스크탑 확장을 사용하세요.",
+  apiSyncButton: "YouTube 에서 동기화",
+  apiSyncRunning: "동기화 중…",
+  apiSyncSuccess: (captured: number, expected: number) =>
+    `✓ ${expected.toLocaleString()}곡 중 ${captured.toLocaleString()}곡 동기화 완료`,
+  apiSyncFailed: "동기화 실패",
+  apiSyncNeedScope:
+    "이 세션에 YouTube 권한이 없습니다. 로그아웃 후 다시 로그인하여 권한을 부여하세요.",
 };
 
 export function connectDict(locale: Locale) {

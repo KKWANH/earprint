@@ -4,6 +4,7 @@ import { auth, signIn } from "@/auth";
 import { ensureConnection, getLibrarySummary } from "@/lib/connection";
 import { getLocale } from "@/lib/i18n-server";
 import { connectDict } from "@/lib/i18n/connect";
+import { ApiSyncButton } from "./ApiSyncButton";
 import { TokenBox } from "./TokenBox";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -51,6 +52,17 @@ export default async function ConnectPage() {
         <h2 className="font-semibold">{t.syncTokenTitle}</h2>
         <p className="text-sm text-neutral-400">{t.syncTokenDesc}</p>
         <TokenBox token={token} locale={locale} />
+      </section>
+
+      {/* API sub-method sync — for mobile and as a fallback. Pulls YouTube
+          Liked Videos via the official Data API (partial coverage). */}
+      <section className="flex flex-col gap-3 rounded-xl border border-emerald-900/40 bg-neutral-900 p-6">
+        <div className="flex items-center gap-2">
+          <span aria-hidden>📱</span>
+          <h2 className="font-semibold">{t.apiSyncTitle}</h2>
+        </div>
+        <p className="text-sm text-neutral-400">{t.apiSyncDesc}</p>
+        <ApiSyncButton locale={locale} />
       </section>
 
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">

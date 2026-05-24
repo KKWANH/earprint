@@ -11,13 +11,17 @@ import { defineManifest } from "@crxjs/vite-plugin";
  *    intercept youtubei/v1/browse responses.
  *  - content.ts (ISOLATED world): parses and accumulates intercepted responses,
  *    auto-scrolls to load the full list, then hands it to background.
+ *
+ * Localisation: strings live in public/_locales/<lang>/messages.json and
+ * resolve via Chrome's __MSG_<key>__ syntax (manifest) and
+ * chrome.i18n.getMessage (runtime).
  */
 export default defineManifest({
   manifest_version: 3,
-  name: "Earprint — YouTube Music collector",
-  version: "0.9.2",
-  description:
-    "Collects your YouTube Music liked songs so Earprint can analyze your music taste.",
+  name: "__MSG_appName__",
+  default_locale: "en",
+  version: "0.9.3",
+  description: "__MSG_appDescription__",
   icons: {
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",
@@ -50,7 +54,7 @@ export default defineManifest({
     },
   ],
   action: {
-    default_title: "Earprint",
+    default_title: "__MSG_popupTitle__",
     default_popup: "src/popup.html",
     default_icon: {
       "16": "icons/icon-16.png",

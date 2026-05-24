@@ -1,7 +1,20 @@
 /**
  * Popup — three-step funnel (connect → sync → view). State is recomputed
  * each time the popup opens so the user always sees where they are.
+ *
+ * i18n via chrome.i18n.getMessage — locales live in public/_locales/<lang>/messages.json.
+ * Browser UI language picks which one Chrome serves.
  */
+
+/** Short alias — `chrome.i18n.getMessage` with optional substitutions. */
+const t = (key: string, subs?: string[]) => chrome.i18n.getMessage(key, subs);
+
+// Fill in every `data-i18n="key"` element at boot. Done before any state
+// computation so the popup never flashes English defaults.
+document.querySelectorAll<HTMLElement>("[data-i18n]").forEach((el) => {
+  const key = el.dataset.i18n;
+  if (key) el.textContent = t(key);
+});
 
 const stepConnect = document.getElementById("step-connect") as HTMLDivElement;
 const stepSync = document.getElementById("step-sync") as HTMLDivElement;
@@ -54,27 +67,18 @@ async function refresh() {
   if (!connected) {
     setStep("connect", false);
     syncBtn.disabled = true;
-    syncHint.textContent = "Connect first (step 1) so the popup can authenticate.";
+    syncHint.textContent = t("step2HintNotConnected");
     return;
   }
 
   setStep("sync");
-  if (onYtMusic) {
-    syncBtn.disabled = false;
-    syncHint.textContent =
-      "Click sync — Earprint will scroll the page and collect your liked songs.";
-  } else {
-    syncBtn.disabled = false;
-    syncHint.textContent =
-      "Not on YouTube Music — click sync to open the Liked Music page in a new tab.";
-  }
+  syncBtn.disabled = false;
+  syncHint.textContent = onYtMusic ? t("step2HintOnYt") : t("step2HintOffYt");
 }
 
 connectBtn.addEventListener("click", () => {
   void chrome.tabs.create({ url: `${WEB_ORIGIN}/connect` });
-  showMsg(
-    "Sign in with Google on the page that just opened. This popup auto-detects the connection — reopen it after signing in.",
-  );
+  showMsg(t("msgConnectOpened"));
 });
 
 syncBtn.addEventListener("click", async () => {
@@ -86,15 +90,12 @@ syncBtn.addEventListener("click", async () => {
     await chrome.tabs.create({
       url: "https://music.youtube.com/playlist?list=LM",
     });
-    showMsg(
-      "Opened YouTube Music for you. Once the Liked Music page loads, click the Earprint icon again and press Sync.",
-      "info",
-    );
+    showMsg(t("msgYtOpened"));
     return;
   }
   const tabId = tab.id;
   syncBtn.disabled = true;
-  showMsg("Syncing… auto-scrolling the page to read your full list.");
+  showMsg(t("msgSyncing"));
   let finished = false;
 
   // Poll the content script for a live collected-count while it scrolls.
@@ -104,7 +105,7 @@ syncBtn.addEventListener("click", async () => {
       .then((p: { count?: number } | undefined) => {
         if (!finished && p) {
           showMsg(
-            `Collecting… ${(p.count ?? 0).toLocaleString()} songs (scrolling)`,
+            t("msgCollecting", [(p.count ?? 0).toLocaleString()]),
           );
         }
       })
@@ -134,22 +135,26 @@ syncBtn.addEventListener("click", async () => {
     if (res?.ok) {
       const cap = res.captured ?? 0;
       const exp = res.expected ?? 0;
-      let verdict = "";
-      let kind: "info" | "success" | "error" = "success";
       if (!exp || cap >= exp * 0.97) {
-        verdict = `✓ Collected ${cap.toLocaleString()} songs (total ${res.total ?? "?"})`;
+        showMsg(
+          t("msgSyncSuccess", [cap.toLocaleString(), String(res.total ?? "?")]),
+          "success",
+        );
       } else if (res.endedClean) {
-        verdict = `Reached the end at ${cap} of ~${exp} — YouTube's serving limit (last: ${res.lastTitle || "?"})`;
-        kind = "info";
+        showMsg(
+          t("msgSyncPartial", [String(cap), String(exp), res.lastTitle ?? "?"]),
+          "info",
+        );
       } else {
-        verdict = `Stopped early at ${cap}/${exp} — please retry`;
-        kind = "error";
+        showMsg(
+          t("msgSyncStopped", [String(cap), String(exp)]),
+          "error",
+        );
       }
-      showMsg(verdict, kind);
       setStep("view");
     } else {
       showMsg(
-        `Failed: ${res?.error ?? `HTTP ${res?.status ?? "?"}`}`,
+        t("msgSyncFailed", [res?.error ?? `HTTP ${res?.status ?? "?"}`]),
         "error",
       );
     }
@@ -157,7 +162,7 @@ syncBtn.addEventListener("click", async () => {
     finished = true;
     clearInterval(poll);
     syncBtn.disabled = false;
-    showMsg(`Error: ${String(err)} — refresh the page and try again`, "error");
+    showMsg(t("msgError", [String(err)]), "error");
   }
 });
 

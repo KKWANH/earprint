@@ -1,0 +1,99 @@
+{
+  "appName": {
+    "message": "Earprint — 유튜브 뮤직 수집기"
+  },
+  "appDescription": {
+    "message": "유튜브 뮤직 좋아요 곡을 모아 Earprint 가 음악 취향을 분석할 수 있게 합니다."
+  },
+  "popupTitle": {
+    "message": "Earprint"
+  },
+  "step1Label": {
+    "message": "Google 로 연결"
+  },
+  "step1Hint": {
+    "message": "earprint.kwanho.dev 에서 한 번만 로그인하면 됩니다. 토큰은 자동으로 인식합니다."
+  },
+  "step1Button": {
+    "message": "earprint.kwanho.dev 열기"
+  },
+  "step2Label": {
+    "message": "좋아요 곡 동기화"
+  },
+  "step2HintDefault": {
+    "message": "music.youtube.com 을 열고 동기화 버튼을 누르세요. 페이지를 자동으로 스크롤하며 라이브러리를 수집합니다."
+  },
+  "step2HintNotConnected": {
+    "message": "먼저 1단계 연결을 완료해야 합니다."
+  },
+  "step2HintOnYt": {
+    "message": "동기화 버튼을 누르면 페이지를 스크롤하며 좋아요 곡을 모읍니다."
+  },
+  "step2HintOffYt": {
+    "message": "유튜브 뮤직이 아닌 페이지입니다. 누르면 좋아요 페이지를 새 탭으로 엽니다."
+  },
+  "step2Button": {
+    "message": "좋아요 곡 동기화"
+  },
+  "step3Label": {
+    "message": "분석 보기"
+  },
+  "step3Hint": {
+    "message": "대시보드에서 AI 분석을 시작하고 음악 프로필을 확인하세요."
+  },
+  "step3Button": {
+    "message": "대시보드 열기"
+  },
+  "footerGuide": {
+    "message": "사용 가이드"
+  },
+  "msgConnectOpened": {
+    "message": "방금 열린 페이지에서 Google 로 로그인하세요. 연결되면 팝업을 다시 열어주세요."
+  },
+  "msgYtOpened": {
+    "message": "유튜브 뮤직을 열었습니다. 페이지가 로드되면 다시 Earprint 아이콘을 눌러 동기화를 시작하세요."
+  },
+  "msgSyncing": {
+    "message": "동기화 중… 페이지를 자동 스크롤하며 전체 목록을 읽습니다."
+  },
+  "msgCollecting": {
+    "message": "수집 중… $COUNT$곡 (스크롤)",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
+  },
+  "msgSyncSuccess": {
+    "message": "✓ $CAPTURED$곡 수집 완료 (총 $TOTAL$곡)",
+    "placeholders": {
+      "captured": { "content": "$1" },
+      "total": { "content": "$2" }
+    }
+  },
+  "msgSyncPartial": {
+    "message": "$EXPECTED$곡 중 $CAPTURED$곡까지 도달 — 유튜브 측 제공 한계 (마지막: $LAST$)",
+    "placeholders": {
+      "captured": { "content": "$1" },
+      "expected": { "content": "$2" },
+      "last": { "content": "$3" }
+    }
+  },
+  "msgSyncStopped": {
+    "message": "$EXPECTED$곡 중 $CAPTURED$곡에서 중단됨 — 다시 시도해 주세요",
+    "placeholders": {
+      "captured": { "content": "$1" },
+      "expected": { "content": "$2" }
+    }
+  },
+  "msgSyncFailed": {
+    "message": "실패: $REASON$",
+    "placeholders": {
+      "reason": { "content": "$1" }
+    }
+  },
+  "msgError": {
+    "message": "오류: $REASON$ — 페이지를 새로고침하고 다시 시도하세요",
+    "placeholders": {
+      "reason": { "content": "$1" }
+    }
+  }
+}
