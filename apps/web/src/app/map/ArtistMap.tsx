@@ -211,11 +211,19 @@ export function ArtistMap({
     let raf = 0;
     let w = 0;
     let h = 0;
+    let visible = true;
+    let docVisible = !document.hidden;
 
+    // Reallocating the canvas backing store on every reported size fires GPU
+    // memory pressure under mobile Chrome (URL bar collapse triggers a storm
+    // of ResizeObserver events). Bail out when the size hasn't changed.
     const resize = () => {
+      const newW = wrap.clientWidth;
+      const newH = wrap.clientHeight;
+      if (newW === w && newH === h) return;
       const dpr = window.devicePixelRatio || 1;
-      w = wrap.clientWidth;
-      h = wrap.clientHeight;
+      w = newW;
+      h = newH;
       canvas.width = w * dpr;
       canvas.height = h * dpr;
       canvas.style.width = `${w}px`;
@@ -373,11 +381,40 @@ export function ArtistMap({
 
       raf = requestAnimationFrame(step);
     };
-    raf = requestAnimationFrame(step);
+    const start = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(step);
+    };
+    const stop = () => {
+      if (!raf) return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
+    // Pause animation when the canvas scrolls off-screen or the tab loses
+    // focus. Without this the RAF runs forever and renderer memory creeps up
+    // until Chrome kills the tab.
+    const io = new IntersectionObserver(
+      (entries) => {
+        visible = entries[0]?.isIntersecting ?? true;
+        if (visible && docVisible) start();
+        else stop();
+      },
+      { threshold: 0 },
+    );
+    io.observe(wrap);
+    const onVis = () => {
+      docVisible = !document.hidden;
+      if (visible && docVisible) start();
+      else stop();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    start();
 
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       ro.disconnect();
+      io.disconnect();
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, [N, edges, neighbors, nodes]);
 

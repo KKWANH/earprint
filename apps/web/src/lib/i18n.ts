@@ -43,6 +43,8 @@ const en = {
     installCta: "Add to Chrome",
     installNote: "Free · No account required to install",
     installGuide: "Read the setup guide →",
+    installMobile:
+      "Desktop Chrome required for sync. Results view on any device — including your phone.",
   },
   footer: {
     privacy: "Privacy",
@@ -100,6 +102,8 @@ const ko: Dict = {
     installCta: "Chrome 에 추가",
     installNote: "무료 · 설치만 하면 됨",
     installGuide: "설치·사용 가이드 →",
+    installMobile:
+      "동기화는 데스크탑 Chrome 에서만. 분석 결과는 모바일 포함 어디서나 볼 수 있습니다.",
   },
   footer: {
     privacy: "개인정보처리방침",

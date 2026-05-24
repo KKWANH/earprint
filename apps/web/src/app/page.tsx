@@ -162,6 +162,9 @@ export default async function LandingPage() {
             {t.installGuide}
           </Link>
         </div>
+        <p className="mt-2 max-w-md text-[11px] leading-relaxed text-neutral-500">
+          📱 {t.installMobile}
+        </p>
       </section>
 
       {/* sample persona gallery */}

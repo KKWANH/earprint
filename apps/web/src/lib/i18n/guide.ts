@@ -6,6 +6,8 @@ const en = {
     "Five steps from a fresh Chrome to your full music portrait. The whole flow takes about 10 minutes — plus background time while Gemini analyses your library.",
   installCta: "Add to Chrome",
   installNote: "Free · No account needed to install",
+  mobileNote:
+    "📱 Sync requires desktop Chrome — mobile Chrome doesn't support extensions. Once your library is synced from a desktop, you can browse your analysis, profile, zodiac and share page from any device.",
   videoComing: "Video walkthrough coming soon.",
   faqTitle: "Frequently asked",
   steps: [
@@ -56,6 +58,8 @@ const ko: typeof en = {
     "크롬 처음 켜는 시점부터 음악 심리분석까지 5단계. 본격 작업은 10분 정도, 그 외엔 Gemini 가 백그라운드에서 라이브러리를 분석하는 시간입니다.",
   installCta: "Chrome 에 추가",
   installNote: "무료 · 설치만 하면 됨",
+  mobileNote:
+    "📱 동기화는 데스크탑 Chrome 에서만 가능합니다 — 모바일 Chrome 은 확장프로그램을 지원하지 않습니다. 한 번 데스크탑에서 동기화하면 분석·프로필·별자리·공유 페이지는 모바일 포함 어디서나 볼 수 있습니다.",
   videoComing: "영상 튜토리얼은 준비 중.",
   faqTitle: "자주 묻는 것",
   steps: [
