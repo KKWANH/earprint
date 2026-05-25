@@ -127,6 +127,14 @@ export default async function LandingPage() {
             </form>
           )}
         </div>
+        {!signedIn && (
+          <Link
+            href="/demo"
+            className="mt-3 text-xs text-neutral-400 underline-offset-2 hover:text-white hover:underline"
+          >
+            {t.ctaDemo}
+          </Link>
+        )}
         {signedIn && (
           <p className="mt-3 text-xs text-neutral-500">
             {t.signedInAs} {session!.user!.email}
@@ -185,6 +193,14 @@ export default async function LandingPage() {
               locale={locale}
             />
           ))}
+        </div>
+        <div className="text-center">
+          <Link
+            href="/demo"
+            className="text-sm text-emerald-400 underline-offset-2 hover:text-emerald-300 hover:underline"
+          >
+            {t.ctaDemo}
+          </Link>
         </div>
       </section>
 
