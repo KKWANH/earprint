@@ -21,10 +21,24 @@ __pycache__/
 .env.*.local
 .dev.vars
 client_secret*.json
+*.pem
 
-# misc
-*.log
+# AI / dev tooling — kept local; not relevant to anyone building the project
+.agents/
+.claude/
+.cursor/
+.aider*
+skills-lock.json
+
+# OS / editor cruft
 .DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# logs / coverage
+*.log
 coverage/
 
 # typescript build cache
