@@ -13,7 +13,7 @@ const CONTACT = "kwanho0096@gmail.com";
 
 const en = {
   title: "Privacy Policy",
-  updated: "Last updated: May 22, 2026",
+  updated: "Last updated: May 25, 2026",
   sections: [
     {
       heading: "Introduction",
@@ -95,6 +95,13 @@ const en = {
       ],
     },
     {
+      heading: "Google API Services User Data Policy — Limited Use",
+      body: [
+        "Earprint's use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy (https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.",
+        "Specifically: data accessed via Google APIs (notably the YouTube Data API v3, scope youtube.readonly) is used solely to provide and improve the user-facing music-taste analytics shown on the user's own Earprint dashboard. We do not transfer this data to others except to provide or improve user-facing features, comply with applicable law, or as part of a merger / acquisition / sale of assets with the user's explicit consent. We do not use this data for advertising. We do not allow humans to read this data unless we have your affirmative consent, it is necessary for security purposes (e.g. investigating abuse), to comply with applicable law, or the data is aggregated and used for internal operations in line with our Privacy Policy.",
+      ],
+    },
+    {
       heading: "Changes to this Policy",
       body: [
         "We may update this Policy from time to time. Material changes will be notified through the Service or by other reasonable means before they take effect. The “last updated” date above indicates the current version.",
@@ -112,7 +119,7 @@ const en = {
 
 const ko: typeof en = {
   title: "개인정보처리방침",
-  updated: "최종 수정일: 2026년 5월 22일",
+  updated: "최종 수정일: 2026년 5월 25일",
   sections: [
     {
       heading: "총칙",
@@ -191,6 +198,13 @@ const ko: typeof en = {
       heading: "아동의 개인정보",
       body: [
         "서비스는 만 14세 미만 아동을 대상으로 하지 않으며, 운영자는 아동의 개인정보를 고의로 수집하지 않습니다. 적법한 동의 없이 그러한 정보가 수집된 사실을 인지한 경우 운영자는 이를 삭제합니다.",
+      ],
+    },
+    {
+      heading: "Google API 사용자 데이터 정책 — Limited Use",
+      body: [
+        "Earprint 가 Google API 로부터 받은 정보를 사용 또는 타 앱에 전송하는 행위는 Google API Services User Data Policy (https://developers.google.com/terms/api-services-user-data-policy) 의 Limited Use 요구사항을 준수합니다.",
+        "구체적으로: Google API (특히 youtube.readonly 범위로 호출되는 YouTube Data API v3) 를 통해 접근한 데이터는 오직 이용자 본인의 Earprint 대시보드에 표시되는 음악 취향 분석 기능을 제공·개선할 목적으로만 사용됩니다. 이용자 본인을 대상으로 한 기능 제공·개선, 관계 법령 준수, 이용자의 명시적 동의가 있는 합병·인수·자산매각의 경우를 제외하고 본 데이터는 타 주체에 이전되지 않습니다. 광고 목적으로 사용하지 않으며, 보안 목적의 조사·법령 준수·이용자의 명시적 동의·내부 운영을 위한 집계된 형태가 아닌 한 사람이 본 데이터를 직접 열람하지 않습니다.",
       ],
     },
     {

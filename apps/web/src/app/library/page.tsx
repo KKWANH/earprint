@@ -7,7 +7,6 @@ import { AnalyzePanel } from "./AnalyzePanel";
 import { PreviewButton } from "./PreviewButton";
 import { ExcludeButton } from "./ExcludeButton";
 import { ResendReportButton } from "./ResendReportButton";
-import { DeleteAccountButton } from "./DeleteAccountButton";
 import { getLocale } from "@/lib/i18n-server";
 import { libraryDict } from "@/lib/i18n/library";
 import type { Locale } from "@/lib/i18n";
@@ -163,14 +162,6 @@ export default async function LibraryPage() {
       </section>
 
       <p className="text-xs leading-relaxed text-neutral-600">{t.dataDisclaimer}</p>
-
-      <section className="flex flex-col gap-3 rounded-xl border border-rose-900/40 bg-neutral-900 p-6">
-        <div>
-          <h2 className="font-semibold text-rose-300">{t.dangerZoneTitle}</h2>
-          <p className="mt-1 text-sm text-neutral-400">{t.dangerZoneDesc}</p>
-        </div>
-        <DeleteAccountButton locale={locale} />
-      </section>
     </main>
   );
 }

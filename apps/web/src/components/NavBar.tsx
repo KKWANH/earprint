@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/recommend", key: "recommend" },
   { href: "/profile", key: "profile" },
   { href: "/connect", key: "connect" },
+  { href: "/account", key: "account" },
 ] as const;
 
 /** Shared top navigation — inline on desktop, hamburger dropdown on mobile.

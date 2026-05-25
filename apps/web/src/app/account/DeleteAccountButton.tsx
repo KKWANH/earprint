@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { Locale } from "@/lib/i18n";
-import { libraryDict } from "@/lib/i18n/library";
 import { deleteAccount } from "./account-actions";
+import type { Locale } from "@/lib/i18n";
+import { accountDict } from "@/lib/i18n/account";
 
 /** Two-step account deletion control. */
 export function DeleteAccountButton({ locale }: { locale: Locale }) {
-  const t = libraryDict(locale);
+  const t = accountDict(locale);
   const [confirming, setConfirming] = useState(false);
 
   if (!confirming) {
