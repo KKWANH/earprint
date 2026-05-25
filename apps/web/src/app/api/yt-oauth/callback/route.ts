@@ -41,8 +41,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Exchange the auth code for tokens.
-  const redirectUri = `${url.origin}/api/yt-oauth/callback`;
+  // Exchange the auth code for tokens. The redirect_uri sent here MUST
+  // match the one we sent in /start exactly — Google compares by string.
+  const origin = process.env.AUTH_URL ?? url.origin;
+  const redirectUri = `${origin}/api/yt-oauth/callback`;
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

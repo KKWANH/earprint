@@ -27,7 +27,10 @@ export async function GET(req: NextRequest) {
   // CSRF protection — random state in a short-lived httpOnly cookie that the
   // callback compares against the `state` URL param.
   const state = randomBytes(16).toString("hex");
-  const origin = new URL(req.url).origin;
+  // Google checks the registered redirect_uri string-for-string. Prefer
+  // AUTH_URL (set on Cloudflare) so the value is stable regardless of how
+  // the request URL reaches the worker.
+  const origin = process.env.AUTH_URL ?? new URL(req.url).origin;
   const redirectUri = `${origin}/api/yt-oauth/callback`;
 
   const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
