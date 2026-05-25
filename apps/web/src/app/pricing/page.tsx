@@ -39,7 +39,7 @@ export default async function PricingPage() {
 
       <section className="grid gap-4 sm:grid-cols-2">
         {/* Free */}
-        <div className="flex flex-col gap-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-7">
+        <div className="flex flex-col gap-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-5 sm:p-7">
           <div>
             <h2 className="text-xl font-bold">{t.free.name}</h2>
             <div className="mt-2 flex items-baseline gap-1.5">
@@ -64,7 +64,7 @@ export default async function PricingPage() {
         </div>
 
         {/* Pro */}
-        <div className="relative flex flex-col gap-4 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-7">
+        <div className="relative flex flex-col gap-4 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-5 sm:p-7">
           <span className="absolute -top-2.5 left-7 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[11px] font-bold text-black">
             {t.pro.badge}
           </span>
@@ -114,20 +114,20 @@ export default async function PricingPage() {
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-bold">{t.comparison.title}</h2>
         <div className="overflow-x-auto rounded-xl border border-neutral-800 bg-neutral-900">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead>
-              <tr className="border-b border-neutral-800 text-left text-xs uppercase tracking-wider text-neutral-500">
-                <th className="px-4 py-3 font-medium">{t.pageTitle}</th>
-                <th className="px-4 py-3 font-medium">{t.free.name}</th>
-                <th className="px-4 py-3 font-medium text-emerald-300">{t.pro.name}</th>
+              <tr className="border-b border-neutral-800 text-left text-[10px] uppercase tracking-wider text-neutral-500 sm:text-xs">
+                <th className="px-3 py-3 font-medium sm:px-4">{t.pageTitle}</th>
+                <th className="px-3 py-3 font-medium sm:px-4">{t.free.name}</th>
+                <th className="px-3 py-3 font-medium text-emerald-300 sm:px-4">{t.pro.name}</th>
               </tr>
             </thead>
             <tbody>
               {t.comparison.rows.map((r) => (
                 <tr key={r.feature} className="border-b border-neutral-800/60 last:border-0">
-                  <td className="px-4 py-2.5 text-neutral-300">{r.feature}</td>
-                  <td className="px-4 py-2.5 text-neutral-400">{r.free}</td>
-                  <td className="px-4 py-2.5 text-emerald-200">{r.pro}</td>
+                  <td className="px-3 py-2.5 text-neutral-300 sm:px-4">{r.feature}</td>
+                  <td className="px-3 py-2.5 text-neutral-400 sm:px-4">{r.free}</td>
+                  <td className="px-3 py-2.5 text-emerald-200 sm:px-4">{r.pro}</td>
                 </tr>
               ))}
             </tbody>

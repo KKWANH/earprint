@@ -97,7 +97,7 @@ export default async function LandingPage() {
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-400">
           🎧 YouTube Music · taste analytics
         </span>
-        <h1 className="mt-5 bg-gradient-to-br from-white to-emerald-300 bg-clip-text text-4xl font-extrabold leading-tight text-transparent sm:text-6xl">
+        <h1 className="mt-5 bg-gradient-to-br from-white to-emerald-300 bg-clip-text text-5xl font-extrabold leading-tight text-transparent sm:text-6xl">
           Earprint
         </h1>
         <p className="mt-4 max-w-xl text-lg font-medium text-neutral-200 sm:text-xl">
@@ -136,7 +136,7 @@ export default async function LandingPage() {
 
       {/* Chrome Web Store install card — primary funnel since the extension
           is the only way liked songs reach Earprint. */}
-      <section className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-8 text-center">
+      <section className="mx-auto flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-6 text-center sm:p-8">
         <div className="flex items-center gap-2 text-2xl" aria-hidden>
           <span>🧩</span>
         </div>

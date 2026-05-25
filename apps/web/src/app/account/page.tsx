@@ -256,7 +256,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+    <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-5 sm:p-6">
       <h2 className="font-semibold">{title}</h2>
       {children}
     </section>
@@ -265,7 +265,7 @@ function Section({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-white/5 py-1.5 last:border-0">
+    <div className="flex flex-col gap-0.5 border-b border-white/5 py-1.5 last:border-0 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
       <span className="text-xs uppercase tracking-wider text-neutral-500">
         {label}
       </span>

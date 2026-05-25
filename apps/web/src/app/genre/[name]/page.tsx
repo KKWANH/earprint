@@ -71,7 +71,9 @@ export default async function GenrePage({
           } 45% 12%) 100%)`,
         }}
       >
-        <h1 className="text-3xl font-extrabold capitalize leading-tight">{d.name}</h1>
+        <h1 className="text-2xl font-extrabold capitalize leading-tight sm:text-3xl">
+          {d.name}
+        </h1>
         <div>
           {d.inLibrary ? (
             <span className="rounded-full bg-black/40 px-3 py-1 text-xs font-medium text-white">

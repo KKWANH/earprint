@@ -14,7 +14,7 @@ export function Footer({ locale }: { locale: Locale }) {
           <span className="text-neutral-700">·</span>
           <span className="text-xs text-neutral-600">{t.tagline}</span>
         </div>
-        <nav className="flex items-center gap-4 text-xs text-neutral-500">
+        <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-neutral-500">
           <Link href="/guide" className="hover:text-white">
             {t.guide}
           </Link>

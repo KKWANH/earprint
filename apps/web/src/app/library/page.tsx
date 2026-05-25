@@ -258,12 +258,12 @@ function BarCard({
               {href ? (
                 <Link
                   href={href}
-                  className="w-32 shrink-0 truncate text-neutral-300 hover:text-white hover:underline"
+                  className="w-24 shrink-0 truncate text-neutral-300 hover:text-white hover:underline sm:w-32"
                 >
                   {it.name}
                 </Link>
               ) : (
-                <span className="w-32 shrink-0 truncate text-neutral-300">{it.name}</span>
+                <span className="w-24 shrink-0 truncate text-neutral-300 sm:w-32">{it.name}</span>
               )}
               <div className="h-4 flex-1 overflow-hidden rounded bg-neutral-800">
                 <div

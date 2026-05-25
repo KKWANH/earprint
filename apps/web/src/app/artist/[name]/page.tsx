@@ -69,7 +69,9 @@ export default async function ArtistPage({
       </Link>
 
       <header className="flex flex-col gap-3">
-        <h1 className="text-3xl font-extrabold leading-tight">{d.name}</h1>
+        <h1 className="text-2xl font-extrabold leading-tight sm:text-3xl">
+          {d.name}
+        </h1>
         <div>
           {d.inLibrary ? (
             <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-300">
