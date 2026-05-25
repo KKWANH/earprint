@@ -1,6 +1,6 @@
 import { getSql } from "./db";
 import { getJson } from "./http";
-import { geminiJson } from "./gemini";
+import { aiJson } from "./ai";
 
 const LASTFM = "https://ws.audioscrobbler.com/2.0/";
 
@@ -75,7 +75,7 @@ async function genreDescription(
   genre: string,
 ): Promise<{ en: string | null; ko: string | null }> {
   try {
-    const r = await geminiJson<{ en: string; ko: string }>(
+    const r = await aiJson<{ en: string; ko: string }>(
       `음악 장르 "${genre}"에 대한 간결한 소개를 작성하세요. 기원·시대적 배경과 ` +
         `음악적 특징(사운드·악기·분위기)을 2~3문장으로 정확하게 설명하세요. ` +
         `en 필드는 영어로, ko 필드는 자연스러운 한국어로 작성. ` +

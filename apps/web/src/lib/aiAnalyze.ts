@@ -1,4 +1,4 @@
-import { geminiJson } from "./gemini";
+import { aiJson } from "./ai";
 
 /** Unified Gemini analysis — refined genres/moods + audio feel, per track. */
 export interface AiAnalysisInput {
@@ -90,7 +90,7 @@ export async function aiAnalyzeBatch(
 
 ${list}`;
 
-  const parsed = await geminiJson<{ results?: any[] }>(prompt, SCHEMA, { bypassCap });
+  const parsed = await aiJson<{ results?: any[] }>(prompt, SCHEMA, { bypassCap });
   const byId = new Map<string, any>();
   for (const r of parsed.results ?? []) {
     if (r?.id) byId.set(String(r.id), r);

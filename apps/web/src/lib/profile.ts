@@ -1,4 +1,4 @@
-import { geminiJson } from "./gemini";
+import { aiJson } from "./ai";
 import type { Locale } from "./i18n";
 import { getLibraryStats } from "./library";
 
@@ -108,5 +108,5 @@ export async function generateProfile(
 - diggingComment: diggingScore 의 근거(다양성·앨범 몰입도 포함) + 점수를 올리려면 무엇이 필요한지 한 문장으로.
 - improvementTips: 이 리스너의 취향에서 '보강하면 좋을 점' 4~6개. 각 항목은 한 문장으로 끝내지 말고 ① 무엇이 부족하거나 편향됐는지 ② 왜 그것을 보강하면 좋은지 ③ 구체적으로 어떤 하위장르·아티스트·곡부터 시작하면 좋은지 를 모두 담아 2~3문장으로 충실히 설명하세요. 막연한 조언이 아니라 실제 데이터(편중된 장르/무드, 낮은 다양성 등)에 근거해서.`;
 
-  return geminiJson<AiProfile>(prompt, SCHEMA, { bypassCap });
+  return aiJson<AiProfile>(prompt, SCHEMA, { bypassCap });
 }

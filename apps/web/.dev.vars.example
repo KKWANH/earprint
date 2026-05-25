@@ -10,3 +10,7 @@ AUTH_URL=http://localhost:8788
 AUTH_TRUST_HOST=true
 LASTFM_API_KEY=
 GEMINI_API_KEY=
+# Optional second AI provider — when set, AI requests can race Gemini + Kimi.
+KIMI_API_KEY=
+# race (default with both keys) | split | gemini | kimi
+AI_MODE=race
