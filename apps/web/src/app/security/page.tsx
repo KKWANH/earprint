@@ -36,13 +36,13 @@ export default async function SecurityPage() {
       </Section>
 
       <Section title={t.scopeTitle}>
-        <p className="text-sm text-neutral-200">In scope</p>
+        <p className="text-sm text-neutral-200">{t.scopeInLabel}</p>
         <ul className="ml-4 list-disc text-sm text-neutral-400">
           {t.scopeIn.map((s) => (
             <li key={s}>{s}</li>
           ))}
         </ul>
-        <p className="mt-3 text-sm text-neutral-200">Out of scope</p>
+        <p className="mt-3 text-sm text-neutral-200">{t.scopeOutLabel}</p>
         <ul className="ml-4 list-disc text-sm text-neutral-500">
           {t.scopeOut.map((s) => (
             <li key={s}>{s}</li>

@@ -9,6 +9,8 @@ const en = {
   contactEmail: "kwanho0096@gmail.com",
   pgpNote: "PGP available on request.",
   scopeTitle: "Scope",
+  scopeInLabel: "In scope",
+  scopeOutLabel: "Out of scope",
   scopeIn: [
     "earprint.kwanho.dev (web app)",
     "All /api/* endpoints",
@@ -40,6 +42,8 @@ const ko: typeof en = {
   contactEmail: "kwanho0096@gmail.com",
   pgpNote: "PGP 키는 요청 시 제공.",
   scopeTitle: "범위",
+  scopeInLabel: "포함 범위",
+  scopeOutLabel: "제외 범위",
   scopeIn: [
     "earprint.kwanho.dev (웹 앱)",
     "모든 /api/* 엔드포인트",
