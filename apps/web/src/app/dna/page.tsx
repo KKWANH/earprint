@@ -4,6 +4,7 @@ import { getImprintAnalysis, type ImprintAnalysis } from "@/lib/imprint";
 import { getNoveltyIndex, type NoveltyIndex } from "@/lib/novelty";
 import { getLocale } from "@/lib/i18n-server";
 import { dnaDict } from "@/lib/i18n/dna";
+import { RadarChart } from "@/components/RadarChart";
 import { BirthYearInput } from "./BirthYearInput";
 import { YearBackfill } from "./YearBackfill";
 
@@ -295,35 +296,29 @@ function NoveltySection({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2.5">
-        {n.components.map((c) => (
-          <div
-            key={c.key}
-            className="flex items-center gap-2 text-sm sm:gap-3"
-          >
-            <span className="w-20 shrink-0 truncate text-xs text-neutral-300 sm:w-28 sm:text-sm">
-              {c.label}
-            </span>
-            <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full bg-emerald-500"
-                style={{ width: `${pct(c.value)}%` }}
-              />
-            </div>
-            <span className="w-8 shrink-0 text-right text-xs text-neutral-500 sm:w-10">
-              {pct(c.value)}
-            </span>
-          </div>
-        ))}
+      {/* Radar + hint legend — the radar shows the shape of the listener's
+          novelty profile at a glance; the legend below decodes each axis. */}
+      <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-5">
+        <RadarChart
+          axes={n.components.map((c) => ({
+            label: c.label,
+            value: c.value,
+          }))}
+          size={260}
+          className="h-56 w-56 shrink-0 sm:h-64 sm:w-64"
+        />
+        <ul className="flex w-full flex-col gap-2 text-[11px] leading-snug text-neutral-500 sm:text-xs">
+          {n.components.map((c) => (
+            <li key={c.key}>
+              <span className="font-semibold text-neutral-200">{c.label}</span>{" "}
+              <span className="tabular-nums text-emerald-300">
+                {pct(c.value)}
+              </span>
+              <p className="text-neutral-500">{c.hint}</p>
+            </li>
+          ))}
+        </ul>
       </div>
-      {/* Component hints — stacked on mobile, single line on desktop. */}
-      <ul className="-mt-1 flex flex-col gap-1 text-[11px] text-neutral-600 sm:flex-row sm:flex-wrap sm:gap-x-3">
-        {n.components.map((c) => (
-          <li key={c.key} className="leading-snug">
-            <span className="text-neutral-500">{c.label}:</span> {c.hint}
-          </li>
-        ))}
-      </ul>
 
       <div className="rounded-xl border border-white/10 bg-black/30 p-4">
         <p className="text-sm leading-relaxed text-neutral-200">{n.verdict}</p>

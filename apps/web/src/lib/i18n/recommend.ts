@@ -21,7 +21,7 @@ const en = {
   countsRated: "Rated",
 
   // swipe hint
-  swipeHint: "← Pass · → Like · ↑ Love it",
+  swipeHint: "Swipe / arrow keys · ← Pass · → Like · ↑ Love it · Space to play",
 
   // rate button titles
   rateStrongDislike: "Really bad",
@@ -74,7 +74,7 @@ const ko: typeof en = {
 
   countsRated: "평가",
 
-  swipeHint: "← 별로 · → 좋아요 · ↑ 정말 좋아요",
+  swipeHint: "스와이프 / 화살표 · ← 별로 · → 좋아요 · ↑ 정말 좋아요 · Space 재생",
 
   rateStrongDislike: "정말 별로",
   rateDislike: "별로",

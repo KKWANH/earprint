@@ -146,6 +146,57 @@ export function Tournament({
     setBusy(false);
   }
 
+  // Keyboard shortcuts — works great on desktop, doesn't conflict with text
+  // input because the comment box stops propagation by being a textarea.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      // Don't hijack the comment textarea.
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "TEXTAREA" || target.tagName === "INPUT")) return;
+      if (busy || flyOff) return;
+      switch (e.key) {
+        case "ArrowRight":
+        case "l":
+        case "L":
+          e.preventDefault();
+          commit("like");
+          break;
+        case "ArrowLeft":
+        case "h":
+        case "H":
+          e.preventDefault();
+          commit("dislike");
+          break;
+        case "ArrowUp":
+        case "k":
+        case "K":
+          e.preventDefault();
+          commit("superlike");
+          break;
+        case "ArrowDown":
+        case "j":
+        case "J":
+          e.preventDefault();
+          commit("pass");
+          break;
+        case " ":
+          e.preventDefault();
+          togglePlay();
+          break;
+        case "z":
+        case "Z":
+          e.preventDefault();
+          undo();
+          break;
+        default:
+          break;
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, flyOff, idx, history.length]);
+
   function onPointerDown(e: React.PointerEvent) {
     if (busy || flyOff) return;
     dragStart.current = { x: e.clientX, y: e.clientY };
