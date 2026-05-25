@@ -62,6 +62,9 @@ export default async function ConnectPage() {
           <h2 className="font-semibold">{t.apiSyncTitle}</h2>
         </div>
         <p className="text-sm text-neutral-400">{t.apiSyncDesc}</p>
+        <p className="rounded-md bg-amber-950/40 px-3 py-2 text-[11px] leading-relaxed text-amber-200/80">
+          ⚠ {t.apiSyncNote}
+        </p>
         <ApiSyncButton locale={locale} />
       </section>
 

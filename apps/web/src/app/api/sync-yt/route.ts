@@ -17,36 +17,51 @@ import {
  * Coverage is partial — see lib/youtubeApi.ts for the caveat. The extension
  * remains the primary path for full YT Music coverage.
  *
- * Auth: NextAuth session (cookie-based). The Google access token is captured
- * on sign-in via the auth callbacks and surfaced on the session.
+ * Token storage: the YouTube scope is granted via the incremental flow at
+ * /api/yt-oauth/*, which persists access + refresh tokens on the users row.
+ * This route only runs after that opt-in has happened.
  */
 export async function POST() {
   const session = await auth();
   if (!session?.user) return json({ error: "not signed in" }, 401);
 
-  const accessToken = (session as { accessToken?: string }).accessToken;
-  const refreshToken = (session as { refreshToken?: string }).refreshToken;
-  const expiresAt = (session as { accessTokenExpiresAt?: number }).accessTokenExpiresAt;
+  const { userId } = await ensureConnection();
+  const sql = getSql();
+  const rows = await sql`
+    SELECT yt_access_token, yt_refresh_token, yt_token_expires_at
+    FROM users WHERE id = ${userId}`;
+  const u = rows[0] as
+    | {
+        yt_access_token: string | null;
+        yt_refresh_token: string | null;
+        yt_token_expires_at: string | null;
+      }
+    | undefined;
 
-  if (!accessToken) {
-    return json(
-      {
-        error:
-          "missing YouTube scope on this session — sign out and sign back in",
-      },
-      403,
-    );
+  if (!u?.yt_access_token) {
+    // Tell the client to send the user through the OAuth flow.
+    return json({ error: "yt-not-connected", needsAuth: true }, 403);
   }
 
-  // Refresh the access token if it's already expired (or about to expire in
-  // the next minute). Google access tokens last 1 hour.
-  let token = accessToken;
-  if (refreshToken && expiresAt && expiresAt - 60 < Date.now() / 1000) {
+  // Refresh the access token if it expires within the next minute. Google
+  // access tokens live for ~1 hour.
+  let token = u.yt_access_token;
+  const expiresAt = u.yt_token_expires_at
+    ? new Date(u.yt_token_expires_at).getTime() / 1000
+    : 0;
+  if (u.yt_refresh_token && expiresAt - 60 < Date.now() / 1000) {
     try {
-      token = (await refreshGoogleAccessToken(refreshToken)).accessToken;
+      const refreshed = await refreshGoogleAccessToken(u.yt_refresh_token);
+      token = refreshed.accessToken;
+      await sql`
+        UPDATE users
+           SET yt_access_token     = ${refreshed.accessToken},
+               yt_token_expires_at = ${new Date(refreshed.expiresAt * 1000).toISOString()},
+               updated_at          = now()
+         WHERE id = ${userId}`;
     } catch {
       return json(
-        { error: "Google session expired — please sign in again" },
+        { error: "yt-refresh-failed", needsAuth: true },
         401,
       );
     }
@@ -57,13 +72,8 @@ export async function POST() {
     result = await fetchLikedVideos(token);
   } catch (e) {
     if (e instanceof YouTubeApiError) {
-      // 401 from YouTube => token bad (probably scope missing). Tell the user
-      // to re-auth.
       if (e.status === 401) {
-        return json(
-          { error: "YouTube authorization expired — sign in again" },
-          401,
-        );
+        return json({ error: "yt-token-rejected", needsAuth: true }, 401);
       }
       return json({ error: e.message }, 502);
     }
@@ -77,16 +87,13 @@ export async function POST() {
         ok: true,
         captured: 0,
         expected: result.total,
-        note:
-          "Your YouTube Liked Videos playlist is empty (or you've only liked YT Music tracks that don't appear in YouTube). Use the Chrome extension on desktop for full coverage.",
+        note: "empty",
       },
       200,
     );
   }
 
-  const { userId } = await ensureConnection();
-  const sql = getSql();
-  const rows = await sql`
+  const procRows = await sql`
     SELECT * FROM sync_liked_tracks(
       ${userId},
       ${JSON.stringify(tracks)}::jsonb
@@ -97,7 +104,7 @@ export async function POST() {
       ok: true,
       captured: tracks.length,
       expected: result.total,
-      ...rows[0],
+      ...procRows[0],
     },
     200,
   );

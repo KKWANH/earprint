@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { connectDict } from "@/lib/i18n/connect";
 
@@ -10,12 +10,17 @@ interface SyncResult {
   captured?: number;
   expected?: number;
   error?: string;
+  needsAuth?: boolean;
   note?: string;
 }
 
 /**
  * Mobile-friendly sync — calls /api/sync-yt which hits the YouTube Data API
- * with the user's OAuth token. Falls back from the extension flow.
+ * with the user's OAuth token. When the user has never granted the YT scope,
+ * the server returns `needsAuth` and we redirect to /api/yt-oauth/start.
+ *
+ * Also reads `#yt=...` from the URL hash so it can show a status message
+ * after the OAuth callback redirects back here.
  */
 export function ApiSyncButton({ locale }: { locale: Locale }) {
   const t = connectDict(locale);
@@ -26,6 +31,27 @@ export function ApiSyncButton({ locale }: { locale: Locale }) {
     kind: "success" | "error" | "info";
   } | null>(null);
 
+  // React to the OAuth callback's `#yt=...` hash so users get feedback right
+  // after they grant the YouTube scope.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.match(/^#yt=([\w-]+)/);
+    if (!hash) return;
+    const status = hash[1]!;
+    if (status === "connected") {
+      setMsg({ text: t.apiYtConnected, kind: "success" });
+    } else if (status === "cancelled") {
+      setMsg({ text: t.apiYtCancelled, kind: "info" });
+    } else {
+      setMsg({
+        text: `${t.apiSyncFailed} (${status})`,
+        kind: "error",
+      });
+    }
+    // Strip the hash so a refresh doesn't re-show the toast.
+    history.replaceState(null, "", window.location.pathname);
+  }, [t]);
+
   async function run() {
     setBusy(true);
     setMsg(null);
@@ -33,22 +59,27 @@ export function ApiSyncButton({ locale }: { locale: Locale }) {
       const res = await fetch("/api/sync-yt", { method: "POST" });
       const data = (await res.json()) as SyncResult;
       if (!res.ok || !data.ok) {
-        if (res.status === 401 || res.status === 403) {
-          setMsg({ text: t.apiSyncNeedScope, kind: "error" });
-        } else {
-          setMsg({
-            text: `${t.apiSyncFailed}: ${data.error ?? res.statusText}`,
-            kind: "error",
-          });
+        // First-time / expired → run them through the OAuth flow.
+        if (data.needsAuth) {
+          window.location.href = "/api/yt-oauth/start";
+          return;
         }
+        setMsg({
+          text: `${t.apiSyncFailed}: ${data.error ?? res.statusText}`,
+          kind: "error",
+        });
         return;
       }
       const captured = data.captured ?? 0;
       const expected = data.expected ?? captured;
-      setMsg({
-        text: data.note ?? t.apiSyncSuccess(captured, expected),
-        kind: captured > 0 ? "success" : "info",
-      });
+      if (data.note === "empty") {
+        setMsg({ text: t.apiSyncEmpty, kind: "info" });
+      } else {
+        setMsg({
+          text: t.apiSyncSuccess(captured, expected),
+          kind: "success",
+        });
+      }
       router.refresh();
     } catch (e) {
       setMsg({

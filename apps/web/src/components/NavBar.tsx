@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { dicts, type Locale } from "@/lib/i18n";
 import { LocaleToggle } from "./LocaleToggle";
 
@@ -15,8 +15,16 @@ const LINKS = [
   { href: "/connect", key: "connect" },
 ] as const;
 
-/** Shared top navigation — inline on desktop, hamburger dropdown on mobile. */
-export function NavBar({ locale }: { locale: Locale }) {
+/** Shared top navigation — inline on desktop, hamburger dropdown on mobile.
+ *  `authMenu` is rendered server-side and slotted in so this client
+ *  component doesn't have to know about the session. */
+export function NavBar({
+  locale,
+  authMenu,
+}: {
+  locale: Locale;
+  authMenu?: ReactNode;
+}) {
   const nav = dicts[locale].nav;
   const path = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
@@ -32,7 +40,11 @@ export function NavBar({ locale }: { locale: Locale }) {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.svg" alt="" className="h-5 w-5" />
-          Ear<span className="text-emerald-400">print</span>
+          {/* Wrapped in a single span so flexbox doesn't treat 'Ear' as an
+              anonymous flex item and add a gap before 'print'. */}
+          <span>
+            Ear<span className="text-emerald-400">print</span>
+          </span>
         </Link>
 
         <nav className="hidden gap-1 sm:flex">
@@ -53,6 +65,7 @@ export function NavBar({ locale }: { locale: Locale }) {
 
         <div className="flex items-center gap-2">
           <LocaleToggle locale={locale} />
+          {authMenu && <div className="hidden sm:block">{authMenu}</div>}
           <button
             onClick={() => setOpen((o) => !o)}
             aria-label="Menu"
@@ -80,6 +93,11 @@ export function NavBar({ locale }: { locale: Locale }) {
               {nav[l.key]}
             </Link>
           ))}
+          {authMenu && (
+            <div className="mt-1 border-t border-white/10 px-1 pt-2">
+              {authMenu}
+            </div>
+          )}
         </nav>
       )}
     </header>

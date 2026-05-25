@@ -14,6 +14,8 @@ const en = {
     recommend: "Recommend",
     profile: "Psychology",
     connect: "Connect",
+    signIn: "Sign in",
+    signOut: "Sign out",
   },
   landing: {
     tagline: "Your YouTube Music taste, analyzed.",
@@ -73,6 +75,8 @@ const ko: Dict = {
     recommend: "추천",
     profile: "심리분석",
     connect: "확장 연결",
+    signIn: "로그인",
+    signOut: "로그아웃",
   },
   landing: {
     tagline: "내 음악 취향 분석하기",

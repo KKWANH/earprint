@@ -14,6 +14,13 @@ CREATE TABLE IF NOT EXISTS users (
   display_name  TEXT,
   google_sub    TEXT UNIQUE,                       -- Google OAuth subject
   sync_token    TEXT UNIQUE,                       -- token for extension ↔ backend auth (Phase 1)
+  -- Incremental YouTube Data API authorisation. Populated when the user
+  -- explicitly opts into API-mode sync (/api/yt-oauth/*) so the YT scope
+  -- isn't requested during the default Google sign-in (which would trigger
+  -- the "unverified app" warning for every visitor).
+  yt_access_token       TEXT,
+  yt_refresh_token      TEXT,
+  yt_token_expires_at   TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );

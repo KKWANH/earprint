@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth, signIn, signOut } from "@/auth";
+import { auth, signIn } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getLibraryStats, type Count, type AudioFeelAgg } from "@/lib/library";
 import { AnalyzePanel } from "./AnalyzePanel";
@@ -43,21 +43,9 @@ export default async function LibraryPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
-      <header className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
-          <p className="truncate text-xs text-neutral-500">{session.user.email}</p>
-        </div>
-        <form
-          action={async () => {
-            "use server";
-            await signOut();
-          }}
-        >
-          <button className="shrink-0 rounded-md border border-white/10 px-3 py-1.5 text-xs text-neutral-400 hover:text-white">
-            {t.logout}
-          </button>
-        </form>
+      <header className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
+        <p className="truncate text-xs text-neutral-500">{session.user.email}</p>
       </header>
 
       <AnalyzePanel locale={locale} />
