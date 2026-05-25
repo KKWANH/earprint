@@ -1,17 +1,14 @@
 /**
- * Local analysis runner — runs the whole pipeline on YOUR machine, $0 API cost.
+ * Local analysis runner — Phase 1 enrich (Deezer) + Phase 2 AI analysis.
  *
- *   Phase 1  enrich  — Deezer (free, no key): album / preview / match
- *   Phase 2  AI      — a LOCAL model (Qwen via Ollama / LM Studio): genres,
- *                      moods, energy/tempo/acousticness, instruments
- *
- * This replaces the paid Gemini step. The cloud worker is left untouched —
- * just don't press "분석 시작" on the web; run this instead.
- *
- * ── Setup ────────────────────────────────────────────────────────────
- *   1. Run a local model. With Ollama:   ollama run qwen2.5
- *      (check the exact name with `ollama list`)
- *   2. DATABASE_URL must be set — it already lives in apps/web/.dev.vars.
+ * Phase 2 races up to three providers per batch (Promise.any — first valid
+ * response wins, others discarded):
+ *   • Local  (Ollama Qwen)   — free but slow
+ *   • Gemini (cloud)          — ~$0.0007/batch, fastest
+ *   • Kimi   (Moonshot K2)    — ~$0.001/batch, parallel fallback
+ * Whichever responds first is what gets saved. Providers whose API key
+ * isn't set are silently skipped, so the script also works with just
+ * Local, just Gemini, or any combination.
  *
  * ── Run ──────────────────────────────────────────────────────────────
  *   pnpm --filter web analyze:local
@@ -20,9 +17,13 @@
  *   DATABASE_URL    Neon connection string
  *   LOCAL_AI_URL    OpenAI-compatible base URL
  *                   Ollama   → http://localhost:11434/v1  (default)
- *                   LM Studio→ http://localhost:1234/v1
- *   LOCAL_AI_MODEL  model name (default: qwen2.5)
+ *   LOCAL_AI_MODEL  model name (default: qwen3:8b)
+ *   GEMINI_API_KEY  Cloud Gemini key — enables Gemini in the race
+ *   KIMI_API_KEY    Moonshot key — enables Kimi in the race
+ *   KIMI_MODEL      default kimi-k2-0905-preview
+ *   GEMINI_MODEL    default gemini-2.0-flash
  *   AI_BATCH        tracks per model call (default: 6)
+ *   AI_DISABLE      'local' | 'gemini' | 'kimi' to opt one out
  */
 import { Pool, neonConfig } from "@neondatabase/serverless";
 
@@ -141,6 +142,14 @@ JSON 외의 어떤 텍스트도 출력하지 말 것.
 
 곡 목록:`;
 
+function parseLooseJson(text) {
+  // Qwen3 emits a <think> reasoning block — strip it before parsing JSON.
+  text = String(text).replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  // Models may wrap JSON in prose / code fences — extract the first object.
+  const m = text.match(/\{[\s\S]*\}/);
+  return JSON.parse(m ? m[0] : text);
+}
+
 async function callLocalAi(list) {
   const res = await fetch(`${AI_URL}/chat/completions`, {
     method: "POST",
@@ -158,13 +167,86 @@ async function callLocalAi(list) {
     throw new Error(`local AI HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   }
   const data = await res.json();
-  let text = data?.choices?.[0]?.message?.content;
+  const text = data?.choices?.[0]?.message?.content;
   if (!text) throw new Error("local AI 응답이 비어 있습니다");
-  // Qwen3 emits a <think> reasoning block — strip it before parsing JSON.
-  text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-  // Models may still wrap JSON in prose / code fences — extract the object.
-  const m = text.match(/\{[\s\S]*\}/);
-  return JSON.parse(m ? m[0] : text);
+  return parseLooseJson(text);
+}
+
+async function callGemini(list) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("no GEMINI_API_KEY");
+  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${PROMPT_HEAD}\n${list}` }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.7 },
+      }),
+      signal: AbortSignal.timeout(60000),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`Gemini HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini 응답이 비어 있습니다");
+  return parseLooseJson(text);
+}
+
+async function callKimi(list) {
+  const key = process.env.KIMI_API_KEY;
+  if (!key) throw new Error("no KIMI_API_KEY");
+  const model = process.env.KIMI_MODEL || "kimi-k2-0905-preview";
+  const res = await fetch("https://api.moonshot.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: `${PROMPT_HEAD}\n${list}` }],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+    }),
+    signal: AbortSignal.timeout(60000),
+  });
+  if (!res.ok) {
+    throw new Error(`Kimi HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error("Kimi 응답이 비어 있습니다");
+  return parseLooseJson(text);
+}
+
+/**
+ * Fires every enabled provider in parallel and returns the first valid
+ * response (Promise.any). Per-provider keys gate participation; AI_DISABLE
+ * can opt one out manually. The winning provider's name is bubbled up so
+ * progress can show the split.
+ */
+async function callRace(list) {
+  const disabled = new Set((process.env.AI_DISABLE || "").split(/[,\s]+/).filter(Boolean));
+  const tag = (name, p) => p.then((r) => ({ name, r }));
+  const candidates = [];
+  if (!disabled.has("local")) candidates.push(tag("local", callLocalAi(list)));
+  if (process.env.GEMINI_API_KEY && !disabled.has("gemini")) {
+    candidates.push(tag("gemini", callGemini(list)));
+  }
+  if (process.env.KIMI_API_KEY && !disabled.has("kimi")) {
+    candidates.push(tag("kimi", callKimi(list)));
+  }
+  if (candidates.length === 0) throw new Error("AI 공급자가 하나도 활성화되지 않음");
+  try {
+    return await Promise.any(candidates);
+  } catch (e) {
+    if (e instanceof AggregateError) {
+      throw new Error(e.errors.map((x) => x.message).join(" · "));
+    }
+    throw e;
+  }
 }
 
 function toObj(arr, maxLen) {
@@ -219,6 +301,8 @@ async function aiPhase() {
 
   let done = 0;
   let consecutiveFails = 0;
+  // Per-provider counters for the closing summary.
+  const wins = { local: 0, gemini: 0, kimi: 0 };
   for (;;) {
     const { rows } = await q(
       `SELECT t.id, t.title, t.artist
@@ -233,14 +317,18 @@ async function aiPhase() {
 
     const list = rows.map((t) => `[${t.id}] ${t.artist} — ${t.title}`).join("\n");
     let parsed = null;
+    let winner = null;
     for (let attempt = 0; attempt < 3 && !parsed; attempt++) {
       try {
-        parsed = await callLocalAi(list);
+        const w = await callRace(list);
+        parsed = w.r;
+        winner = w.name;
       } catch (e) {
         if (attempt === 2) console.error(`\n  ⚠ 배치 실패: ${e.message}`);
         else await sleep(1500 * (attempt + 1));
       }
     }
+    if (winner) wins[winner] = (wins[winner] || 0) + 1;
 
     const byId = new Map();
     for (const r of parsed?.results ?? []) {
@@ -269,12 +357,18 @@ async function aiPhase() {
     });
     await q("SELECT save_ai_analysis($1::jsonb)", [JSON.stringify(out)]);
     done += rows.length;
-    process.stdout.write(`\r  2/2 AI 분석(${AI_MODEL}): ${done}/${remaining}곡`);
+    const splitParts = Object.entries(wins)
+      .filter(([, v]) => v > 0)
+      .map(([k, v]) => `${k} ×${v}`)
+      .join(" · ");
+    process.stdout.write(
+      `\r  2/2 AI race: ${done}/${remaining}곡 (${splitParts || "—"})  `,
+    );
 
     consecutiveFails = parsed ? 0 : consecutiveFails + 1;
     if (consecutiveFails >= 6) {
       console.error(
-        `\n❌ 로컬 AI 가 계속 실패합니다. 모델이 실행 중인지 확인하세요 (LOCAL_AI_URL=${AI_URL}).`,
+        `\n❌ 모든 AI 공급자가 6배치 연속 실패. 로컬 (${AI_URL}), GEMINI_API_KEY, KIMI_API_KEY 셋업 확인.`,
       );
       break;
     }
@@ -309,9 +403,26 @@ async function checkLocalAi() {
 
 // ── Main ─────────────────────────────────────────────────────────────
 try {
-  console.log("🎧 로컬 분석 시작 — Deezer 보강 + 로컬 모델 분석 (API 비용 0원)\n");
+  const enabled = [];
+  const disabled = new Set((process.env.AI_DISABLE || "").split(/[,\s]+/).filter(Boolean));
+  if (!disabled.has("local")) enabled.push("local");
+  if (process.env.GEMINI_API_KEY && !disabled.has("gemini")) enabled.push("gemini");
+  if (process.env.KIMI_API_KEY && !disabled.has("kimi")) enabled.push("kimi");
+  console.log(
+    `🎧 분석 시작 — Deezer 보강 + AI race (${enabled.join(" + ") || "none"})\n`,
+  );
   await enrichPhase();
-  if (!(await checkLocalAi())) process.exit(1);
+
+  // Local being down is fine when at least one cloud provider is configured.
+  const localOk = !disabled.has("local") ? await checkLocalAi() : false;
+  const cloudCount = enabled.filter((p) => p !== "local").length;
+  if (!localOk && cloudCount === 0) {
+    console.error("❌ AI 공급자가 없음 — 로컬 다운 + 클라우드 키 미설정.");
+    process.exit(1);
+  }
+  if (!localOk && cloudCount > 0) {
+    console.log("⚠ 로컬은 건너뛰고 클라우드만 사용합니다.");
+  }
   await aiPhase();
 
   const { rows } = await q(
