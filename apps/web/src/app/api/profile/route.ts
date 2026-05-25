@@ -10,10 +10,19 @@ import { json } from "@/lib/http";
 /** Generates a music psychology/taste profile via Gemini and stores it in taste_profiles. */
 export async function POST() {
   let userId: string;
+  let aiConsent: boolean;
   try {
-    userId = (await ensureConnection()).userId;
+    const conn = await ensureConnection();
+    userId = conn.userId;
+    aiConsent = conn.aiConsent;
   } catch {
     return json({ error: "unauthorized" }, 401);
+  }
+
+  // GDPR Art. 22 — explicit consent required for automated profiling.
+  // The /onboarding step asks once; /account exposes a revocable toggle.
+  if (!aiConsent) {
+    return json({ ok: false, needsAiConsent: true }, 200);
   }
 
   // Free-tier daily cap (1 generation / day). Pro users + everyone when

@@ -2,7 +2,14 @@
 import { GEMINI_CAP_ERROR, geminiOverCap, recordGemini } from "./usage";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
-const MODEL = "gemini-3.5-flash";
+
+/**
+ * Default model — used by callers that don't pass an override. `gemini-2.0-flash`
+ * is the cheap workhorse; the music-psychology profile bumps to `gemini-2.5-pro`
+ * via the `model` argument because that single high-value generation is worth
+ * the price difference (~$0.014 vs $0.0007 per call).
+ */
+const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
 
 /**
  * Generates a JSON result from a prompt plus a response schema.
@@ -15,14 +22,15 @@ const MODEL = "gemini-3.5-flash";
 export async function geminiJson<T>(
   prompt: string,
   schema: object,
-  opts?: { bypassCap?: boolean },
+  opts?: { bypassCap?: boolean; model?: string },
 ): Promise<T> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
   if (!opts?.bypassCap && (await geminiOverCap())) throw new Error(GEMINI_CAP_ERROR);
   await recordGemini();
 
-  const res = await fetch(`${ENDPOINT}/${MODEL}:generateContent?key=${key}`, {
+  const model = opts?.model ?? DEFAULT_MODEL;
+  const res = await fetch(`${ENDPOINT}/${model}:generateContent?key=${key}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -33,7 +41,7 @@ export async function geminiJson<T>(
         temperature: 0.85,
       },
     }),
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(60000),
   });
 
   if (!res.ok) {

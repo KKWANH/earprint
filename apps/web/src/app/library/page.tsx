@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
-import { ensureConnection } from "@/lib/connection";
+import { requireOnboarded } from "@/lib/onboarding";
 import { getLibraryStats, type Count, type AudioFeelAgg } from "@/lib/library";
 import { AnalyzePanel } from "./AnalyzePanel";
 import { PreviewButton } from "./PreviewButton";
@@ -37,7 +37,7 @@ export default async function LibraryPage() {
     );
   }
 
-  const { userId } = await ensureConnection();
+  const { userId } = await requireOnboarded();
   const stats = await getLibraryStats(userId);
 
   return (

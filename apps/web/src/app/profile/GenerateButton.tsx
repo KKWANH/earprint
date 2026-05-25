@@ -20,12 +20,14 @@ export function GenerateButton({
   const [error, setError] = useState<string | null>(null);
   const [capped, setCapped] = useState(false);
   const [planCapped, setPlanCapped] = useState(false);
+  const [needsAiConsent, setNeedsAiConsent] = useState(false);
 
   async function go() {
     setBusy(true);
     setError(null);
     setCapped(false);
     setPlanCapped(false);
+    setNeedsAiConsent(false);
     try {
       const res = await fetch("/api/profile", { method: "POST" });
       const d = (await res.json()) as {
@@ -33,8 +35,10 @@ export function GenerateButton({
         error?: string;
         capped?: boolean;
         planCapped?: boolean;
+        needsAiConsent?: boolean;
       };
-      if (d.planCapped) setPlanCapped(true);
+      if (d.needsAiConsent) setNeedsAiConsent(true);
+      else if (d.planCapped) setPlanCapped(true);
       else if (d.capped) setCapped(true);
       else if (!d.ok) setError(d.error ?? `${t.errorStatus} ${res.status}`);
     } catch (e) {
@@ -60,6 +64,14 @@ export function GenerateButton({
           {t.planCapped}{" "}
           <Link href="/pricing" className="underline hover:text-amber-200">
             {t.upgradeCta}
+          </Link>
+        </p>
+      )}
+      {needsAiConsent && (
+        <p className="text-xs leading-relaxed text-amber-300">
+          {t.needsAiConsent}{" "}
+          <Link href="/account" className="underline hover:text-amber-200">
+            {t.accountLink}
           </Link>
         </p>
       )}

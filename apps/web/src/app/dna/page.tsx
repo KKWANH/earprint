@@ -1,5 +1,5 @@
 import { auth, signIn } from "@/auth";
-import { ensureConnection } from "@/lib/connection";
+import { requireOnboarded } from "@/lib/onboarding";
 import { getImprintAnalysis, type ImprintAnalysis } from "@/lib/imprint";
 import { getNoveltyIndex, type NoveltyIndex } from "@/lib/novelty";
 import { getLocale } from "@/lib/i18n-server";
@@ -35,7 +35,7 @@ export default async function DnaPage() {
     );
   }
 
-  const { userId } = await ensureConnection();
+  const { userId } = await requireOnboarded();
   const [imprint, novelty] = await Promise.all([
     getImprintAnalysis(userId),
     getNoveltyIndex(userId),

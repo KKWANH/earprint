@@ -43,6 +43,9 @@ const en = {
   planCapped:
     "You've used your free daily AI profile. Pro removes the cap.",
   upgradeCta: "See Pro →",
+  needsAiConsent:
+    "AI profiling is off in your account settings — turn it on to generate your music-psychology profile.",
+  accountLink: "Go to account →",
   shareHeading: "Share your music persona",
   shareCopy: "Copy share link",
   shareCopied: "Link copied",
@@ -101,6 +104,9 @@ const ko: typeof en = {
   planCapped:
     "오늘 무료 AI 프로필 1회 사용 완료. Pro 는 한도 제거.",
   upgradeCta: "Pro 보기 →",
+  needsAiConsent:
+    "계정 설정에서 AI 프로파일링이 꺼져있습니다 — 음악 심리분석을 생성하려면 켜주세요.",
+  accountLink: "계정 페이지로 →",
   shareHeading: "페르소나 공유하기",
   shareCopy: "공유 링크 복사",
   shareCopied: "링크 복사됨",

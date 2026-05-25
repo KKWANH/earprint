@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { auth, signIn } from "@/auth";
-import { ensureConnection } from "@/lib/connection";
+import { requireOnboarded } from "@/lib/onboarding";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { recommendDict } from "@/lib/i18n/recommend";
@@ -41,7 +41,7 @@ export default async function RecommendPage() {
     );
   }
 
-  const { userId } = await ensureConnection();
+  const { userId } = await requireOnboarded();
   const sql = getSql();
 
   const [unrated, stat] = await Promise.all([

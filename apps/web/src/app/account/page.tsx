@@ -7,6 +7,7 @@ import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { accountDict } from "@/lib/i18n/account";
 import { getPlanState } from "@/lib/plan";
+import { AiConsentToggle } from "./AiConsentToggle";
 import { DeleteAccountButton } from "./DeleteAccountButton";
 import { DisconnectYtButton } from "./DisconnectYtButton";
 
@@ -72,10 +73,12 @@ export default async function AccountPage() {
     );
   }
 
-  const { userId } = await ensureConnection();
+  const conn = await ensureConnection();
+  const userId = conn.userId;
   const data = await loadAccount(userId);
   const ytConnected = !!data.yt_access_token;
   const planState = await getPlanState(userId);
+  const aiConsent = conn.aiConsent;
   const lang = locale === "ko" ? "ko-KR" : "en-US";
 
   return (
@@ -214,6 +217,31 @@ export default async function AccountPage() {
             </a>
           </p>
         </div>
+      </Section>
+
+      <Section title={t.aiConsentTitle}>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-neutral-200">
+              {t.aiConsentLabel}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-neutral-500">
+              {t.aiConsentDesc}
+            </p>
+          </div>
+          <AiConsentToggle initialGranted={aiConsent} locale={locale} />
+        </div>
+      </Section>
+
+      <Section title={t.exportTitle}>
+        <p className="text-sm text-neutral-400">{t.exportDesc}</p>
+        <a
+          href="/api/dsar/export"
+          download
+          className="self-start rounded-md border border-white/15 px-3 py-1.5 text-sm text-neutral-300 hover:bg-white/5 hover:text-white"
+        >
+          {t.exportButton}
+        </a>
       </Section>
 
       <Section title={t.signOutTitle}>

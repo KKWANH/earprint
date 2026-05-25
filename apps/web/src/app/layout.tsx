@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { AuthMenu } from "@/components/AuthMenu";
+import { CookieBanner } from "@/components/CookieBanner";
 import { NavBar } from "@/components/NavBar";
 import { Footer } from "@/components/Footer";
 import { getLocale } from "@/lib/i18n-server";
@@ -43,6 +44,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <NavBar locale={locale} authMenu={<AuthMenu locale={locale} />} />
         <div className="flex flex-1 flex-col">{children}</div>
         <Footer locale={locale} />
+        <CookieBanner locale={locale} />
       </body>
     </html>
   );

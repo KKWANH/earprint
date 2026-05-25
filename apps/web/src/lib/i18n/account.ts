@@ -49,6 +49,23 @@ const en = {
   managePlanButton: "Manage subscription",
   upgradeSuccess: "✓ Welcome to Pro! Enjoy the perks.",
 
+  // AI consent
+  aiConsentTitle: "AI profiling consent",
+  aiConsentLabel: "Allow AI to profile my music taste",
+  aiConsentDesc:
+    "Powers the Music Zodiac and the AI music-psychology profile. Turning this off immediately stops new AI generations; the rest of Earprint keeps working. Existing AI profile and zodiac stay until you delete your account.",
+  aiConsentOn: "On",
+  aiConsentOff: "Off",
+  aiConsentRevoked: "AI profiling is off.",
+  aiConsentSinceLabel: "Granted on",
+
+  // DSAR export
+  exportTitle: "Download my data",
+  exportDesc:
+    "Get a JSON file with everything Earprint stores about you — profile fields, synced tracks, AI analysis, ratings, plan state. Useful before deleting your account.",
+  exportButton: "Download (JSON)",
+  exportPreparing: "Preparing…",
+
   // Sign out section
   signOutTitle: "Session",
   signOutDesc: "Sign out of Earprint on this device. You can sign back in any time.",
@@ -111,6 +128,21 @@ const ko: typeof en = {
   upgradeButton: "요금제 보기 →",
   managePlanButton: "구독 관리",
   upgradeSuccess: "✓ Pro 가입 완료! 즐겨주세요.",
+
+  aiConsentTitle: "AI 프로파일링 동의",
+  aiConsentLabel: "내 음악 취향에 대한 AI 프로파일링을 허용",
+  aiConsentDesc:
+    "음악 별자리와 AI 음악 심리분석에 사용됩니다. 끄면 즉시 새 AI 생성이 중단되고, 나머지 서비스는 그대로 동작합니다. 이미 만들어진 AI 프로필·별자리는 계정 삭제 시까지 유지됩니다.",
+  aiConsentOn: "켜짐",
+  aiConsentOff: "꺼짐",
+  aiConsentRevoked: "AI 프로파일링이 꺼져있습니다.",
+  aiConsentSinceLabel: "동의 시각",
+
+  exportTitle: "내 데이터 다운로드",
+  exportDesc:
+    "Earprint 가 저장한 모든 것 — 프로필 필드·동기화 곡·AI 분석·평가·플랜 상태 — 을 JSON 으로 받습니다. 계정 삭제 전에 받아두면 좋습니다.",
+  exportButton: "다운로드 (JSON)",
+  exportPreparing: "준비 중…",
 
   signOutTitle: "세션",
   signOutDesc: "이 기기에서 Earprint 에서 로그아웃합니다. 언제든 다시 로그인 가능.",

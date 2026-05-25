@@ -1,10 +1,18 @@
 import { auth } from "@/auth";
+import { CURRENT_TOS_VERSION } from "@/lib/constants";
 import { getSql } from "@/lib/db";
 import { generateSyncToken } from "@/lib/tokens";
 
 export interface Connection {
   userId: string;
   token: string;
+  /** True when the user has accepted the *current* ToS version and
+   *  confirmed they are 16+. Pages can use this to gate features. */
+  onboarded: boolean;
+  /** True when the user has opted into AI profiling. Independent from
+   *  onboarding so it can be revoked from /account without disabling
+   *  the rest of the service. */
+  aiConsent: boolean;
 }
 
 export interface RecentTrack {
@@ -15,8 +23,9 @@ export interface RecentTrack {
 
 /**
  * Resolves the signed-in user to a users row, creating it on first use.
- * Reads first so the common (already-registered) path is a single SELECT —
- * this runs on every authenticated request, so it must not write each time.
+ * Reads first so the common (already-registered) path is a single SELECT.
+ * Also touches last_seen_at — the inactivity-retention cron compares
+ * against this column, so any authenticated request keeps the row alive.
  */
 export async function ensureConnection(): Promise<Connection> {
   const session = await auth();
@@ -24,15 +33,29 @@ export async function ensureConnection(): Promise<Connection> {
   if (!email) throw new Error("Not signed in");
 
   const sql = getSql();
-  const existing = await sql`SELECT id, sync_token FROM users WHERE email = ${email}`;
+  const existing = await sql`
+    SELECT id, sync_token, tos_accepted_at, tos_version, age_confirmed_at, ai_consent_at
+    FROM users WHERE email = ${email}`;
+
   if (existing.length > 0) {
+    const row = existing[0];
+    // Best-effort last_seen bump — don't block the request if it fails.
+    void sql`UPDATE users SET last_seen_at = now() WHERE id = ${row.id as string}`.catch(
+      () => {},
+    );
     return {
-      userId: existing[0].id as string,
-      token: existing[0].sync_token as string,
+      userId: row.id as string,
+      token: row.sync_token as string,
+      onboarded:
+        !!row.tos_accepted_at &&
+        row.tos_version === CURRENT_TOS_VERSION &&
+        !!row.age_confirmed_at,
+      aiConsent: !!row.ai_consent_at,
     };
   }
 
-  // First sign-in: create the row. ON CONFLICT covers a concurrent insert race.
+  // First sign-in: create the row, but leave consent fields NULL — the
+  // middleware will redirect the user to /onboarding before anything else.
   const created = await sql`
     INSERT INTO users (email, display_name, sync_token)
     VALUES (${email}, ${session.user?.name ?? null}, ${generateSyncToken()})
@@ -41,6 +64,8 @@ export async function ensureConnection(): Promise<Connection> {
   return {
     userId: created[0].id as string,
     token: created[0].sync_token as string,
+    onboarded: false,
+    aiConsent: false,
   };
 }
 

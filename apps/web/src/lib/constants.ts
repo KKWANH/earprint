@@ -8,6 +8,20 @@ export const CHROME_WEB_STORE_URL =
   "https://chromewebstore.google.com/detail/nfhgnpjhiencoajdfdadegnfbbhfjjkj";
 
 /**
+ * Current Terms / Privacy document version. Bump this string whenever the
+ * legal docs change in a way that requires re-consent — the onboarding
+ * middleware re-prompts users whose stored tos_version doesn't match.
+ */
+export const CURRENT_TOS_VERSION = "2026-05-25";
+
+/**
+ * Minimum age for unaided sign-up in our biggest regulated market (EU,
+ * GDPR Article 8). 16 is the EU baseline; member states may lower it
+ * (Belgium = 13, Spain = 14), we use the strictest baseline for safety.
+ */
+export const MIN_AGE = 16;
+
+/**
  * Master kill-switch for everything paywall-related. Defaults OFF — the
  * /pricing page and all gates stay invisible until the env flag flips ON.
  * Once flipped, the gates honour the user's `plan` column.

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
-import { ensureConnection } from "@/lib/connection";
+import { requireOnboarded } from "@/lib/onboarding";
 import { getArtistDetail } from "@/lib/artistDetail";
 import { getLocale } from "@/lib/i18n-server";
 import { artistDict } from "@/lib/i18n/artist";
@@ -46,7 +46,7 @@ export default async function ArtistPage({
     );
   }
 
-  const { userId } = await ensureConnection();
+  const { userId } = await requireOnboarded();
   const d = await getArtistDetail(userId, name);
 
   // Group the liked tracks by album, keeping the album-frequency order.

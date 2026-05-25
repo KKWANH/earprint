@@ -31,11 +31,22 @@ CREATE TABLE IF NOT EXISTS users (
   is_lifetime           BOOLEAN NOT NULL DEFAULT false,
   ls_customer_id        TEXT,
   ls_subscription_id    TEXT,
+  -- Consent + retention bookkeeping. ToS / age get set during onboarding;
+  -- ai_consent_at is independently revocable from /account. last_seen_at
+  -- powers the inactivity-driven account deletion cron.
+  tos_accepted_at       TIMESTAMPTZ,
+  tos_version           TEXT,
+  age_confirmed_at      TIMESTAMPTZ,
+  ai_consent_at         TIMESTAMPTZ,
+  last_seen_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_ls_customer ON users(ls_customer_id);
+CREATE INDEX IF NOT EXISTS idx_users_last_seen ON users(last_seen_at);
+CREATE INDEX IF NOT EXISTS idx_users_tos_accepted ON users(tos_accepted_at)
+  WHERE tos_accepted_at IS NULL;
 
 -- Per-user, per-day counters for paywalled features (free tier daily caps).
 CREATE TABLE IF NOT EXISTS user_usage (
@@ -44,6 +55,14 @@ CREATE TABLE IF NOT EXISTS user_usage (
   usage_date DATE NOT NULL,
   count      INT  NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, kind, usage_date)
+);
+
+-- Tracks when each periodic maintenance task last ran. The cron-tick guard
+-- reads this to fire daily-cadence work (retention sweep) at most once per
+-- 24h regardless of how often the per-minute tick fires.
+CREATE TABLE IF NOT EXISTS cron_state (
+  task     TEXT PRIMARY KEY,
+  last_run TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ── Tracks (globally shared canonical) ────────────────

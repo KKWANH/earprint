@@ -86,6 +86,7 @@ export async function generateProfile(
 
 [작성 지시]
 - ★ 모든 출력 텍스트(persona·headline·personality·traits·각 장르명·tips 등)는 반드시 ${lang}(으)로 작성. 친근하면서도 날카롭게.
+- ★ 다음은 절대 추론·기재하지 말 것: 사용자의 종교적 신념, 정치적 견해, 인종·민족·국적, 성적 지향, 정신 건강 상태(우울/불안 등), 의료 정보. GDPR 특수 카테고리 (Article 9) 침해 위험. 음악 자체의 일반적 분위기 묘사("우울한 발라드를 좋아함") 는 OK 이지만, 그 사람의 정신 상태("당신은 우울한 사람") 추론은 금지.
 - persona: 이 리스너를 '음악 캐릭터'로 의인화. 재미있고 공유하고 싶게.
   ★ 실제 아티스트·밴드·곡 이름은 절대 쓰지 말 것. 대신 장르·악기·분위기 기반의 '유형 틀'에서 골라 조합한다.
   유형 예시(데이터의 장르 분포에 맞는 것을 고를 것):
@@ -108,5 +109,9 @@ export async function generateProfile(
 - diggingComment: diggingScore 의 근거(다양성·앨범 몰입도 포함) + 점수를 올리려면 무엇이 필요한지 한 문장으로.
 - improvementTips: 이 리스너의 취향에서 '보강하면 좋을 점' 4~6개. 각 항목은 한 문장으로 끝내지 말고 ① 무엇이 부족하거나 편향됐는지 ② 왜 그것을 보강하면 좋은지 ③ 구체적으로 어떤 하위장르·아티스트·곡부터 시작하면 좋은지 를 모두 담아 2~3문장으로 충실히 설명하세요. 막연한 조언이 아니라 실제 데이터(편중된 장르/무드, 낮은 다양성 등)에 근거해서.`;
 
-  return aiJson<AiProfile>(prompt, SCHEMA, { bypassCap });
+  // High-value, low-frequency call → bump to the better reasoning model.
+  // Override via GEMINI_MODEL_PROFILE if it gets too expensive (defaults
+  // to gemini-2.5-pro ≈ $0.014/call vs $0.0007 on 2.0-flash).
+  const model = process.env.GEMINI_MODEL_PROFILE ?? "gemini-2.5-pro";
+  return aiJson<AiProfile>(prompt, SCHEMA, { bypassCap, model });
 }

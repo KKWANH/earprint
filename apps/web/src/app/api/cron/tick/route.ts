@@ -1,6 +1,7 @@
 import { getSql } from "@/lib/db";
 import { json } from "@/lib/http";
 import { finishJob, isComplete, runAnalyzeBatch } from "@/lib/jobs";
+import { runRetentionIfDue } from "@/lib/retention";
 
 /**
  * Cron tick — driven by the separate cron worker every minute.
@@ -29,5 +30,10 @@ export async function POST(req: Request) {
     if (await isComplete(userId)) await finishJob(userId);
   }
 
-  return json({ ok: true, jobs: jobs.length, processed }, 200);
+  // Daily housekeeping — runRetentionIfDue() returns null on minutes when
+  // the 24h window hasn't elapsed yet, so this is cheap (one INSERT…ON
+  // CONFLICT) on the 1,439 ticks per day where nothing's due.
+  const retention = await runRetentionIfDue().catch(() => null);
+
+  return json({ ok: true, jobs: jobs.length, processed, retention }, 200);
 }

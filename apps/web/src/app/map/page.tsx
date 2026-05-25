@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { auth, signIn } from "@/auth";
-import { ensureConnection } from "@/lib/connection";
+import { requireOnboarded } from "@/lib/onboarding";
 import { getArtistMap, getGhostArtists } from "@/lib/artistMap";
 import { getLocale } from "@/lib/i18n-server";
 import { mapDict } from "@/lib/i18n/map";
@@ -32,7 +32,7 @@ export default async function MapPage() {
     );
   }
 
-  const { userId } = await ensureConnection();
+  const { userId } = await requireOnboarded();
   const data = await getArtistMap(userId);
   const ghosts =
     data.artists.length > 0 ? await getGhostArtists(userId, data.artists) : [];

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
-import { ensureConnection, getLibrarySummary } from "@/lib/connection";
+import { getLibrarySummary } from "@/lib/connection";
+import { requireOnboarded } from "@/lib/onboarding";
 import { getLocale } from "@/lib/i18n-server";
 import { connectDict } from "@/lib/i18n/connect";
 import { ApiSyncButton } from "./ApiSyncButton";
@@ -34,7 +35,7 @@ export default async function ConnectPage() {
     );
   }
 
-  const { userId, token } = await ensureConnection();
+  const { userId, token } = await requireOnboarded();
   const { count, recent } = await getLibrarySummary(userId);
 
   return (

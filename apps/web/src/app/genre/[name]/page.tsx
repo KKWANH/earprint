@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
-import { ensureConnection } from "@/lib/connection";
+import { requireOnboarded } from "@/lib/onboarding";
 import { getGenreDetail } from "@/lib/genreDetail";
 import { genreHue } from "@/lib/forceGraph";
 import { getLocale } from "@/lib/i18n-server";
@@ -46,7 +46,7 @@ export default async function GenrePage({
     );
   }
 
-  const { userId } = await ensureConnection();
+  const { userId } = await requireOnboarded();
   const d = await getGenreDetail(userId, name);
   const hue = genreHue(name);
   const description = locale === "ko" ? d.descriptionKo : d.descriptionEn;

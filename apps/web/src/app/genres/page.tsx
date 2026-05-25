@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
-import { ensureConnection } from "@/lib/connection";
+import { requireOnboarded } from "@/lib/onboarding";
 import { getSql } from "@/lib/db";
 import { getExcludedArtists } from "@/lib/library";
 import { getLocale } from "@/lib/i18n-server";
@@ -59,7 +59,7 @@ export default async function GenresIndexPage() {
     );
   }
 
-  const { userId } = await ensureConnection();
+  const { userId } = await requireOnboarded();
   const genres = await getAllGenres(userId);
   const max = Math.max(1, ...genres.map((g) => g.count));
 

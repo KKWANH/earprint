@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
-import { ensureConnection } from "@/lib/connection";
+import { requireOnboarded } from "@/lib/onboarding";
 import { getSql } from "@/lib/db";
 import { getGenreMap } from "@/lib/genreMap";
 import { getLibraryStats, type AudioFeelAgg, type LibraryStats } from "@/lib/library";
@@ -42,7 +42,7 @@ export default async function ProfilePage() {
     );
   }
 
-  const { userId } = await ensureConnection();
+  const { userId } = await requireOnboarded();
   const sql = getSql();
   const rows = await sql`
     SELECT ai_profile, ai_profile_en, ai_profile_ko, ai_generated_at, ai_locale, share_id

@@ -47,25 +47,43 @@ const en = {
       ],
     },
     {
-      heading: "Disclosure to third parties and processors",
+      heading: "Sub-processors",
       body: [
-        "We do not sell or rent personal information. We share information only with service providers that process data on our behalf, and only to the extent necessary to operate the Service:",
-        "Google — authentication. Deezer, Last.fm and MusicBrainz — song and artist names are sent to retrieve album art, previews, and metadata. Google Gemini — song titles, artists, and aggregate statistics are sent to generate the AI analysis; your email address and identity are not sent. Resend — processes your email address to deliver the analysis-summary email. Neon — database hosting. Cloudflare — application hosting and content delivery. A third-party payment processor — processes payment transactions, if paid features are offered.",
+        "We do not sell or rent personal information. We use the following service providers to operate the Service, and only to the extent necessary:",
+        "Cloudflare, Inc. (US) — application hosting + edge delivery. Transfer mechanism: EU-US Data Privacy Framework certification.",
+        "Neon, Inc. (US) — managed PostgreSQL database. Transfer mechanism: EU-US Data Privacy Framework + Standard Contractual Clauses.",
+        "Google LLC (US) — Google Sign-In + Gemini AI analysis + (with explicit opt-in) YouTube Data API. Transfer mechanism: EU-US Data Privacy Framework.",
+        "Lemon Squeezy (US, a Stripe subsidiary) — Merchant of Record for payment processing. Transfer mechanism: EU-US Data Privacy Framework.",
+        "Resend, Inc. (US) — transactional email (analysis-summary email; optional). Transfer mechanism: EU-US Data Privacy Framework + Standard Contractual Clauses.",
+        "Deezer SA (France, EU) — track metadata + 30-second previews. No restricted transfer.",
+        "Last.fm / Audioscrobbler Ltd (UK) — artist similarity + tag enrichment. UK adequacy decision applies.",
+        "MetaBrainz Foundation / MusicBrainz (US) — release-year lookup. Anonymous queries (no user identifier sent).",
         "We may also disclose information where required by law, court order, or governmental authority, or where necessary to protect the rights, safety, or property of the Operator, our users, or the public.",
+      ],
+    },
+    {
+      heading: "Profiling and automated decision-making",
+      body: [
+        "Several Service features rely on automated profiling of your music taste: the Music Zodiac, the AI music-psychology profile, the Digging Score, the Recommendation engine, the Taste DNA reminiscence and novelty indices, and the Artist Map.",
+        "These features process music-related data only — the song titles, artists, genres, and moods you have liked. They do not produce decisions that have legal or similarly significant effects on you under GDPR Article 22(1).",
+        "The AI music-psychology profile requires your explicit consent (collected during onboarding and revocable from /account). All other profiling uses only the music data you provided and powers user-facing analytics; you may delete the underlying data at any time by deleting your account, which removes the profiling outputs.",
       ],
     },
     {
       heading: "International transfers",
       body: [
-        "Our service providers, including database and hosting providers, may process and store information on servers located outside your country of residence. Where information is transferred internationally, we take reasonable steps to ensure it remains protected in accordance with this Policy and applicable law.",
+        "Most of our sub-processors are based in the United States. Personal data transferred from the EU/UK/Korea to the US relies on the EU-US Data Privacy Framework (DPF) and corresponding UK + Swiss extensions, which the European Commission deemed adequate in July 2023. Where DPF coverage does not apply, we additionally rely on the EU Standard Contractual Clauses (Module 2).",
+        "We do not transfer personal data to providers in jurisdictions without an adequacy decision or equivalent safeguard. Notably, we have removed the previously-tested Moonshot (Kimi) AI provider for this reason: it is China-based and the Schrems II Transfer Impact Assessment cannot be satisfied for that destination at this time.",
       ],
     },
     {
       heading: "Data retention",
       body: [
-        "We retain account, music, and activity data for as long as your account exists. When you delete your account, this data is deleted promptly, except for information we are required to retain by law.",
-        "Where paid features are offered, records relating to payments, contracts, and the withdrawal of subscriptions are retained for the periods required by applicable law — including, for the Republic of Korea, the retention periods prescribed by the Act on the Consumer Protection in Electronic Commerce (for example, records of contracts and payment for five years, and records of consumer complaints or dispute resolution for three years).",
-        "Technical and log data are retained for a limited period for security and operational purposes.",
+        "We retain account, music, and activity data for as long as your account exists. When you delete your account via /account, every user-scoped row (synced tracks, AI analyses, ratings, profile, share IDs, payment state) is removed within 24 hours by a daily cleanup task.",
+        "Automated retention sweeps run daily and delete: per-user usage counters older than 90 days, anonymous AI cost-tracking older than 90 days, and finished background jobs older than 30 days.",
+        "Accounts with no sign-in activity for 3 consecutive years are automatically removed in their entirety. We recommend exporting your data first via /account → Download my data.",
+        "Where paid features are used, records relating to payments, contracts, and subscription withdrawals are retained for the periods required by applicable law — for the Republic of Korea, the retention periods prescribed by the Act on the Consumer Protection in Electronic Commerce (records of contracts and payment for five years, records of consumer complaints or dispute resolution for three years).",
+        "Technical and log data are retained for a limited period (typically 30 days) for security and operational purposes.",
       ],
     },
     {
@@ -78,20 +96,26 @@ const en = {
     {
       heading: "Cookies",
       body: [
-        "We use a strictly necessary sign-in session cookie to keep you authenticated, and a preference cookie that remembers your chosen language. We do not use advertising cookies or third-party tracking cookies.",
+        "We use only strictly-necessary cookies. No analytics cookies, no advertising cookies, no third-party tracking.",
+        "Cookies set: `__Secure-authjs.session-token` (sign-in session; HttpOnly; expires when you sign out), `locale` (which language you picked; expires after 1 year), `yt_oauth_state` (CSRF token for the optional YouTube data import; expires in 10 minutes).",
+        "Because every cookie is strictly necessary to operate the Service you requested, formal opt-in consent under the ePrivacy Directive is not required. A one-time informational banner is shown on first visit and can be dismissed.",
       ],
     },
     {
       heading: "Your rights and choices",
       body: [
-        "Subject to applicable law, you have the right to access, correct, and delete your personal information, to object to or restrict certain processing, to data portability, and to withdraw consent at any time without affecting the lawfulness of processing carried out before withdrawal.",
-        "You can delete your account and all associated data at any time from the Library page within the Service. You can revoke Earprint's access to your Google account from your Google Account settings (Security → Third-party access). For any other request, contact us using the details below; we will respond within the period required by applicable law. You may also have the right to lodge a complaint with your data-protection authority.",
+        "Subject to applicable law, you have the right to: access your personal information (GDPR Art. 15); have inaccurate information corrected (Art. 16); have your information deleted (Art. 17); restrict processing (Art. 18); receive your data in a portable format (Art. 20); object to processing based on legitimate interests (Art. 21); and withdraw consent at any time without affecting prior processing.",
+        "Self-service controls on /account: Download my data (machine-readable JSON export — fulfils Articles 15 + 20); Disconnect YouTube (revoke the optional API scope); AI profiling consent toggle (immediately stops new AI generations); Delete account (permanently removes every user-scoped row within 24 hours).",
+        "You can also revoke Earprint's access to your Google account from your Google Account settings (Security → Third-party access). For requests we can't satisfy through the self-service controls, contact the address below; we respond within 30 days as required by GDPR Art. 12(3).",
+        "You may lodge a complaint with your data-protection authority. In Belgium: Autorité de protection des données / Gegevensbeschermingsautoriteit (APD / GBA). In Korea: Personal Information Protection Commission (PIPC, 개인정보 보호위원회). Other EU member states have their own national DPA.",
       ],
     },
     {
       heading: "Children's privacy",
       body: [
-        "The Service is not directed to children under the age of 14, and we do not knowingly collect personal information from them. If we become aware that we have collected such information without appropriate consent, we will delete it.",
+        "Earprint is not directed to children. We require all users to confirm they are at least 16 years old during onboarding — this is the strictest GDPR Article 8 baseline. Some EU member states permit lower ages (Belgium 13, Spain 14, etc.); we apply 16 uniformly for safety.",
+        "For the Republic of Korea, the PIPA threshold is 14; users between 14 and 16 may use the Service but parents who become aware of an under-14 account should contact us for immediate removal.",
+        "If we become aware that we have collected information from a child below the applicable age without appropriate consent, we will delete it promptly.",
       ],
     },
     {
@@ -153,25 +177,43 @@ const ko: typeof en = {
       ],
     },
     {
-      heading: "제3자 제공 및 처리 위탁",
+      heading: "수탁 처리자 (Sub-processors)",
       body: [
-        "운영자는 개인정보를 판매하거나 임대하지 않습니다. 운영자는 서비스 운영에 필요한 범위에서만, 운영자를 위하여 데이터를 처리하는 서비스 제공자에게 정보를 제공합니다.",
-        "Google — 인증. Deezer·Last.fm·MusicBrainz — 앨범 아트·미리듣기·메타데이터를 가져오기 위해 곡·아티스트명 전송. Google Gemini — AI 분석 생성을 위해 곡 제목·아티스트·통계 요약 전송(이메일·신원 정보는 전송하지 않음). Resend — 분석 요약 메일 발송을 위해 이메일 주소 처리. Neon — 데이터베이스 호스팅. Cloudflare — 애플리케이션 호스팅 및 콘텐츠 전송. 외부 결제대행사 — 유료 기능 제공 시 결제 거래 처리.",
-        "운영자는 법령·법원의 명령·정부기관의 요구가 있는 경우, 또는 운영자·이용자·공중의 권리·안전·재산을 보호하기 위하여 필요한 경우에도 정보를 제공할 수 있습니다.",
+        "운영자는 개인정보를 판매하거나 임대하지 않습니다. 서비스 운영에 필요한 범위 내에서 다음 서비스 제공자만 사용합니다:",
+        "Cloudflare, Inc. (미국) — 애플리케이션 호스팅 + 엣지 전송. 이전 메커니즘: EU-US Data Privacy Framework 인증.",
+        "Neon, Inc. (미국) — 관리형 PostgreSQL. 이전 메커니즘: DPF + 표준계약조항 (SCC).",
+        "Google LLC (미국) — Google Sign-In + Gemini AI 분석 + (명시적 옵트인 시) YouTube Data API. 이전 메커니즘: DPF.",
+        "Lemon Squeezy (미국, Stripe 자회사) — 결제대행사 (Merchant of Record). 이전 메커니즘: DPF.",
+        "Resend, Inc. (미국) — 트랜잭션 이메일 (분석 요약 메일, 선택). 이전 메커니즘: DPF + SCC.",
+        "Deezer SA (프랑스, EU) — 곡 메타데이터 + 30초 미리듣기. 제한적 이전 해당 없음.",
+        "Last.fm / Audioscrobbler Ltd (영국) — 아티스트 유사도 + 태그. 영국 적합성 결정 적용.",
+        "MetaBrainz Foundation / MusicBrainz (미국) — 발매연도 조회. 익명 쿼리 (사용자 식별자 미전송).",
+        "법령·법원의 명령·정부기관의 요구가 있는 경우, 또는 운영자·이용자·공중의 권리·안전·재산을 보호하기 위해 필요한 경우 정보를 제공할 수 있습니다.",
+      ],
+    },
+    {
+      heading: "프로파일링 및 자동화된 의사결정",
+      body: [
+        "다음 기능은 음악 취향에 대한 자동화된 프로파일링에 기반합니다: 음악 별자리, AI 음악 심리분석, 디깅 점수, 추천 엔진, 취향 DNA 의 reminiscence·novelty 지수, 아티스트 맵.",
+        "이 기능들은 좋아요 곡의 제목·아티스트·장르·무드 데이터만 처리합니다. GDPR 제22조(1) 가 정의하는 '법적 또는 이에 준하는 중대한 영향' 을 미치는 결정을 생성하지 않습니다.",
+        "AI 음악 심리분석은 명시적 동의가 필요합니다 (가입 시 1회 수집, /account 에서 언제든 철회 가능). 그 외 프로파일링은 이용자가 제공한 음악 데이터만으로 사용자 대상 기능을 제공합니다 — 계정 삭제 시 모든 프로파일링 출력도 함께 삭제됩니다.",
       ],
     },
     {
       heading: "국외 이전",
       body: [
-        "데이터베이스 및 호스팅 제공자를 포함한 운영자의 서비스 제공자는 이용자의 거주 국가 외에 위치한 서버에서 정보를 처리·저장할 수 있습니다. 정보가 국외로 이전되는 경우, 운영자는 해당 정보가 본 방침과 관계 법령에 따라 보호되도록 합리적인 조치를 취합니다.",
+        "수탁 처리자 대부분은 미국에 소재합니다. EU·영국·한국에서 미국으로의 개인정보 이전은 2023년 7월 EU 집행위원회가 적합성 결정을 내린 EU-US Data Privacy Framework (DPF) 와 영국·스위스 확장 메커니즘에 의존합니다. DPF 가 적용되지 않는 경우 EU 표준계약조항 (Module 2) 을 추가로 적용합니다.",
+        "적합성 결정·동등 보호장치가 없는 국가의 제공자에게는 개인정보를 이전하지 않습니다. 특히 이전에 테스트했던 Moonshot (Kimi) AI 제공자는 이 사유로 제거되었습니다 — 중국 소재이며 Schrems II 판례에 따른 Transfer Impact Assessment 를 현재 통과시킬 방법이 없습니다.",
       ],
     },
     {
       heading: "개인정보의 보유 기간",
       body: [
-        "운영자는 계정·음악·활동 데이터를 이용자의 계정이 존재하는 동안 보유합니다. 이용자가 계정을 삭제하면 해당 데이터는 지체 없이 삭제됩니다. 다만 법령상 보존이 요구되는 정보는 그러하지 아니합니다.",
-        "유료 기능이 제공되는 경우, 결제·계약·청약철회에 관한 기록은 관계 법령이 정하는 기간 동안 보관됩니다. 대한민국의 경우 「전자상거래 등에서의 소비자보호에 관한 법률」이 정하는 보존기간(예: 계약 및 대금결제에 관한 기록 5년, 소비자의 불만 또는 분쟁처리에 관한 기록 3년)에 따릅니다.",
-        "기술·로그 정보는 보안 및 운영 목적으로 제한된 기간 동안 보관됩니다.",
+        "운영자는 계정·음악·활동 데이터를 이용자의 계정이 존재하는 동안 보유합니다. /account 에서 계정을 삭제하면 모든 사용자 단위 행 (동기화 곡·AI 분석·평가·프로필·공유 ID·결제 상태) 이 일일 정리 task 를 통해 24시간 내에 삭제됩니다.",
+        "자동 보존 정리는 매일 실행되며 다음을 삭제합니다: 90일 이상 된 사용자 사용량 카운터, 90일 이상 된 익명 AI 비용 추적, 30일 이상 된 완료/실패 백그라운드 작업.",
+        "3년 연속 로그인 활동이 없는 계정은 전체가 자동 삭제됩니다. 사전에 /account → '내 데이터 다운로드' 로 데이터를 받아두는 것을 권장합니다.",
+        "유료 기능 이용 시 결제·계약·청약철회 기록은 관계 법령이 정하는 기간 동안 보관됩니다. 대한민국의 경우 「전자상거래 등에서의 소비자보호에 관한 법률」(계약·결제 5년, 소비자 불만·분쟁처리 3년) 에 따릅니다.",
+        "기술·로그 정보는 보안 및 운영 목적으로 제한된 기간 (통상 30일) 동안 보관됩니다.",
       ],
     },
     {
@@ -184,20 +226,26 @@ const ko: typeof en = {
     {
       heading: "쿠키",
       body: [
-        "운영자는 이용자의 로그인 상태를 유지하기 위한 필수 세션 쿠키와, 선택한 언어를 기억하는 환경설정 쿠키를 사용합니다. 광고 쿠키 또는 제3자 추적 쿠키는 사용하지 않습니다.",
+        "꼭 필요한 쿠키만 사용합니다. 분석 쿠키 없음, 광고 쿠키 없음, 제3자 추적 없음.",
+        "설정되는 쿠키: `__Secure-authjs.session-token` (로그인 세션; HttpOnly; 로그아웃 시 만료), `locale` (선택한 언어; 1년 만료), `yt_oauth_state` (선택적 YouTube 데이터 가져오기 CSRF 토큰; 10분 만료).",
+        "모든 쿠키가 이용자가 요청한 서비스 운영에 꼭 필요하므로 ePrivacy 지침상 명시적 옵트인 동의는 필요하지 않습니다. 첫 방문 시 안내 배너를 1회 표시하며 닫을 수 있습니다.",
       ],
     },
     {
       heading: "이용자의 권리 및 행사 방법",
       body: [
-        "이용자는 관계 법령이 정하는 바에 따라 자신의 개인정보에 대한 열람·정정·삭제를 요구할 권리, 특정 처리에 대한 반대·제한을 요구할 권리, 개인정보 이동을 요구할 권리, 그리고 언제든지 동의를 철회할 권리를 가집니다. 동의 철회는 철회 이전에 이루어진 처리의 적법성에 영향을 미치지 않습니다.",
-        "이용자는 서비스의 라이브러리 페이지에서 언제든지 계정과 모든 관련 데이터를 삭제할 수 있습니다. 또한 Google 계정 설정(보안 → 서드파티 액세스)에서 Earprint 의 접근 권한을 철회할 수 있습니다. 그 밖의 요청은 아래 연락처로 문의하시면 관계 법령이 정하는 기간 내에 답변드립니다. 이용자는 개인정보 보호 감독기관에 민원을 제기할 권리도 가질 수 있습니다.",
+        "관계 법령에 따라 이용자는 다음 권리를 가집니다: 개인정보 열람 (GDPR 제15조), 부정확한 정보의 정정 (제16조), 정보 삭제 (제17조), 처리 제한 (제18조), 이동 가능한 형식으로 데이터 수령 (제20조), 정당한 이익 기반 처리에 대한 이의제기 (제21조), 그리고 언제든지 동의 철회 (이전 처리에는 영향 없음).",
+        "/account 에서 셀프 컨트롤 가능: '내 데이터 다운로드' (기계 판독 가능한 JSON — 제15·20조 충족), 'YouTube 연결 해제' (선택적 API 권한 회수), 'AI 프로파일링' 토글 (즉시 신규 AI 생성 중단), '계정 삭제' (모든 사용자 단위 행 24시간 내 영구 삭제).",
+        "Google 계정 설정 (보안 → 서드파티 액세스) 에서도 Earprint 접근 권한 회수 가능. 셀프 컨트롤로 해결되지 않는 요청은 아래 연락처로 — GDPR 제12조(3) 에 따라 30일 내 답변.",
+        "감독기관 민원 제기 가능. 벨기에: APD/GBA. 한국: 개인정보 보호위원회 (PIPC). 기타 EU 회원국은 자국 DPA.",
       ],
     },
     {
       heading: "아동의 개인정보",
       body: [
-        "서비스는 만 14세 미만 아동을 대상으로 하지 않으며, 운영자는 아동의 개인정보를 고의로 수집하지 않습니다. 적법한 동의 없이 그러한 정보가 수집된 사실을 인지한 경우 운영자는 이를 삭제합니다.",
+        "Earprint 는 아동을 대상으로 하지 않습니다. 가입 시 모든 이용자에게 만 16세 이상 확인을 요구합니다 — GDPR 제8조의 가장 엄격한 기준입니다. 일부 EU 회원국은 더 낮은 연령을 허용하지만 (벨기에 13세, 스페인 14세 등) 안전을 위해 16세를 일괄 적용합니다.",
+        "대한민국의 경우 PIPA 기준은 14세입니다. 14~16세 이용자는 서비스 이용 가능하지만, 14세 미만 계정을 인지한 부모는 즉시 삭제를 요청해 주세요.",
+        "적법한 동의 없이 해당 연령 미만 아동의 정보가 수집된 사실을 인지한 경우 운영자는 이를 지체 없이 삭제합니다.",
       ],
     },
     {

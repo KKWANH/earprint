@@ -1,14 +1,15 @@
 /**
  * Local analysis runner — Phase 1 enrich (Deezer) + Phase 2 AI analysis.
  *
- * Phase 2 races up to three providers per batch (Promise.any — first valid
+ * Phase 2 races up to two providers per batch (Promise.any — first valid
  * response wins, others discarded):
  *   • Local  (Ollama Qwen)   — free but slow
  *   • Gemini (cloud)          — ~$0.0007/batch, fastest
- *   • Kimi   (Moonshot K2)    — ~$0.001/batch, parallel fallback
- * Whichever responds first is what gets saved. Providers whose API key
- * isn't set are silently skipped, so the script also works with just
- * Local, just Gemini, or any combination.
+ * Whichever responds first is what gets saved. Providers without keys
+ * (or in AI_DISABLE) are silently skipped.
+ *
+ * Kimi (Moonshot) was removed: China-based hosting fails the GDPR
+ * cross-border transfer test for EU users without a workable mechanism.
  *
  * ── Run ──────────────────────────────────────────────────────────────
  *   pnpm --filter web analyze:local
@@ -19,11 +20,9 @@
  *                   Ollama   → http://localhost:11434/v1  (default)
  *   LOCAL_AI_MODEL  model name (default: qwen3:8b)
  *   GEMINI_API_KEY  Cloud Gemini key — enables Gemini in the race
- *   KIMI_API_KEY    Moonshot key — enables Kimi in the race
- *   KIMI_MODEL      default kimi-k2-0905-preview
  *   GEMINI_MODEL    default gemini-2.0-flash
  *   AI_BATCH        tracks per model call (default: 6)
- *   AI_DISABLE      'local' | 'gemini' | 'kimi' to opt one out
+ *   AI_DISABLE      'local' | 'gemini' to opt one out
  */
 import { Pool, neonConfig } from "@neondatabase/serverless";
 
@@ -197,30 +196,6 @@ async function callGemini(list) {
   return parseLooseJson(text);
 }
 
-async function callKimi(list) {
-  const key = process.env.KIMI_API_KEY;
-  if (!key) throw new Error("no KIMI_API_KEY");
-  const model = process.env.KIMI_MODEL || "kimi-k2-0905-preview";
-  const res = await fetch("https://api.moonshot.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: `${PROMPT_HEAD}\n${list}` }],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
-    }),
-    signal: AbortSignal.timeout(60000),
-  });
-  if (!res.ok) {
-    throw new Error(`Kimi HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  }
-  const data = await res.json();
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error("Kimi 응답이 비어 있습니다");
-  return parseLooseJson(text);
-}
-
 /**
  * Fires every enabled provider in parallel and returns the first valid
  * response (Promise.any). Per-provider keys gate participation; AI_DISABLE
@@ -234,9 +209,6 @@ async function callRace(list) {
   if (!disabled.has("local")) candidates.push(tag("local", callLocalAi(list)));
   if (process.env.GEMINI_API_KEY && !disabled.has("gemini")) {
     candidates.push(tag("gemini", callGemini(list)));
-  }
-  if (process.env.KIMI_API_KEY && !disabled.has("kimi")) {
-    candidates.push(tag("kimi", callKimi(list)));
   }
   if (candidates.length === 0) throw new Error("AI 공급자가 하나도 활성화되지 않음");
   try {
@@ -302,7 +274,7 @@ async function aiPhase() {
   let done = 0;
   let consecutiveFails = 0;
   // Per-provider counters for the closing summary.
-  const wins = { local: 0, gemini: 0, kimi: 0 };
+  const wins = { local: 0, gemini: 0 };
   for (;;) {
     const { rows } = await q(
       `SELECT t.id, t.title, t.artist
@@ -368,7 +340,7 @@ async function aiPhase() {
     consecutiveFails = parsed ? 0 : consecutiveFails + 1;
     if (consecutiveFails >= 6) {
       console.error(
-        `\n❌ 모든 AI 공급자가 6배치 연속 실패. 로컬 (${AI_URL}), GEMINI_API_KEY, KIMI_API_KEY 셋업 확인.`,
+        `\n❌ 모든 AI 공급자가 6배치 연속 실패. 로컬 (${AI_URL}) 또는 GEMINI_API_KEY 셋업 확인.`,
       );
       break;
     }
@@ -407,7 +379,6 @@ try {
   const disabled = new Set((process.env.AI_DISABLE || "").split(/[,\s]+/).filter(Boolean));
   if (!disabled.has("local")) enabled.push("local");
   if (process.env.GEMINI_API_KEY && !disabled.has("gemini")) enabled.push("gemini");
-  if (process.env.KIMI_API_KEY && !disabled.has("kimi")) enabled.push("kimi");
   console.log(
     `🎧 분석 시작 — Deezer 보강 + AI race (${enabled.join(" + ") || "none"})\n`,
   );
