@@ -1,6 +1,7 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { checkAndConsumeFreeQuota } from "@/lib/plan";
 import { generateProfile } from "@/lib/profile";
 import { newShareId } from "@/lib/share";
 import { GEMINI_CAP_ERROR, isWhitelisted } from "@/lib/usage";
@@ -13,6 +14,16 @@ export async function POST() {
     userId = (await ensureConnection()).userId;
   } catch {
     return json({ error: "unauthorized" }, 401);
+  }
+
+  // Free-tier daily cap (1 generation / day). Pro users + everyone when
+  // PAYMENTS_ENABLED=false bypass this check.
+  const quota = await checkAndConsumeFreeQuota(userId, "aiProfilePerDay");
+  if (!quota.allowed) {
+    return json(
+      { ok: false, planCapped: true, limit: quota.limit, used: quota.used },
+      200,
+    );
   }
 
   try {

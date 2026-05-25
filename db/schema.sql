@@ -21,8 +21,29 @@ CREATE TABLE IF NOT EXISTS users (
   yt_access_token       TEXT,
   yt_refresh_token      TEXT,
   yt_token_expires_at   TIMESTAMPTZ,
+  -- Paywall state. `plan` is the effective tier ('free' | 'pro'); for
+  -- monthly subscriptions `plan_until` is the renewal cutoff; for one-off
+  -- lifetime purchases `is_lifetime` is true and `plan_until` ignored.
+  -- The two ls_* columns link back to the Lemon Squeezy customer/sub so
+  -- webhook events can resolve which user to update.
+  plan                  TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
+  plan_until            TIMESTAMPTZ,
+  is_lifetime           BOOLEAN NOT NULL DEFAULT false,
+  ls_customer_id        TEXT,
+  ls_subscription_id    TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_ls_customer ON users(ls_customer_id);
+
+-- Per-user, per-day counters for paywalled features (free tier daily caps).
+CREATE TABLE IF NOT EXISTS user_usage (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,
+  usage_date DATE NOT NULL,
+  count      INT  NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, kind, usage_date)
 );
 
 -- ── Tracks (globally shared canonical) ────────────────

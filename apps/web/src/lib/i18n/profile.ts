@@ -40,6 +40,9 @@ const en = {
     "This analysis was written in another language — regenerate it to read it in English.",
   capped:
     "🌙 Today's shared AI limit was reached — please try generating your analysis again tomorrow.",
+  planCapped:
+    "You've used your free daily AI profile. Pro removes the cap.",
+  upgradeCta: "See Pro →",
   shareHeading: "Share your music persona",
   shareCopy: "Copy share link",
   shareCopied: "Link copied",
@@ -95,6 +98,9 @@ const ko: typeof en = {
     "이 분석은 다른 언어로 작성된 것입니다. 한국어로 보려면 다시 생성하세요.",
   capped:
     "🌙 오늘 공용 AI 한도 도달 — 내일 다시 시도하세요.",
+  planCapped:
+    "오늘 무료 AI 프로필 1회 사용 완료. Pro 는 한도 제거.",
+  upgradeCta: "Pro 보기 →",
   shareHeading: "페르소나 공유하기",
   shareCopy: "공유 링크 복사",
   shareCopied: "링크 복사됨",

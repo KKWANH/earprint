@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { profileDict } from "@/lib/i18n/profile";
 
@@ -18,15 +19,23 @@ export function GenerateButton({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capped, setCapped] = useState(false);
+  const [planCapped, setPlanCapped] = useState(false);
 
   async function go() {
     setBusy(true);
     setError(null);
     setCapped(false);
+    setPlanCapped(false);
     try {
       const res = await fetch("/api/profile", { method: "POST" });
-      const d = (await res.json()) as { ok?: boolean; error?: string; capped?: boolean };
-      if (d.capped) setCapped(true);
+      const d = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        capped?: boolean;
+        planCapped?: boolean;
+      };
+      if (d.planCapped) setPlanCapped(true);
+      else if (d.capped) setCapped(true);
       else if (!d.ok) setError(d.error ?? `${t.errorStatus} ${res.status}`);
     } catch (e) {
       setError(String(e));
@@ -46,6 +55,14 @@ export function GenerateButton({
         {busy ? t.generating : hasProfile ? t.reanalyze : t.generate}
       </button>
       {capped && <p className="text-xs text-amber-400">{t.capped}</p>}
+      {planCapped && (
+        <p className="text-xs leading-relaxed text-amber-300">
+          {t.planCapped}{" "}
+          <Link href="/pricing" className="underline hover:text-amber-200">
+            {t.upgradeCta}
+          </Link>
+        </p>
+      )}
       {error && <p className="text-xs text-red-400">{t.errorPrefix} {error}</p>}
     </div>
   );

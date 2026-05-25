@@ -35,6 +35,20 @@ const en = {
     "You can also revoke access directly at",
   revokeUrl: "https://myaccount.google.com/permissions",
 
+  // Plan / billing section
+  planTitle: "Plan",
+  planFree: "Free",
+  planPro: "Pro",
+  planLifetime: "Pro — Lifetime",
+  planFreeDesc: "Core analysis with daily caps on the heavier features.",
+  planProDesc: "Daily caps removed; all features unlocked.",
+  planUntil: (date: string) => `Renews ${date}`,
+  planExpires: (date: string) => `Active until ${date}`,
+  planLifetimeDesc: "One-shot purchase. No renewal — Pro forever.",
+  upgradeButton: "See plans →",
+  managePlanButton: "Manage subscription",
+  upgradeSuccess: "✓ Welcome to Pro! Enjoy the perks.",
+
   // Sign out section
   signOutTitle: "Session",
   signOutDesc: "Sign out of Earprint on this device. You can sign back in any time.",
@@ -84,6 +98,19 @@ const ko: typeof en = {
   disconnectSuccess: "YouTube 연결을 해제했습니다.",
   revokeNote: "직접 권한을 취소하려면",
   revokeUrl: "https://myaccount.google.com/permissions",
+
+  planTitle: "플랜",
+  planFree: "Free",
+  planPro: "Pro",
+  planLifetime: "Pro — 평생",
+  planFreeDesc: "핵심 분석은 무료. 무거운 기능은 일일 한도가 적용됩니다.",
+  planProDesc: "일일 한도 제거. 모든 기능 활성화.",
+  planUntil: (date: string) => `${date} 갱신`,
+  planExpires: (date: string) => `${date} 까지 이용`,
+  planLifetimeDesc: "일회성 구매. 갱신 없음 — 영구 Pro.",
+  upgradeButton: "요금제 보기 →",
+  managePlanButton: "구독 관리",
+  upgradeSuccess: "✓ Pro 가입 완료! 즐겨주세요.",
 
   signOutTitle: "세션",
   signOutDesc: "이 기기에서 Earprint 에서 로그아웃합니다. 언제든 다시 로그인 가능.",

@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
+import { PAYMENTS_ENABLED } from "@/lib/constants";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { accountDict } from "@/lib/i18n/account";
+import { getPlanState } from "@/lib/plan";
 import { DeleteAccountButton } from "./DeleteAccountButton";
 import { DisconnectYtButton } from "./DisconnectYtButton";
 
@@ -73,6 +75,7 @@ export default async function AccountPage() {
   const { userId } = await ensureConnection();
   const data = await loadAccount(userId);
   const ytConnected = !!data.yt_access_token;
+  const planState = await getPlanState(userId);
   const lang = locale === "ko" ? "ko-KR" : "en-US";
 
   return (
@@ -94,6 +97,64 @@ export default async function AccountPage() {
           }
         />
       </Section>
+
+      {PAYMENTS_ENABLED && (
+        <section
+          className={`flex flex-col gap-3 rounded-xl border p-6 ${
+            planState.isPro
+              ? "border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900"
+              : "border-neutral-800 bg-neutral-900"
+          }`}
+        >
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="font-semibold">{t.planTitle}</h2>
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                planState.isPro
+                  ? "bg-emerald-500 text-black"
+                  : "bg-white/10 text-neutral-300"
+              }`}
+            >
+              {planState.isLifetime
+                ? t.planLifetime
+                : planState.isPro
+                  ? t.planPro
+                  : t.planFree}
+            </span>
+          </div>
+          <p className="text-sm text-neutral-400">
+            {planState.isLifetime
+              ? t.planLifetimeDesc
+              : planState.isPro
+                ? t.planProDesc
+                : t.planFreeDesc}
+          </p>
+          {planState.isPro && !planState.isLifetime && planState.planUntil && (
+            <p className="text-xs text-neutral-500">
+              {t.planUntil(planState.planUntil.toLocaleDateString(lang))}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {planState.isPro ? (
+              !planState.isLifetime && (
+                <a
+                  href="/api/lemon/portal"
+                  className="rounded-md border border-white/15 px-3 py-1.5 text-sm text-neutral-300 hover:bg-white/5 hover:text-white"
+                >
+                  {t.managePlanButton}
+                </a>
+              )
+            ) : (
+              <Link
+                href="/pricing"
+                className="rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-black hover:bg-emerald-400"
+              >
+                {t.upgradeButton}
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       <Section title={t.librarySummaryTitle}>
         <p className="text-sm text-neutral-300">
