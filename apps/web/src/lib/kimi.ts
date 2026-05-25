@@ -14,10 +14,15 @@
 const MOONSHOT_ENDPOINT = "https://api.moonshot.ai/v1/chat/completions";
 
 /**
- * Default Moonshot model. moonshot-v1-8k is the cheapest tier; bump to
- * `-32k` / `-128k` only if prompts grow past ~6K tokens.
+ * Default Moonshot model — kimi-k2-0905-preview is the K2 MoE generation:
+ * input is ¥4/M (cache miss) or ¥1/M (cache hit) vs moonshot-v1-8k's
+ * ¥10/M, output is ¥16/M, and quality is materially better. Earprint's
+ * ~3K-token prompts fit well inside the 128K context window.
+ *
+ * Override via env (KIMI_MODEL) if your account doesn't have K2 access
+ * yet — moonshot-v1-8k is the safe fallback that every account can call.
  */
-const MODEL = process.env.KIMI_MODEL ?? "moonshot-v1-8k";
+const MODEL = process.env.KIMI_MODEL ?? "kimi-k2-0905-preview";
 
 /**
  * Gemini's schema format uses uppercase types ("OBJECT", "STRING", "ARRAY").
