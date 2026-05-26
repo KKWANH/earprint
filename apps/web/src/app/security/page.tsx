@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getLocale } from "@/lib/i18n-server";
 import { securityDict } from "@/lib/i18n/security";
+import { ReportForm } from "./ReportForm";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = securityDict(await getLocale());
@@ -8,8 +9,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Responsible-disclosure policy. Mirrored in /.well-known/security.txt so
- * automated scanners and security researchers can find the contact route.
+ * Responsible-disclosure page. Replaces the previous email-link layout
+ * with an in-page submission form: the maintainer's personal address
+ * no longer needs to be public, and researchers can attach a screenshot
+ * inline.
  */
 export default async function SecurityPage() {
   const locale = await getLocale();
@@ -22,17 +25,9 @@ export default async function SecurityPage() {
         <p className="text-sm leading-relaxed text-neutral-400">{t.intro}</p>
       </header>
 
-      <Section title={t.contactTitle}>
-        <p className="text-sm text-neutral-300">
-          {t.contactLine}{" "}
-          <a
-            href={`mailto:${t.contactEmail}?subject=Earprint%20security%20report`}
-            className="text-emerald-300 underline-offset-2 hover:underline"
-          >
-            {t.contactEmail}
-          </a>
-        </p>
-        <p className="text-xs text-neutral-500">{t.pgpNote}</p>
+      <Section title={t.reportTitle}>
+        <p className="text-sm leading-relaxed text-neutral-400">{t.reportDesc}</p>
+        <ReportForm locale={locale} />
       </Section>
 
       <Section title={t.scopeTitle}>
@@ -54,10 +49,6 @@ export default async function SecurityPage() {
         <p className="text-sm leading-relaxed text-neutral-300">{t.safeHarborBody}</p>
       </Section>
 
-      <Section title={t.rewardTitle}>
-        <p className="text-sm leading-relaxed text-neutral-300">{t.rewardBody}</p>
-      </Section>
-
       <Section title={t.slaTitle}>
         <p className="text-sm leading-relaxed text-neutral-300">{t.slaBody}</p>
       </Section>
@@ -67,7 +58,7 @@ export default async function SecurityPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-5 sm:p-6">
+    <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-5 sm:p-6">
       <h2 className="font-semibold">{title}</h2>
       {children}
     </section>

@@ -21,9 +21,16 @@ import {
  * /api/yt-oauth/*, which persists access + refresh tokens on the users row.
  * This route only runs after that opt-in has happened.
  */
-export async function POST() {
+/**
+ * One chunk per call so Cloudflare Workers' 50-subrequest cap is never hit
+ * on big libraries. The client (ApiSyncButton) loops while `nextAfter` is
+ * non-null. Body: `{ after?: string }` — opaque YouTube pageToken.
+ */
+export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return json({ error: "not signed in" }, 401);
+  const body = (await req.json().catch(() => ({}))) as { after?: string };
+  const pageToken = typeof body.after === "string" ? body.after : undefined;
 
   const { userId } = await ensureConnection();
   const sql = getSql();
@@ -69,7 +76,7 @@ export async function POST() {
 
   let result: Awaited<ReturnType<typeof fetchLikedVideos>>;
   try {
-    result = await fetchLikedVideos(token);
+    result = await fetchLikedVideos(token, { pageToken });
   } catch (e) {
     if (e instanceof YouTubeApiError) {
       if (e.status === 401) {
@@ -87,6 +94,7 @@ export async function POST() {
         ok: true,
         captured: 0,
         expected: result.total,
+        nextAfter: result.nextPageToken,
         note: "empty",
       },
       200,
@@ -104,6 +112,7 @@ export async function POST() {
       ok: true,
       captured: tracks.length,
       expected: result.total,
+      nextAfter: result.nextPageToken,
       ...procRows[0],
     },
     200,

@@ -9,6 +9,7 @@ interface SyncResult {
   ok?: boolean;
   captured?: number;
   expected?: number;
+  nextAfter?: string | null;
   error?: string;
   needsAuth?: boolean;
   note?: string;
@@ -55,28 +56,47 @@ export function ApiSyncButton({ locale }: { locale: Locale }) {
   async function run() {
     setBusy(true);
     setMsg(null);
+    // Server chunks at 5 pages (250 tracks) per call to fit inside the
+    // Cloudflare Workers 50-subrequest cap; we loop until nextAfter is
+    // null. Total captured count accumulates across chunks.
+    let totalCaptured = 0;
+    let expected = 0;
+    let after: string | undefined;
+    const MAX_CHUNKS = 50; // 50 × 250 = 12,500 tracks ceiling, plenty for any real library
     try {
-      const res = await fetch("/api/sync-yt", { method: "POST" });
-      const data = (await res.json()) as SyncResult;
-      if (!res.ok || !data.ok) {
-        // First-time / expired → run them through the OAuth flow.
-        if (data.needsAuth) {
-          window.location.href = "/api/yt-oauth/start";
+      for (let chunk = 0; chunk < MAX_CHUNKS; chunk++) {
+        const res = await fetch("/api/sync-yt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(after ? { after } : {}),
+        });
+        const data = (await res.json()) as SyncResult;
+        if (!res.ok || !data.ok) {
+          if (data.needsAuth) {
+            window.location.href = "/api/yt-oauth/start";
+            return;
+          }
+          setMsg({
+            text: `${t.apiSyncFailed}: ${data.error ?? res.statusText}`,
+            kind: "error",
+          });
           return;
         }
+        totalCaptured += data.captured ?? 0;
+        expected = data.expected ?? expected;
+        // Live progress while looping.
         setMsg({
-          text: `${t.apiSyncFailed}: ${data.error ?? res.statusText}`,
-          kind: "error",
+          text: t.apiSyncSuccess(totalCaptured, expected),
+          kind: "info",
         });
-        return;
+        if (!data.nextAfter) break; // done
+        after = data.nextAfter;
       }
-      const captured = data.captured ?? 0;
-      const expected = data.expected ?? captured;
-      if (data.note === "empty") {
+      if (totalCaptured === 0) {
         setMsg({ text: t.apiSyncEmpty, kind: "info" });
       } else {
         setMsg({
-          text: t.apiSyncSuccess(captured, expected),
+          text: t.apiSyncSuccess(totalCaptured, expected),
           kind: "success",
         });
       }

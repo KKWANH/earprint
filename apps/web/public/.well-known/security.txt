@@ -1,4 +1,4 @@
-Contact: mailto:kwanho0096@gmail.com
+Contact: https://earprint.kwanho.dev/security
 Expires: 2027-12-31T23:59:59.000Z
 Preferred-Languages: en, ko
 Canonical: https://earprint.kwanho.dev/.well-known/security.txt

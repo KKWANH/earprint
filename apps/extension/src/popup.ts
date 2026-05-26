@@ -33,6 +33,11 @@ const WEB_ORIGIN: string =
     ?.VITE_WEB_ORIGIN ?? "https://earprint.kwanho.dev";
 guideLink.href = `${WEB_ORIGIN}/guide`;
 
+const openLmLink = document.getElementById("open-lm") as HTMLAnchorElement | null;
+if (openLmLink) {
+  openLmLink.href = "https://music.youtube.com/playlist?list=LM";
+}
+
 type Step = "connect" | "sync" | "view";
 
 function setStep(active: Step, doneBefore = true) {
@@ -85,11 +90,50 @@ connectBtn.addEventListener("click", () => {
   showMsg(t("msgConnectOpened"));
 });
 
+/** Renders the sync result regardless of where it came from (sendMessage
+ *  response or chrome.storage.local poll). Centralised so both code paths
+ *  show identical UX. */
+function renderSyncResult(res: {
+  ok?: boolean;
+  error?: string;
+  status?: number;
+  total?: number;
+  captured?: number;
+  expected?: number | null;
+  endedClean?: boolean;
+  lastTitle?: string;
+}) {
+  syncBtn.disabled = false;
+  if (res.ok) {
+    const cap = res.captured ?? 0;
+    const exp = res.expected ?? 0;
+    if (!exp || cap >= exp * 0.97) {
+      showMsg(
+        t("msgSyncSuccess", [cap.toLocaleString(), String(res.total ?? "?")]),
+        "success",
+      );
+    } else if (res.endedClean) {
+      showMsg(
+        t("msgSyncPartial", [String(cap), String(exp), res.lastTitle ?? "?"]),
+        "info",
+      );
+    } else {
+      showMsg(
+        t("msgSyncStopped", [String(cap), String(exp)]),
+        "error",
+      );
+    }
+    setStep("view");
+  } else {
+    showMsg(
+      t("msgSyncFailed", [res.error ?? `HTTP ${res.status ?? "?"}`]),
+      "error",
+    );
+  }
+}
+
 syncBtn.addEventListener("click", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  // Sync needs the popup to talk to a music.youtube.com tab. If the user
-  // clicked sync from any other tab, send them to Liked Music — the content
-  // script will be ready when they reopen the popup.
   if (!tab?.id || !tab.url?.includes("music.youtube.com")) {
     await chrome.tabs.create({
       url: "https://music.youtube.com/playlist?list=LM",
@@ -100,74 +144,69 @@ syncBtn.addEventListener("click", async () => {
   const tabId = tab.id;
   syncBtn.disabled = true;
   showMsg(t("msgSyncing"));
-  let finished = false;
 
-  // Poll the content script for a live collected-count while it scrolls.
-  const poll = setInterval(() => {
-    void chrome.tabs
-      .sendMessage(tabId, { type: "PA_PROGRESS" })
-      .then((p: { count?: number } | undefined) => {
-        if (!finished && p) {
-          showMsg(
-            t("msgCollecting", [(p.count ?? 0).toLocaleString()]),
-          );
-        }
-      })
-      .catch(() => {});
-  }, 1000);
+  // Clear any stale status from a prior run so we don't immediately resolve
+  // on whatever was last in storage.
+  await chrome.storage.local.remove("paSyncStatus");
 
-  try {
-    const res = (await chrome.tabs.sendMessage(tabId, { type: "PA_SYNC" })) as
+  // Trigger the sync. We DO NOT await sendMessage — it can reject mid-run
+  // if YouTube Music's SPA navigates and unloads the content script, but
+  // the actual work + final result lives in chrome.storage.local now.
+  void chrome.tabs.sendMessage(tabId, { type: "PA_SYNC" }).catch(() => {
+    /* channel may close — storage poll below is the source of truth */
+  });
+
+  // Watch chrome.storage.local for completion. We use both onChanged (fast
+  // path) and a polling interval (fallback in case onChanged misses an
+  // update across tab restarts).
+  let done = false;
+  const finish = (res: Record<string, unknown>) => {
+    if (done) return;
+    done = true;
+    chrome.storage.onChanged.removeListener(onChange);
+    clearInterval(poll);
+    renderSyncResult(res as Parameters<typeof renderSyncResult>[0]);
+  };
+
+  function onChange(changes: { [k: string]: chrome.storage.StorageChange }) {
+    const s = changes.paSyncStatus?.newValue as
       | {
-          ok: boolean;
-          error?: string;
-          status?: number;
-          new_tracks?: number;
-          new_likes?: number;
-          total?: number;
+          state?: string;
           captured?: number;
-          expected?: number | null;
-          domPeak?: number;
-          spinnerSeen?: boolean;
-          endedClean?: boolean;
-          lastTitle?: string;
+          result?: Record<string, unknown>;
+          error?: string;
         }
       | undefined;
-    finished = true;
-    clearInterval(poll);
-    syncBtn.disabled = false;
-    if (res?.ok) {
-      const cap = res.captured ?? 0;
-      const exp = res.expected ?? 0;
-      if (!exp || cap >= exp * 0.97) {
-        showMsg(
-          t("msgSyncSuccess", [cap.toLocaleString(), String(res.total ?? "?")]),
-          "success",
-        );
-      } else if (res.endedClean) {
-        showMsg(
-          t("msgSyncPartial", [String(cap), String(exp), res.lastTitle ?? "?"]),
-          "info",
-        );
-      } else {
-        showMsg(
-          t("msgSyncStopped", [String(cap), String(exp)]),
-          "error",
-        );
-      }
-      setStep("view");
-    } else {
-      showMsg(
-        t("msgSyncFailed", [res?.error ?? `HTTP ${res?.status ?? "?"}`]),
-        "error",
-      );
+    if (!s) return;
+    if (s.state === "running") {
+      showMsg(t("msgCollecting", [(s.captured ?? 0).toLocaleString()]));
+    } else if (s.state === "uploading") {
+      showMsg(t("msgSyncing"));
+    } else if (s.state === "done") {
+      finish(s.result ?? {});
+    } else if (s.state === "failed") {
+      finish({ ok: false, error: s.error });
     }
-  } catch (err) {
-    finished = true;
-    clearInterval(poll);
-    syncBtn.disabled = false;
-    showMsg(t("msgError", [String(err)]), "error");
   }
+  chrome.storage.onChanged.addListener(onChange);
+
+  // Fallback poll every 2s in case onChanged fires before our listener is
+  // attached, or in case the popup re-opens mid-sync.
+  const poll = setInterval(async () => {
+    const { paSyncStatus } = await chrome.storage.local.get("paSyncStatus");
+    onChange({ paSyncStatus: { newValue: paSyncStatus, oldValue: undefined } });
+  }, 2000);
+
+  // Hard ceiling — abandon UI updates after ~10 min if nothing ever finishes.
+  setTimeout(() => {
+    if (!done) {
+      done = true;
+      chrome.storage.onChanged.removeListener(onChange);
+      clearInterval(poll);
+      syncBtn.disabled = false;
+      showMsg(t("msgError", ["sync timed out"]), "error");
+    }
+  }, 600000);
 });
 
 viewBtn.addEventListener("click", () => {

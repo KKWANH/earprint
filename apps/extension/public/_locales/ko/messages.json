@@ -35,6 +35,15 @@
   "step2Button": {
     "message": "좋아요 곡 동기화"
   },
+  "step2OpenLm": {
+    "message": "Open Liked Music ↗"
+  },
+  "step2TipDontTouch": {
+    "message": "While syncing: don't scroll the page, switch tabs, or close the window. Earprint controls the scroll for you."
+  },
+  "step2TipCountMayDiffer": {
+    "message": "The collected count can be lower than what YouTube Music shows — YT silently stops serving rows past a point on very large libraries. The number you see in your library is the truth."
+  },
   "step3Label": {
     "message": "분석 보기"
   },

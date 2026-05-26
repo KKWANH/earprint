@@ -112,6 +112,22 @@
         border-color: rgba(255, 255, 255, 0.1);
         color: #e5e5e5;
       }
+      .lm-link {
+        display: inline-block;
+        margin-top: 4px;
+        font-size: 11px;
+        color: #6ee7b7;
+        text-decoration: none;
+      }
+      .lm-link:hover { color: #a7f3d0; text-decoration: underline; }
+      .tips {
+        margin: 6px 0 0;
+        padding-left: 16px;
+        font-size: 10.5px;
+        color: #707070;
+        line-height: 1.45;
+      }
+      .tips li { margin: 2px 0; }
       #msg {
         margin: 10px 0 0;
         padding: 8px 10px;
@@ -176,6 +192,11 @@
         <div class="label" data-i18n="step2Label"></div>
         <div class="hint" id="sync-hint" data-i18n="step2HintDefault"></div>
         <button id="sync" class="btn-primary" disabled data-i18n="step2Button"></button>
+        <a id="open-lm" class="lm-link" target="_blank" rel="noopener noreferrer" data-i18n="step2OpenLm"></a>
+        <ul class="tips">
+          <li data-i18n="step2TipDontTouch"></li>
+          <li data-i18n="step2TipCountMayDiffer"></li>
+        </ul>
       </div>
     </div>
 
@@ -192,7 +213,7 @@
 
     <div class="footer">
       <a id="guide-link" href="#" target="_blank" data-i18n="footerGuide"></a>
-      <span>v<span id="version">0.9.3</span></span>
+      <span>v<span id="version">0.9.4</span></span>
     </div>
 
     <script type="module" src="./popup.ts"></script>

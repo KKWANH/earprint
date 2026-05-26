@@ -14,10 +14,28 @@ const FROM = "Earprint <noreply@earprint.kwanho.dev>";
 const REPLY_TO = "kwanho0096@gmail.com";
 const APP_URL = "https://earprint.kwanho.dev";
 
+interface Attachment {
+  /** Display filename. */
+  filename: string;
+  /** Base64-encoded file content (Resend's expected format). */
+  content: string;
+  /** Optional MIME type — Resend infers from extension when omitted. */
+  contentType?: string;
+}
+
 interface SendArgs {
-  to: string;
+  /** Recipient. Defaults to the maintainer inbox when omitted, useful for
+   *  inbound forms (security reports, contact) that always land on the
+   *  owner. */
+  to?: string;
   subject: string;
-  html: string;
+  /** One of html / text is required. */
+  html?: string;
+  text?: string;
+  /** Override the default reply-to for this one send. */
+  replyTo?: string;
+  /** Resend-format attachments. Each base64 content cap ~10 MB total. */
+  attachments?: Attachment[];
 }
 
 /**
@@ -29,9 +47,19 @@ interface SendArgs {
 export type SendResult = "sent" | "skipped" | "failed";
 
 /** Sends one email. Never throws. */
-export async function sendEmail({ to, subject, html }: SendArgs): Promise<SendResult> {
+export async function sendEmail(args: SendArgs): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return "skipped";
+
+  const body: Record<string, unknown> = {
+    from: FROM,
+    to: args.to ?? REPLY_TO,
+    subject: args.subject,
+    reply_to: args.replyTo ?? REPLY_TO,
+  };
+  if (args.html) body.html = args.html;
+  if (args.text) body.text = args.text;
+  if (args.attachments?.length) body.attachments = args.attachments;
 
   try {
     const res = await fetch(RESEND_ENDPOINT, {
@@ -40,7 +68,7 @@ export async function sendEmail({ to, subject, html }: SendArgs): Promise<SendRe
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
       },
-      body: JSON.stringify({ from: FROM, to, subject, html, reply_to: REPLY_TO }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
     return res.ok ? "sent" : "failed";

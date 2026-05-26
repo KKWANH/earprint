@@ -27,14 +27,22 @@ interface YtListResponse {
   pageInfo?: { totalResults?: number };
 }
 
-/** Pulls the entire LL playlist (Liked Videos), paginated. */
+/**
+ * Pulls one chunk of the LL playlist (Liked Videos), resumable via pageToken.
+ *
+ * Cloudflare Workers cap each invocation at 50 subrequests (free) / 1,000
+ * (paid). 50 × 50 = 2,500 likes per call would already be tight, so we
+ * default to 5 pages (250 tracks) per chunk — leaves headroom for the DB
+ * roundtrip and keeps the worker well inside its budget. The caller passes
+ * the returned `nextPageToken` back in to fetch the next chunk.
+ */
 export async function fetchLikedVideos(
   accessToken: string,
-  opts: { maxPages?: number } = {},
-): Promise<{ items: YtPlaylistItem[]; total: number }> {
-  const maxPages = opts.maxPages ?? 250; // 250 × 50 = 12,500 — enough for most libraries
+  opts: { maxPages?: number; pageToken?: string } = {},
+): Promise<{ items: YtPlaylistItem[]; total: number; nextPageToken: string | null }> {
+  const maxPages = opts.maxPages ?? 5;
   const items: YtPlaylistItem[] = [];
-  let pageToken: string | undefined;
+  let pageToken: string | undefined = opts.pageToken;
   let total = 0;
 
   for (let page = 0; page < maxPages; page++) {
@@ -58,7 +66,7 @@ export async function fetchLikedVideos(
     if (!pageToken) break;
   }
 
-  return { items, total };
+  return { items, total, nextPageToken: pageToken ?? null };
 }
 
 /** Typed error so callers can react to 401 (expired token) vs everything else. */

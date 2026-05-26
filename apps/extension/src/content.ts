@@ -55,22 +55,47 @@ window.addEventListener("message", (e: MessageEvent) => {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const type = (message as { type?: string })?.type;
   if (type === "PA_SYNC") {
+    // Fire-and-forget. The real result lives in chrome.storage.local under
+    // `paSyncStatus` — the popup watches that key instead of awaiting our
+    // sendResponse, which would die the moment YouTube Music's SPA
+    // navigates or the popup closes. We still return the final result
+    // through sendResponse for backwards-compat when the channel happens
+    // to survive.
     runSync()
-      .then(sendResponse)
-      .catch((err: unknown) => sendResponse({ ok: false, error: String(err) }));
-    return true; // async response
+      .then((r) => sendResponse(r))
+      .catch((err: unknown) =>
+        sendResponse({ ok: false, error: String(err) }),
+      );
+    return true;
   }
   if (type === "PA_PROGRESS") {
-    // Live count for the popup while a sync is running.
     sendResponse({ count: tracks.size });
     return false;
   }
   return false;
 });
 
+/** Single source of truth for sync state. Popup polls / watches this key
+ *  rather than awaiting a long-lived sendMessage that the SPA can kill. */
+type SyncStatus =
+  | { state: "running"; startedAt: number; captured: number; expected: number | null }
+  | { state: "uploading"; captured: number; expected: number | null }
+  | { state: "done"; result: Record<string, unknown> }
+  | { state: "failed"; error: string };
+
+async function writeStatus(s: SyncStatus): Promise<void> {
+  try {
+    await chrome.storage.local.set({ paSyncStatus: s });
+  } catch {
+    /* storage hiccup is non-fatal */
+  }
+}
+
 async function runSync(): Promise<unknown> {
   if (!location.href.includes("list=LM")) {
-    return { ok: false, error: "Run this on the Liked Music (LM) playlist page" };
+    const r = { ok: false, error: "Run this on the Liked Music (LM) playlist page" };
+    await writeStatus({ state: "failed", error: r.error });
+    return r;
   }
   tracks.clear();
   lastProgress = 0;
@@ -78,42 +103,71 @@ async function runSync(): Promise<unknown> {
   diag.spinnerSeen = false;
   diag.endedClean = false;
   diag.lastTitle = "";
-
-  // inject.ts scrolls the real UI and reads every rendered row.
-  await new Promise<void>((resolve) => {
-    onScrapeDone = resolve;
-    window.postMessage({ __pa: true, kind: "scrape" }, "*");
-    // Generous ceiling — a large list with stalls can take several minutes.
-    setTimeout(() => {
-      if (onScrapeDone) {
-        onScrapeDone = null;
-        resolve();
-      }
-    }, 420000);
+  await writeStatus({
+    state: "running",
+    startedAt: Date.now(),
+    captured: 0,
+    expected: expectedCount(),
   });
 
-  // Let any in-flight intercepted responses settle.
-  await sleep(600);
+  // Periodic status refresh — popup can re-open mid-sync and pick up
+  // current progress without needing a live message channel.
+  const statusTimer = setInterval(() => {
+    void writeStatus({
+      state: "running",
+      startedAt: Date.now(),
+      captured: tracks.size,
+      expected: expectedCount(),
+    });
+  }, 1500);
 
-  const list = [...tracks.values()];
-  if (list.length === 0) {
-    return { ok: false, error: "No songs collected — refresh the page and try again" };
+  try {
+    await new Promise<void>((resolve) => {
+      onScrapeDone = resolve;
+      window.postMessage({ __pa: true, kind: "scrape" }, "*");
+      // Generous ceiling — a large list with stalls can take several minutes.
+      setTimeout(() => {
+        if (onScrapeDone) {
+          onScrapeDone = null;
+          resolve();
+        }
+      }, 420000);
+    });
+
+    // Let any in-flight intercepted responses settle.
+    await sleep(600);
+
+    const list = [...tracks.values()];
+    if (list.length === 0) {
+      const r = { ok: false, error: "No songs collected — refresh the page and try again" };
+      await writeStatus({ state: "failed", error: r.error });
+      return r;
+    }
+
+    await writeStatus({
+      state: "uploading",
+      captured: list.length,
+      expected: expectedCount(),
+    });
+    const expected = expectedCount();
+    const result = (await chrome.runtime.sendMessage({
+      type: "PA_UPLOAD",
+      tracks: list,
+    })) as Record<string, unknown> | undefined;
+    const full: Record<string, unknown> = {
+      ...(result ?? {}),
+      captured: list.length,
+      expected,
+      domPeak: diag.domPeak,
+      spinnerSeen: diag.spinnerSeen,
+      endedClean: diag.endedClean,
+      lastTitle: diag.lastTitle,
+    };
+    await writeStatus({ state: "done", result: full });
+    return full;
+  } finally {
+    clearInterval(statusTimer);
   }
-
-  const expected = expectedCount();
-  const result = (await chrome.runtime.sendMessage({
-    type: "PA_UPLOAD",
-    tracks: list,
-  })) as Record<string, unknown> | undefined;
-  return {
-    ...(result ?? {}),
-    captured: list.length,
-    expected,
-    domPeak: diag.domPeak,
-    spinnerSeen: diag.spinnerSeen,
-    endedClean: diag.endedClean,
-    lastTitle: diag.lastTitle,
-  };
 }
 
 /** Reads the liked-songs total from the playlist header ("2,353곡 • …"). */
