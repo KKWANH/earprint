@@ -214,6 +214,18 @@ async function uploadDirect(
     return { ok: false, error: `Network error: ${String(err)}` };
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  // 401 specifically means the stored sync_token isn't in the users table
+  // any more — typically because the user deleted/recreated their account
+  // or rotated the token from /account. Hand back a message the popup can
+  // turn into a direct call-to-action.
+  if (res.status === 401) {
+    return {
+      ok: false,
+      status: 401,
+      error:
+        "Sync token rejected (401). Click Connect in the popup to re-pair the extension.",
+    };
+  }
   return { ok: res.ok, status: res.status, ...data };
 }
 
