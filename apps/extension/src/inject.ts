@@ -165,53 +165,99 @@
           "tp-yt-paper-spinner[active], tp-yt-paper-spinner-lite[active]",
         ) != null;
 
-      // Start from the very top so nothing above the initial view is missed.
+      // ── Scroll loop, redesigned to terminate on time-based criteria ──
+      //
+      // The previous iteration-based stall counter (30 iterations of no
+      // growth) could stay stuck forever when YT served fresh-but-dup
+      // rows: seen.size never grew enough to flip the stall flag, and
+      // the loop just kept scrolling. The new termination is purely
+      // wall-clock based and inspects the actual scroll position + the
+      // loading sentinel, which gives a deterministic upper bound.
+      //
+      //   STALL_MS               12s — no new items at all = stalled.
+      //   STALL_BAILOUT_MS       45s — even if still 'loading', give up.
+      //   MAX_TOTAL_MS           5 min — hard ceiling for the whole scroll.
+      //   ATBOTTOM_FUZZ          50px — counts as 'at the bottom of the list'.
+      //
+      // Done when: at the very bottom of the scroller AND no spinner /
+      // continuation sentinel AND no new items for STALL_MS.
+      // Bailout when: total time exceeds MAX_TOTAL_MS, or stalled for
+      // STALL_BAILOUT_MS regardless of scroll position.
+      const STALL_MS = 12_000;
+      const STALL_BAILOUT_MS = 45_000;
+      const MAX_TOTAL_MS = 300_000;
+      const ATBOTTOM_FUZZ = 50;
+
       findScroller().scrollTop = 0;
       window.scrollTo(0, 0);
       await sleep(900);
       scrapeNow();
 
-      // Smooth crawl downward — small, overlapping steps so the virtualised
-      // list always renders the rows between two reads. No jarring jumps.
-      let stall = 0;
+      const startedAt = Date.now();
+      let lastGrowAt = Date.now();
       let lastSize = 0;
-      for (let i = 0; i < 12000 && stall < 30; i++) {
+      let spinnerSeen = false;
+
+      while (Date.now() - startedAt < MAX_TOTAL_MS) {
         scrapeNow();
         const scroller = findScroller();
         const stepPx = Math.max(360, scroller.clientHeight * 0.7);
         scroller.scrollTop += stepPx;
         window.scrollBy(0, stepPx);
-        if (stall > 0) lastRow()?.scrollIntoView({ block: "end" }); // nudge when stuck
 
-        await sleep(stall > 0 ? 600 : 240);
+        // After each scroll, give the virtualised list time to render —
+        // longer when a loading spinner is visible (YT is fetching) so we
+        // don't accidentally count its working time against the stall.
+        const loadingDuringStep = moreToLoad();
+        if (loadingDuringStep) spinnerSeen = true;
+        await sleep(loadingDuringStep ? 700 : 280);
         scrapeNow();
 
         if (seen.size > lastSize) {
-          stall = 0;
           lastSize = seen.size;
-        } else {
-          stall++;
+          lastGrowAt = Date.now();
         }
         post({ kind: "scrapeProgress", count: seen.size });
+
+        const stalledMs = Date.now() - lastGrowAt;
+        const scroller2 = findScroller();
+        const atBottom =
+          scroller2.scrollTop + scroller2.clientHeight >=
+          scroller2.scrollHeight - ATBOTTOM_FUZZ;
+        const loading = moreToLoad();
+
+        // Nudge the last row into view when we've stalled — sometimes
+        // unsticks YT's virtualisation.
+        if (stalledMs > STALL_MS / 2) {
+          lastRow()?.scrollIntoView({ block: "end" });
+        }
+
+        // Done: bottom reached, no loading indicator, no new items for STALL_MS.
+        if (atBottom && !loading && stalledMs > STALL_MS) break;
+        // Bailout: stalled too long even though we're still 'loading' —
+        // YT throttled us or quietly stopped serving rows. Trust what
+        // we have and move on.
+        if (stalledMs > STALL_BAILOUT_MS) break;
       }
 
       post({ kind: "scrapePhase", phase: "settling" });
 
-      // ── Settle: confirm the true end, patiently waiting out slow pages ──
-      let spinnerSeen = false;
-      for (let s = 0; s < 22; s++) {
+      // ── Settle pass — short and time-capped this time. Just gives YT one
+      // last chance to render anything that was about to come in. ──
+      const SETTLE_MAX_MS = 20_000;
+      const settleStart = Date.now();
+      while (Date.now() - settleStart < SETTLE_MAX_MS) {
         const scroller = findScroller();
         scroller.scrollTop = scroller.scrollHeight;
         window.scrollTo(0, document.documentElement.scrollHeight);
         lastRow()?.scrollIntoView({ block: "end" });
         const loading = moreToLoad();
         if (loading) spinnerSeen = true;
-        await sleep(loading ? 3000 : 1400);
+        await sleep(loading ? 2000 : 1000);
         const before = seen.size;
         scrapeNow();
         post({ kind: "scrapeProgress", count: seen.size });
-        if (seen.size > before) s = -1; // progress — keep settling
-        else if (!moreToLoad()) break; // no sentinel, no progress → done
+        if (seen.size === before && !moreToLoad()) break;
       }
 
       scrapeNow();
