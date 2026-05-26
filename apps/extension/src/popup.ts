@@ -86,6 +86,10 @@ async function refresh() {
 }
 
 connectBtn.addEventListener("click", () => {
+  // Wipe the stored token before opening /connect so the next pairing is
+  // always a clean read — avoids stale-token confusion when the user
+  // re-creates their account or rotates the token from /account.
+  void chrome.storage.sync.remove("syncToken");
   void chrome.tabs.create({ url: `${WEB_ORIGIN}/connect` });
   showMsg(t("msgConnectOpened"));
 });
@@ -124,12 +128,28 @@ function renderSyncResult(res: {
       );
     }
     setStep("view");
-  } else {
-    showMsg(
-      t("msgSyncFailed", [res.error ?? `HTTP ${res.status ?? "?"}`]),
-      "error",
-    );
+    return;
   }
+
+  // 401: backend rejected the stored sync_token. Wipe it locally so the
+  // popup drops back to step 1 (Connect) — without this the user is
+  // stuck on the Sync button with no obvious way to re-pair.
+  const looks401 =
+    res.status === 401 || (res.error && /401/.test(res.error));
+  if (looks401) {
+    void chrome.storage.sync.remove("syncToken").then(() => {
+      setStep("connect", false);
+      syncBtn.disabled = true;
+      syncHint.textContent = t("step2HintNotConnected");
+    });
+    showMsg(t("msgSyncFailed", [res.error ?? "401"]), "error");
+    return;
+  }
+
+  showMsg(
+    t("msgSyncFailed", [res.error ?? `HTTP ${res.status ?? "?"}`]),
+    "error",
+  );
 }
 
 syncBtn.addEventListener("click", async () => {
