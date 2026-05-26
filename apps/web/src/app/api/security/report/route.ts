@@ -20,7 +20,28 @@ const MAX_EMAIL = 200;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB raw, ~2.7 MB base64
 const MAX_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
+type Category = "security" | "billing" | "account" | "bug" | "general";
+const CATEGORIES = new Set<Category>([
+  "security",
+  "billing",
+  "account",
+  "bug",
+  "general",
+]);
+
+/** Subject prefix per category — the maintainer's inbox uses these for
+ *  filter rules. Refund/billing has a separate prefix so it surfaces
+ *  faster than a general inquiry. */
+const SUBJECT_PREFIX: Record<Category, string> = {
+  security: "[Security]",
+  billing: "[Billing]",
+  account: "[Account]",
+  bug: "[Bug]",
+  general: "[Inquiry]",
+};
+
 interface ReportBody {
+  category?: string;
   title?: string;
   body?: string;
   email?: string;
@@ -37,11 +58,21 @@ export async function POST(req: NextRequest) {
     return json({ error: "invalid json" }, 400);
   }
 
+  const rawCategory = String(payload.category ?? "general");
+  const category: Category = CATEGORIES.has(rawCategory as Category)
+    ? (rawCategory as Category)
+    : "general";
   const title = String(payload.title ?? "").trim().slice(0, MAX_TITLE);
   const body = String(payload.body ?? "").trim().slice(0, MAX_BODY);
   const replyEmail = String(payload.email ?? "").trim().slice(0, MAX_EMAIL);
   if (!title || !body) {
     return json({ error: "title and body required" }, 400);
+  }
+
+  // Billing / account messages can't be actioned without an address — bail
+  // early so the user gets a clear error rather than us silently dropping it.
+  if ((category === "billing" || category === "account") && !replyEmail) {
+    return json({ error: "email required for this category" }, 400);
   }
 
   // Cheap email validity check — not strict, just rules out obvious typos.
@@ -75,7 +106,8 @@ export async function POST(req: NextRequest) {
 
   // Plain-text email body so it renders fine in any mail client.
   const text =
-    `Earprint security report\n\n` +
+    `Earprint inbound message\n\n` +
+    `Category: ${category}\n` +
     `Title: ${title}\n` +
     `Reply-to: ${replyEmail || "(not provided)"}\n` +
     `Signed-in as: ${signedInEmail || "(anonymous)"}\n` +
@@ -85,7 +117,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await sendEmail({
-      subject: `[Security] ${title}`,
+      subject: `${SUBJECT_PREFIX[category]} ${title}`,
       text,
       replyTo: replyEmail || undefined,
       attachments: attachment ? [attachment] : undefined,

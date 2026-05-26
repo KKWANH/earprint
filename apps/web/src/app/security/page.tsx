@@ -9,10 +9,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Responsible-disclosure page. Replaces the previous email-link layout
- * with an in-page submission form: the maintainer's personal address
- * no longer needs to be public, and researchers can attach a screenshot
- * inline.
+ * Unified contact + report page. The form on top handles every inbound
+ * channel — refunds, account help, bug reports, security disclosures,
+ * general feedback — and routes them all to the maintainer inbox with
+ * a category-prefixed subject. The security-researcher sections below
+ * are kept as reference for that specific category.
  */
 export default async function SecurityPage() {
   const locale = await getLocale();
@@ -29,6 +30,13 @@ export default async function SecurityPage() {
         <p className="text-sm leading-relaxed text-neutral-400">{t.reportDesc}</p>
         <ReportForm locale={locale} />
       </Section>
+
+      <div className="flex flex-col gap-3 border-t border-white/5 pt-6">
+        <h2 className="text-lg font-bold">{t.securityRefHeading}</h2>
+        <p className="text-sm leading-relaxed text-neutral-400">
+          {t.securityRefBody}
+        </p>
+      </div>
 
       <Section title={t.scopeTitle}>
         <p className="text-sm text-neutral-200">{t.scopeInLabel}</p>
@@ -47,6 +55,12 @@ export default async function SecurityPage() {
 
       <Section title={t.safeHarborTitle}>
         <p className="text-sm leading-relaxed text-neutral-300">{t.safeHarborBody}</p>
+        <ul className="ml-4 list-disc text-sm leading-relaxed text-neutral-300">
+          {t.safeHarborRules.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+        <p className="text-sm leading-relaxed text-neutral-500">{t.safeHarborTail}</p>
       </Section>
 
       <Section title={t.slaTitle}>

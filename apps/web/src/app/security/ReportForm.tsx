@@ -2,16 +2,29 @@
 
 import { useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
-import { securityDict } from "@/lib/i18n/security";
+import { securityDict, type ReportCategory } from "@/lib/i18n/security";
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
-/** Vulnerability report form — POST /api/security/report. Optional image
- *  is sent as base64 in the JSON body (file upload via multipart would
- *  need another worker route; for ≤2MB screenshots base64 inline is
- *  simpler and works inside one request). */
+/** Categories that *need* an email to be useful (we can't action a refund
+ *  without one). Security stays anonymous-friendly because researchers
+ *  sometimes want it that way. */
+const EMAIL_REQUIRED: Set<ReportCategory> = new Set([
+  "billing",
+  "account",
+]);
+
+const CATEGORY_ORDER: ReportCategory[] = [
+  "general",
+  "billing",
+  "account",
+  "bug",
+  "security",
+];
+
 export function ReportForm({ locale }: { locale: Locale }) {
   const t = securityDict(locale);
+  const [category, setCategory] = useState<ReportCategory>("general");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [email, setEmail] = useState("");
@@ -27,6 +40,8 @@ export function ReportForm({ locale }: { locale: Locale }) {
     kind: "success" | "error";
   } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const emailRequired = EMAIL_REQUIRED.has(category);
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -64,6 +79,7 @@ export function ReportForm({ locale }: { locale: Locale }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          category,
           title,
           body,
           email: email || undefined,
@@ -84,6 +100,7 @@ export function ReportForm({ locale }: { locale: Locale }) {
         setBody("");
         setEmail("");
         removeImage();
+        setCategory("general");
       }
     } catch (err) {
       setMsg({ text: `${t.errorPrefix} ${String(err)}`, kind: "error" });
@@ -94,6 +111,23 @@ export function ReportForm({ locale }: { locale: Locale }) {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs uppercase tracking-wider text-neutral-500">
+          {t.fieldCategory} <span className="text-rose-400">*</span>
+        </span>
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value as ReportCategory)}
+          className="cursor-pointer rounded-md border border-white/10 bg-neutral-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/60"
+        >
+          {CATEGORY_ORDER.map((c) => (
+            <option key={c} value={c}>
+              {t.categories[c]}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <label className="flex flex-col gap-1.5">
         <span className="text-xs uppercase tracking-wider text-neutral-500">
           {t.fieldTitle} <span className="text-rose-400">*</span>
@@ -125,16 +159,21 @@ export function ReportForm({ locale }: { locale: Locale }) {
 
       <label className="flex flex-col gap-1.5">
         <span className="text-xs uppercase tracking-wider text-neutral-500">
-          {t.fieldEmail}
+          {t.fieldEmail}{" "}
+          {emailRequired && <span className="text-rose-400">*</span>}
         </span>
         <input
           type="email"
+          required={emailRequired}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder={t.fieldEmailPlaceholder}
           maxLength={200}
           className="rounded-md border border-white/10 bg-neutral-900 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/60"
         />
+        <span className="text-[11px] text-neutral-600">
+          {emailRequired ? t.emailHintRequired : t.emailHintOptional}
+        </span>
       </label>
 
       <div className="flex flex-col gap-2">
@@ -177,7 +216,9 @@ export function ReportForm({ locale }: { locale: Locale }) {
       <div className="flex flex-col gap-2">
         <button
           type="submit"
-          disabled={pending || !title || !body}
+          disabled={
+            pending || !title || !body || (emailRequired && !email)
+          }
           className="self-start rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? t.submitting : t.submit}

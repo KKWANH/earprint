@@ -56,7 +56,7 @@ const en = {
     tagline: "A personal music-taste tool",
     guide: "Guide",
     pricing: "Pricing",
-    security: "Security",
+    security: "Contact",
   },
   errors: {
     title: "Something went wrong",
@@ -121,7 +121,7 @@ const ko: Dict = {
     tagline: "개인용 음악 취향 분석 도구",
     guide: "가이드",
     pricing: "요금제",
-    security: "보안",
+    security: "문의",
   },
   errors: {
     title: "문제가 발생했습니다",
