@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const userId = payload.meta.custom_data?.user_id;
   const attrs = payload.data.attributes;
   const customerId = attrs.customer_id ? String(attrs.customer_id) : null;
-  const lifetimeVariantId = process.env.LEMON_VARIANT_LIFETIME;
+  const analysisVariantId = process.env.LEMON_VARIANT_ANALYSIS;
 
   // Try the custom_data user_id first; fall back to looking up by stored
   // customer_id (set on first order). The fallback covers later events
@@ -59,22 +59,23 @@ export async function POST(req: NextRequest) {
   const variantId = String(
     attrs.variant_id ?? attrs.first_order_item?.variant_id ?? "",
   );
-  const isLifetimePurchase =
-    !!lifetimeVariantId && variantId === lifetimeVariantId;
+  const isAnalysisPurchase =
+    !!analysisVariantId && variantId === analysisVariantId;
   const subscriptionId = payload.data.type === "subscriptions"
     ? payload.data.id
     : null;
 
   switch (event) {
     case "order_created": {
-      // One-shot purchase (lifetime) OR initial subscription order. For
-      // lifetime we set is_lifetime=true; the subscription path also fires
-      // subscription_created which sets plan_until.
-      if (isLifetimePurchase) {
+      // One-shot purchase. Two SKUs flow through here:
+      //   • Single Analysis ($2)   → credits += 1
+      //   • Pro subscription initial order → subscription_created handles
+      //                                       plan + plan_until separately,
+      //                                       we only stash ls_customer_id here.
+      if (isAnalysisPurchase) {
         await sql`
           UPDATE users
-             SET plan           = 'pro',
-                 is_lifetime    = true,
+             SET credits        = credits + 1,
                  ls_customer_id = COALESCE(${customerId}, ls_customer_id),
                  updated_at     = now()
            WHERE id = ${resolvedUserId}`;

@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
 
   const variantParam = new URL(req.url).searchParams.get("variant") ?? "monthly";
   const variantId =
-    variantParam === "lifetime"
-      ? process.env.LEMON_VARIANT_LIFETIME
+    variantParam === "analysis"
+      ? process.env.LEMON_VARIANT_ANALYSIS
       : process.env.LEMON_VARIANT_MONTHLY;
   if (!variantId) {
     return NextResponse.json(

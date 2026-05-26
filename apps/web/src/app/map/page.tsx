@@ -4,6 +4,7 @@ import { requireOnboarded } from "@/lib/onboarding";
 import { getArtistMap, getGhostArtists } from "@/lib/artistMap";
 import { getLocale } from "@/lib/i18n-server";
 import { mapDict } from "@/lib/i18n/map";
+import { LikesDisclaimer } from "@/components/LikesDisclaimer";
 import { ArtistMap } from "./ArtistMap";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,13 +40,16 @@ export default async function MapPage() {
 
   return (
     <main className="flex flex-1 flex-col">
-      <header className="border-b border-white/10 px-4 py-3 sm:px-6">
-        <h1 className="text-lg font-bold">{t.pageTitle}</h1>
-        <p className="text-xs text-neutral-500">
-          {t.likedArtists(data.artists.length)}
-          {ghosts.length > 0 && t.ghostSuffix(ghosts.length)}
-          {t.subtitleTail}
-        </p>
+      <header className="flex flex-col gap-2 border-b border-white/10 px-4 py-3 sm:px-6">
+        <div>
+          <h1 className="text-lg font-bold">{t.pageTitle}</h1>
+          <p className="text-xs text-neutral-500">
+            {t.likedArtists(data.artists.length)}
+            {ghosts.length > 0 && t.ghostSuffix(ghosts.length)}
+            {t.subtitleTail}
+          </p>
+        </div>
+        <LikesDisclaimer locale={locale} />
       </header>
 
       {data.artists.length === 0 ? (

@@ -37,7 +37,7 @@ export default async function PricingPage() {
         )}
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-3">
         {/* Free */}
         <div className="flex flex-col gap-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-5 sm:p-7">
           <div>
@@ -57,23 +57,48 @@ export default async function PricingPage() {
           </ul>
           <button
             disabled
-            className="mt-2 rounded-md border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-neutral-500"
+            className="mt-auto rounded-md border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-neutral-500"
           >
             {t.free.cta}
           </button>
         </div>
 
-        {/* Pro */}
+        {/* Single Analysis — one-shot credit */}
+        <div className="flex flex-col gap-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-5 sm:p-7">
+          <div>
+            <h2 className="text-xl font-bold">{t.analysis.name}</h2>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-extrabold">{t.analysis.price}</span>
+              <span className="text-sm text-neutral-500">/ {t.analysis.period}</span>
+            </div>
+          </div>
+          <p className="text-sm leading-relaxed text-neutral-400">{t.analysis.desc}</p>
+          {PAYMENTS_ENABLED ? (
+            <UpgradeButton
+              href="/api/lemon/checkout?variant=analysis"
+              signedIn={signedIn}
+            >
+              {t.analysis.cta}
+            </UpgradeButton>
+          ) : (
+            <button
+              disabled
+              className="mt-auto rounded-md border border-emerald-500/30 px-4 py-2 text-sm font-medium text-emerald-200/60"
+            >
+              {t.analysis.cta}
+            </button>
+          )}
+        </div>
+
+        {/* Pro — recurring subscription */}
         <div className="relative flex flex-col gap-4 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-5 sm:p-7">
           <span className="absolute -top-2.5 left-7 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[11px] font-bold text-black">
             {t.pro.badge}
           </span>
           <div>
             <h2 className="text-xl font-bold">{t.pro.name}</h2>
-            <div className="mt-2 flex items-baseline gap-3">
+            <div className="mt-2">
               <span className="text-2xl font-extrabold">{t.pro.monthly}</span>
-              <span className="text-sm text-neutral-500">·</span>
-              <span className="text-sm text-neutral-300">{t.pro.lifetime}</span>
             </div>
           </div>
           <ul className="flex flex-col gap-2 text-sm text-neutral-200">
@@ -85,25 +110,17 @@ export default async function PricingPage() {
             ))}
           </ul>
           {PAYMENTS_ENABLED ? (
-            <div className="mt-2 flex flex-col gap-2">
-              <UpgradeButton
-                href="/api/lemon/checkout?variant=monthly"
-                primary
-                signedIn={signedIn}
-              >
-                {t.pro.monthlyCta}
-              </UpgradeButton>
-              <UpgradeButton
-                href="/api/lemon/checkout?variant=lifetime"
-                signedIn={signedIn}
-              >
-                {t.pro.lifetimeCta}
-              </UpgradeButton>
-            </div>
+            <UpgradeButton
+              href="/api/lemon/checkout?variant=monthly"
+              primary
+              signedIn={signedIn}
+            >
+              {t.pro.monthlyCta}
+            </UpgradeButton>
           ) : (
             <button
               disabled
-              className="mt-2 rounded-md bg-emerald-500/40 px-4 py-2 text-sm font-semibold text-black/70"
+              className="mt-auto rounded-md bg-emerald-500/40 px-4 py-2 text-sm font-semibold text-black/70"
             >
               {t.pro.monthlyCta}
             </button>

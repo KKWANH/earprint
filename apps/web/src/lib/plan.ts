@@ -15,6 +15,8 @@ export interface PlanState {
   plan: Plan;
   isLifetime: boolean;
   planUntil: Date | null;
+  /** Per-analysis credits remaining (ignored when user is Pro / payments off). */
+  credits: number;
   /** True if the user is currently entitled to Pro features. */
   isPro: boolean;
 }
@@ -22,24 +24,32 @@ export interface PlanState {
 export async function getPlanState(userId: string): Promise<PlanState> {
   const sql = getSql();
   const rows = await sql`
-    SELECT plan, plan_until, is_lifetime
+    SELECT plan, plan_until, is_lifetime, credits
     FROM users WHERE id = ${userId}`;
   const r = rows[0] as
     | {
         plan: Plan;
         plan_until: string | null;
         is_lifetime: boolean;
+        credits: number;
       }
     | undefined;
 
   const plan: Plan = r?.plan ?? "free";
-  const isLifetime = !!r?.is_lifetime;
+  const isLifetime = !!r?.is_lifetime; // legacy column; kept for compatibility
   const planUntil = r?.plan_until ? new Date(r.plan_until) : null;
+  const credits = r?.credits ?? 0;
 
   // Master switch off → everyone is Pro. Avoids accidental gating while
   // payments are still in dry-run.
   if (!PAYMENTS_ENABLED) {
-    return { plan: "pro", isLifetime: false, planUntil: null, isPro: true };
+    return {
+      plan: "pro",
+      isLifetime: false,
+      planUntil: null,
+      credits: Infinity,
+      isPro: true,
+    };
   }
 
   const subActive =
@@ -49,8 +59,30 @@ export async function getPlanState(userId: string): Promise<PlanState> {
     plan,
     isLifetime,
     planUntil,
+    credits,
     isPro: subActive,
   };
+}
+
+/**
+ * Atomic credit spend. Returns true when the credit was successfully
+ * consumed, false when the user has none (and isn't Pro). Pro users +
+ * payments-off bypass via the credit guard below — they don't decrement.
+ *
+ * Uses `RETURNING` after a conditional UPDATE so the check is single-row
+ * atomic against concurrent requests.
+ */
+export async function spendCredit(userId: string): Promise<boolean> {
+  if (!PAYMENTS_ENABLED) return true;
+  if (await isPro(userId)) return true;
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE users
+       SET credits = credits - 1,
+           updated_at = now()
+     WHERE id = ${userId} AND credits > 0
+     RETURNING credits`;
+  return rows.length > 0;
 }
 
 /** Convenience: just the boolean. */

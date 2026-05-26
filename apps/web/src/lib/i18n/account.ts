@@ -39,15 +39,27 @@ const en = {
   planTitle: "Plan",
   planFree: "Free",
   planPro: "Pro",
-  planLifetime: "Pro — Lifetime",
-  planFreeDesc: "Core analysis with daily caps on the heavier features.",
-  planProDesc: "Daily caps removed; all features unlocked.",
+  planFreeDesc:
+    "Pay per analysis ($2 each) or go Pro for unlimited. The first analysis is on us.",
+  planProDesc: "Unlimited analyses, all features unlocked.",
   planUntil: (date: string) => `Renews ${date}`,
   planExpires: (date: string) => `Active until ${date}`,
-  planLifetimeDesc: "One-shot purchase. No renewal — Pro forever.",
+  creditsRemaining: (n: number) =>
+    n === 1 ? `${n} analysis credit remaining` : `${n} analysis credits remaining`,
   upgradeButton: "See plans →",
   managePlanButton: "Manage subscription",
   upgradeSuccess: "✓ Welcome to Pro! Enjoy the perks.",
+
+  // Sync token rotation
+  syncTokenTitle: "Extension sync token",
+  syncTokenDesc:
+    "The token your Chrome extension uses to upload likes to your account. Rotate it if your extension install lives on a shared or lost machine — the next /connect visit re-pairs the extension automatically.",
+  syncTokenRotateButton: "Rotate sync token",
+  syncTokenRotateWarn:
+    "This will immediately invalidate the current token. Your existing extension will need to re-pair via /connect.",
+  syncTokenRotateConfirm: "Yes, rotate now",
+  syncTokenRotating: "Rotating…",
+  syncTokenRotated: "✓ Token rotated. Re-open /connect to re-pair the extension.",
 
   // AI consent
   aiConsentTitle: "AI profiling consent",
@@ -119,15 +131,25 @@ const ko: typeof en = {
   planTitle: "플랜",
   planFree: "Free",
   planPro: "Pro",
-  planLifetime: "Pro — 평생",
-  planFreeDesc: "핵심 분석은 무료. 무거운 기능은 일일 한도가 적용됩니다.",
-  planProDesc: "일일 한도 제거. 모든 기능 활성화.",
+  planFreeDesc:
+    "분석마다 $2 결제 또는 Pro 로 무제한. 첫 분석은 무료 크레딧 1회.",
+  planProDesc: "분석 무제한, 모든 기능 활성화.",
   planUntil: (date: string) => `${date} 갱신`,
   planExpires: (date: string) => `${date} 까지 이용`,
-  planLifetimeDesc: "일회성 구매. 갱신 없음 — 영구 Pro.",
+  creditsRemaining: (n: number) => `남은 분석 크레딧 ${n}개`,
   upgradeButton: "요금제 보기 →",
   managePlanButton: "구독 관리",
   upgradeSuccess: "✓ Pro 가입 완료! 즐겨주세요.",
+
+  syncTokenTitle: "확장 동기화 토큰",
+  syncTokenDesc:
+    "크롬 확장이 좋아요 곡을 본인 계정으로 업로드할 때 쓰는 토큰. 공유·분실 기기에 확장이 설치돼있다면 회전시키세요. 다음 /connect 방문 시 확장이 자동 재페어링됩니다.",
+  syncTokenRotateButton: "토큰 회전",
+  syncTokenRotateWarn:
+    "기존 토큰이 즉시 무효화됩니다. 현재 확장은 /connect 에서 다시 페어링해야 합니다.",
+  syncTokenRotateConfirm: "네, 회전",
+  syncTokenRotating: "회전 중…",
+  syncTokenRotated: "✓ 토큰 회전 완료. /connect 를 다시 열어 확장을 재페어링하세요.",
 
   aiConsentTitle: "AI 프로파일링 동의",
   aiConsentLabel: "내 음악 취향에 대한 AI 프로파일링을 허용",

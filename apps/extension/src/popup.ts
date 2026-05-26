@@ -26,7 +26,11 @@ const syncHint = document.getElementById("sync-hint") as HTMLDivElement;
 const msgEl = document.getElementById("msg") as HTMLParagraphElement;
 const guideLink = document.getElementById("guide-link") as HTMLAnchorElement;
 
-const WEB_ORIGIN = "https://earprint.kwanho.dev";
+// Web origin is baked at build-time via Vite so a fork / staging build
+// only needs to flip one env: VITE_WEB_ORIGIN=https://staging.example.com pnpm run build
+const WEB_ORIGIN: string =
+  (import.meta as unknown as { env?: { VITE_WEB_ORIGIN?: string } }).env
+    ?.VITE_WEB_ORIGIN ?? "https://earprint.kwanho.dev";
 guideLink.href = `${WEB_ORIGIN}/guide`;
 
 type Step = "connect" | "sync" | "view";

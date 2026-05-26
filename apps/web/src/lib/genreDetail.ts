@@ -1,6 +1,12 @@
 import { getSql } from "./db";
 import { getJson } from "./http";
+import { z } from "zod";
 import { aiJson } from "./ai";
+
+const GenreDescZ = z.object({
+  en: z.string().max(800),
+  ko: z.string().max(800),
+});
 
 const LASTFM = "https://ws.audioscrobbler.com/2.0/";
 
@@ -75,14 +81,16 @@ async function genreDescription(
   genre: string,
 ): Promise<{ en: string | null; ko: string | null }> {
   try {
-    const r = await aiJson<{ en: string; ko: string }>(
+    const raw = await aiJson<unknown>(
       `음악 장르 "${genre}"에 대한 간결한 소개를 작성하세요. 기원·시대적 배경과 ` +
         `음악적 특징(사운드·악기·분위기)을 2~3문장으로 정확하게 설명하세요. ` +
         `en 필드는 영어로, ko 필드는 자연스러운 한국어로 작성. ` +
         `실제 음악 장르가 아니거나 모호하면 두 필드 모두 빈 문자열.`,
       DESC_SCHEMA,
     );
-    return { en: r.en?.trim() || null, ko: r.ko?.trim() || null };
+    const r = GenreDescZ.safeParse(raw);
+    if (!r.success) return { en: null, ko: null };
+    return { en: r.data.en?.trim() || null, ko: r.data.ko?.trim() || null };
   } catch {
     return { en: null, ko: null };
   }

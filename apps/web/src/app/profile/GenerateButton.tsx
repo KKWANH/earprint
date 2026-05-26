@@ -19,14 +19,14 @@ export function GenerateButton({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capped, setCapped] = useState(false);
-  const [planCapped, setPlanCapped] = useState(false);
+  const [needsCredit, setNeedsCredit] = useState(false);
   const [needsAiConsent, setNeedsAiConsent] = useState(false);
 
   async function go() {
     setBusy(true);
     setError(null);
     setCapped(false);
-    setPlanCapped(false);
+    setNeedsCredit(false);
     setNeedsAiConsent(false);
     try {
       const res = await fetch("/api/profile", { method: "POST" });
@@ -34,11 +34,11 @@ export function GenerateButton({
         ok?: boolean;
         error?: string;
         capped?: boolean;
-        planCapped?: boolean;
+        needsCredit?: boolean;
         needsAiConsent?: boolean;
       };
       if (d.needsAiConsent) setNeedsAiConsent(true);
-      else if (d.planCapped) setPlanCapped(true);
+      else if (d.needsCredit) setNeedsCredit(true);
       else if (d.capped) setCapped(true);
       else if (!d.ok) setError(d.error ?? `${t.errorStatus} ${res.status}`);
     } catch (e) {
@@ -59,9 +59,9 @@ export function GenerateButton({
         {busy ? t.generating : hasProfile ? t.reanalyze : t.generate}
       </button>
       {capped && <p className="text-xs text-amber-400">{t.capped}</p>}
-      {planCapped && (
+      {needsCredit && (
         <p className="text-xs leading-relaxed text-amber-300">
-          {t.planCapped}{" "}
+          {t.needsCredit}{" "}
           <Link href="/pricing" className="underline hover:text-amber-200">
             {t.upgradeCta}
           </Link>

@@ -10,27 +10,33 @@ const en = {
   free: {
     name: "Free",
     price: "$0",
-    period: "forever",
+    period: "starter",
     cta: "Current plan",
     features: [
       "Liked-song sync (Chrome extension + mobile API)",
       "Library dashboard · top artists / genres / moods",
       "Music Zodiac portrait",
-      "1 AI music-psychology profile per day",
+      "1 AI music-psychology profile (the starter credit)",
       "Library size up to 500 tracks",
       "Public share page (default theme)",
     ],
   },
 
+  analysis: {
+    name: "Single Analysis",
+    price: "$2",
+    period: "one-time",
+    desc: "Top up one extra AI profile generation when you want a fresh take. No subscription.",
+    cta: "Buy 1 analysis — $2",
+  },
+
   pro: {
     name: "Pro",
-    badge: "Best value · $25 once",
-    monthly: "$3 / month",
-    lifetime: "$25 once",
-    monthlyCta: "Upgrade — $3/month",
-    lifetimeCta: "Lifetime — $25",
+    badge: "Best value",
+    monthly: "$5 / month",
+    monthlyCta: "Upgrade — $5/month",
     perks: [
-      "Unlimited AI profile regeneration (skip the queue)",
+      "Unlimited AI profile regeneration",
       "Unlimited library size (2,000+ tracks)",
       "Detailed track-level analysis (genre + mood + audio feel for every song)",
       "Custom share-page slug + 6 zodiac themes",
@@ -82,27 +88,33 @@ const ko: typeof en = {
   free: {
     name: "Free",
     price: "$0",
-    period: "영구",
+    period: "시작",
     cta: "현재 플랜",
     features: [
       "좋아요 곡 동기화 (크롬 확장 + 모바일 API)",
       "라이브러리 대시보드 · 자주 듣는 아티스트/장르/무드",
       "음악 별자리 프로필",
-      "AI 심리분석 하루 1회",
+      "AI 심리분석 1회 (시작 크레딧)",
       "라이브러리 최대 500곡",
       "공개 공유 페이지 (기본 테마)",
     ],
   },
 
+  analysis: {
+    name: "1회 분석",
+    price: "$2",
+    period: "일회성",
+    desc: "구독 없이 AI 분석을 1회 추가로 돌려보고 싶을 때.",
+    cta: "1회 분석 구매 — $2",
+  },
+
   pro: {
     name: "Pro",
-    badge: "가성비 · $25 한번",
-    monthly: "$3 / 월",
-    lifetime: "$25 한번",
-    monthlyCta: "월구독 $3 시작",
-    lifetimeCta: "평생 $25 결제",
+    badge: "가성비",
+    monthly: "$5 / 월",
+    monthlyCta: "월구독 $5 시작",
     perks: [
-      "AI 분석 무제한 재생성 (대기열 우선)",
+      "AI 분석 무제한 재생성",
       "라이브러리 무제한 (2,000곡+)",
       "곡별 상세 분석 (모든 곡의 장르·무드·오디오 특성)",
       "공유 페이지 커스텀 경로 + 별자리 테마 6종",

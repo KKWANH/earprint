@@ -40,9 +40,9 @@ const en = {
     "This analysis was written in another language — regenerate it to read it in English.",
   capped:
     "🌙 Today's shared AI limit was reached — please try generating your analysis again tomorrow.",
-  planCapped:
-    "You've used your free daily AI profile. Pro removes the cap.",
-  upgradeCta: "See Pro →",
+  needsCredit:
+    "Out of analysis credits. Buy 1 more ($2) or go Pro ($5/mo) for unlimited.",
+  upgradeCta: "See plans →",
   needsAiConsent:
     "AI profiling is off in your account settings — turn it on to generate your music-psychology profile.",
   accountLink: "Go to account →",
@@ -101,9 +101,9 @@ const ko: typeof en = {
     "이 분석은 다른 언어로 작성된 것입니다. 한국어로 보려면 다시 생성하세요.",
   capped:
     "🌙 오늘 공용 AI 한도 도달 — 내일 다시 시도하세요.",
-  planCapped:
-    "오늘 무료 AI 프로필 1회 사용 완료. Pro 는 한도 제거.",
-  upgradeCta: "Pro 보기 →",
+  needsCredit:
+    "분석 크레딧이 없습니다. 1회 분석 추가 ($2) 또는 Pro 구독 ($5/월) 으로 무제한.",
+  upgradeCta: "요금제 보기 →",
   needsAiConsent:
     "계정 설정에서 AI 프로파일링이 꺼져있습니다 — 음악 심리분석을 생성하려면 켜주세요.",
   accountLink: "계정 페이지로 →",

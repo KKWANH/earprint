@@ -4,6 +4,7 @@ import { getImprintAnalysis, type ImprintAnalysis } from "@/lib/imprint";
 import { getNoveltyIndex, type NoveltyIndex } from "@/lib/novelty";
 import { getLocale } from "@/lib/i18n-server";
 import { dnaDict } from "@/lib/i18n/dna";
+import { LikesDisclaimer } from "@/components/LikesDisclaimer";
 import { RadarChart } from "@/components/RadarChart";
 import { BirthYearInput } from "./BirthYearInput";
 import { YearBackfill } from "./YearBackfill";
@@ -51,6 +52,7 @@ export default async function DnaPage() {
           {t.pageIntroTail}
         </p>
       </header>
+      <LikesDisclaimer locale={locale} />
 
       <ImprintSection a={imprint} t={t} locale={locale} />
       <NoveltySection n={novelty} t={t} />

@@ -1,4 +1,27 @@
+import { z } from "zod";
 import { aiJson } from "./ai";
+
+/**
+ * Per-track Gemini output runtime check. Coerce numbers and clamp arrays
+ * so a malformed batch (e.g. `energy: "0.5"` instead of 0.5) becomes a
+ * partial-skip rather than a thrown error — the toObj/clamp01 helpers
+ * below already tolerate odd values, this Zod just enforces *structure*
+ * so we never silently miss the top-level `results` array.
+ */
+const AnalyzeRowZ = z.object({
+  id: z.string().min(1),
+  genres: z.array(z.unknown()).optional(),
+  moods: z.array(z.unknown()).optional(),
+  energy: z.coerce.number().optional(),
+  tempo: z.coerce.number().optional(),
+  acousticness: z.coerce.number().optional(),
+  instruments: z.array(z.unknown()).optional(),
+  realArtist: z.string().optional(),
+  realTitle: z.string().optional(),
+});
+const AnalyzeBatchZ = z.object({
+  results: z.array(AnalyzeRowZ).default([]),
+});
 
 /** Unified Gemini analysis — refined genres/moods + audio feel, per track. */
 export interface AiAnalysisInput {
@@ -90,11 +113,23 @@ export async function aiAnalyzeBatch(
 
 ${list}`;
 
-  const parsed = await aiJson<{ results?: any[] }>(prompt, SCHEMA, { bypassCap });
-  const byId = new Map<string, any>();
-  for (const r of parsed.results ?? []) {
-    if (r?.id) byId.set(String(r.id), r);
+  // Track analysis runs in batches of 6 and is the per-track workhorse —
+  // flash-lite is materially cheaper than flash (~25%) and the output shape
+  // is structured JSON, so the quality gap doesn't show up. Override via
+  // GEMINI_MODEL_ANALYZE if needed.
+  const model = process.env.GEMINI_MODEL_ANALYZE ?? "gemini-2.0-flash-lite";
+  const raw = await aiJson<unknown>(prompt, SCHEMA, { bypassCap, model });
+  const validated = AnalyzeBatchZ.safeParse(raw);
+  if (!validated.success) {
+    throw new Error(
+      `AI analyze schema mismatch: ${validated.error.issues
+        .slice(0, 3)
+        .map((i) => `${i.path.join(".")} ${i.message}`)
+        .join("; ")}`,
+    );
   }
+  const byId = new Map<string, z.infer<typeof AnalyzeRowZ>>();
+  for (const r of validated.data.results) byId.set(r.id, r);
 
   return tracks.map((t) => {
     const r = byId.get(t.id);

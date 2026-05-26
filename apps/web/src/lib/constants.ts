@@ -38,8 +38,12 @@ export const FREE_LIMITS = {
   shareThemes: 0,
 } as const;
 
-/** Pricing displayed on the /pricing page and the upgrade card. */
+/** Pricing displayed on the /pricing page and the upgrade card.
+ *  Two paths: the Pro monthly subscription (unlimited analyses) and a
+ *  one-shot Single Analysis credit purchase for users who don't want a
+ *  recurring relationship. Lifetime is gone — it didn't fit the
+ *  "report-style product, regenerated rarely" usage shape. */
 export const PLAN_PRICES = {
-  monthly: { amount: 3, currency: "USD", label: "$3 / month" },
-  lifetime: { amount: 25, currency: "USD", label: "$25 once" },
+  monthly: { amount: 5, currency: "USD", label: "$5 / month" },
+  analysis: { amount: 2, currency: "USD", label: "$2 per analysis" },
 } as const;

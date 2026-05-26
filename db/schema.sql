@@ -29,6 +29,11 @@ CREATE TABLE IF NOT EXISTS users (
   plan                  TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
   plan_until            TIMESTAMPTZ,
   is_lifetime           BOOLEAN NOT NULL DEFAULT false,
+  -- One-shot analysis credits. New users get 1 (the free first analysis);
+  -- additional credits are bought via the per-analysis SKU and refilled by
+  -- the Lemon Squeezy webhook on order_created. Pro subscribers ignore
+  -- credits entirely (unlimited analyses).
+  credits               INT NOT NULL DEFAULT 1,
   ls_customer_id        TEXT,
   ls_subscription_id    TEXT,
   -- Consent + retention bookkeeping. ToS / age get set during onboarding;
@@ -165,19 +170,38 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
 CREATE INDEX IF NOT EXISTS idx_analysis_jobs_status ON analysis_jobs (status);
 
 -- ── Track canonicalization ────────────────────────────
--- Canonical key from (artist, title): lowercased, bracket content removed
--- (so "(Live)", "(Official Video)" collapse), "feat." dropped, punctuation
--- stripped, CJK kept. Live versions / re-uploads of one song share a key.
+-- Canonical key from (artist, title) collapses live versions, re-uploads,
+-- and the typical YouTube/streaming-edition noise into one row per song.
+--
+-- Cleanups, in order:
+--   • artist  — strip a trailing " - Topic" (YT auto-channel suffix)
+--   • title   — drop bracket content first:    "(Live)" "[Official Video]" "[Lyric]"
+--   • title   — drop "feat." onward
+--   • title   — drop a dash-tail edition / mix marker:
+--                  "- Remastered 2011" "- Radio Edit" "- Single Version"
+--                  "- Live at Wembley" "- Acoustic" "- Mono" "- Deluxe"
+--                  "- 2011" (bare year)
+-- Then both sides are lowercased and stripped of non-alphanumeric.
+-- CJK keeps its codepoints so 한국·일본 곡 들도 정상 매칭됨.
 ALTER TABLE tracks ADD COLUMN IF NOT EXISTS canon_key TEXT;
 
+-- Note on the regex: Postgres ARE doesn't treat `\b` the way PCRE does,
+-- so the dash-tail pattern uses `\s+[-–—]\s+` (whitespace required on both
+-- sides of the dash) plus a trailing `.*$` — the explicit whitespace
+-- already establishes the word boundary without needing `\b`.
 CREATE OR REPLACE FUNCTION track_canon_key(p_artist text, p_title text)
 RETURNS text AS $$
   SELECT
-    lower(regexp_replace(coalesce(p_artist, ''),
-          '[^[:alnum:]가-힣ぁ-んァ-ヶ一-龯]', '', 'g'))
+    lower(regexp_replace(
+      regexp_replace(coalesce(p_artist, ''), '\s*-\s*topic\s*$', '', 'i'),
+      '[^[:alnum:]가-힣ぁ-んァ-ヶ一-龯]', '', 'g'))
     || '|' ||
     lower(regexp_replace(
-      regexp_replace(coalesce(p_title, ''), '\(.*?\)|\[.*?\]|feat\.?.*$', '', 'gi'),
+      regexp_replace(
+        regexp_replace(coalesce(p_title, ''),
+          '\s+[-–—]\s+(remaster(ed)?|live|acoustic|radio edit|single version|album version|extended|deluxe|edition|version|mono|stereo|bonus|special|anniversary|original|original mix|original version|\d{4}).*$',
+          '', 'i'),
+        '\(.*?\)|\[.*?\]|feat\.?.*$', '', 'gi'),
       '[^[:alnum:]가-힣ぁ-んァ-ヶ一-龯]', '', 'g'));
 $$ LANGUAGE sql IMMUTABLE;
 
@@ -573,9 +597,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Obsolete per-phase job rows (replaced by the single 'analyze' job).
-DELETE FROM background_jobs WHERE kind IN ('enrich', 'ai_enrich', 'audio_feel');
-
 -- ── Background jobs (cron-driven enrichment that survives tab close) ──
 -- kind:   'analyze'  (single 2-phase job: enrich → ai analysis)
 -- status: 'running' | 'stopped' | 'done'
@@ -617,3 +638,13 @@ CREATE TABLE IF NOT EXISTS genre_info (
   top_tracks     JSONB,                             -- {artist,title}[]
   generated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Data migrations
+-- Run AFTER every CREATE TABLE so a fresh install can apply the whole file
+-- in one go without 'relation does not exist'. Re-running them is a no-op
+-- (DELETE on already-deleted rows just touches 0 rows).
+-- ─────────────────────────────────────────────────────────────────────────
+
+-- Obsolete per-phase job rows (replaced by the single 'analyze' job).
+DELETE FROM background_jobs WHERE kind IN ('enrich', 'ai_enrich', 'audio_feel');

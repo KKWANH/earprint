@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { aiJson } from "./ai";
 import type { Locale } from "./i18n";
 import { getLibraryStats } from "./library";
@@ -24,6 +25,31 @@ export interface AiProfile {
   diggingComment: string;
   improvementTips: string[];
 }
+
+/** Runtime validation of Gemini's JSON. The TS interface above is a *type*
+ *  hint at compile time; this schema is what actually rejects malformed
+ *  responses before they corrupt the DB. Coerce + clamp where reasonable
+ *  so minor model misbehaviour (e.g. diggingScore returned as a string)
+ *  doesn't fail the whole generation. */
+const PersonaZ = z.object({
+  name: z.string().min(1).max(120),
+  archetype: z.string().min(1).max(80),
+  emoji: z.string().min(1).max(8),
+  tagline: z.string().min(1).max(200),
+});
+const AiProfileZ = z.object({
+  persona: PersonaZ,
+  headline: z.string().min(1).max(200),
+  personality: z.string().min(1).max(2000),
+  traits: z.array(z.string().min(1).max(60)).min(1).max(10),
+  favoriteGenres: z.array(z.string().min(1).max(60)).max(10),
+  avoidedGenres: z.array(z.string().min(1).max(60)).max(10),
+  unexploredGenres: z.array(z.string().min(1).max(60)).max(10),
+  moodProfile: z.string().min(1).max(2000),
+  diggingScore: z.coerce.number().int().min(0).max(100),
+  diggingComment: z.string().min(1).max(800),
+  improvementTips: z.array(z.string().min(1).max(800)).max(8),
+});
 
 const SCHEMA = {
   type: "OBJECT",
@@ -113,5 +139,15 @@ export async function generateProfile(
   // Override via GEMINI_MODEL_PROFILE if it gets too expensive (defaults
   // to gemini-2.5-pro ≈ $0.014/call vs $0.0007 on 2.0-flash).
   const model = process.env.GEMINI_MODEL_PROFILE ?? "gemini-2.5-pro";
-  return aiJson<AiProfile>(prompt, SCHEMA, { bypassCap, model });
+  const raw = await aiJson<unknown>(prompt, SCHEMA, { bypassCap, model });
+  const parsed = AiProfileZ.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error(
+      `AI profile schema mismatch: ${parsed.error.issues
+        .slice(0, 3)
+        .map((i) => `${i.path.join(".")} ${i.message}`)
+        .join("; ")}`,
+    );
+  }
+  return parsed.data;
 }

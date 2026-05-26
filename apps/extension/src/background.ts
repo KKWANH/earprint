@@ -5,7 +5,11 @@
  */
 import type { CapturedTrack, SyncRequest } from "@playlist-analyzer/shared";
 
-const BACKEND = "https://earprint.kwanho.dev";
+// Backend host is baked at build-time via Vite — flip VITE_WEB_ORIGIN for
+// dev / staging builds without touching the source.
+const BACKEND: string =
+  (import.meta as unknown as { env?: { VITE_WEB_ORIGIN?: string } }).env
+    ?.VITE_WEB_ORIGIN ?? "https://earprint.kwanho.dev";
 
 interface UploadMessage {
   type: "PA_UPLOAD";

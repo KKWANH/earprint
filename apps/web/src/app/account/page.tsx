@@ -10,6 +10,7 @@ import { getPlanState } from "@/lib/plan";
 import { AiConsentToggle } from "./AiConsentToggle";
 import { DeleteAccountButton } from "./DeleteAccountButton";
 import { DisconnectYtButton } from "./DisconnectYtButton";
+import { RotateSyncTokenButton } from "./RotateSyncTokenButton";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = accountDict(await getLocale());
@@ -118,35 +119,30 @@ export default async function AccountPage() {
                   : "bg-white/10 text-neutral-300"
               }`}
             >
-              {planState.isLifetime
-                ? t.planLifetime
-                : planState.isPro
-                  ? t.planPro
-                  : t.planFree}
+              {planState.isPro ? t.planPro : t.planFree}
             </span>
           </div>
           <p className="text-sm text-neutral-400">
-            {planState.isLifetime
-              ? t.planLifetimeDesc
-              : planState.isPro
-                ? t.planProDesc
-                : t.planFreeDesc}
+            {planState.isPro ? t.planProDesc : t.planFreeDesc}
           </p>
-          {planState.isPro && !planState.isLifetime && planState.planUntil && (
+          {planState.isPro && planState.planUntil && (
             <p className="text-xs text-neutral-500">
               {t.planUntil(planState.planUntil.toLocaleDateString(lang))}
             </p>
           )}
+          {!planState.isPro && (
+            <p className="text-xs text-neutral-400">
+              {t.creditsRemaining(planState.credits)}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             {planState.isPro ? (
-              !planState.isLifetime && (
-                <a
-                  href="/api/lemon/portal"
-                  className="rounded-md border border-white/15 px-3 py-1.5 text-sm text-neutral-300 hover:bg-white/5 hover:text-white"
-                >
-                  {t.managePlanButton}
-                </a>
-              )
+              <a
+                href="/api/lemon/portal"
+                className="rounded-md border border-white/15 px-3 py-1.5 text-sm text-neutral-300 hover:bg-white/5 hover:text-white"
+              >
+                {t.managePlanButton}
+              </a>
             ) : (
               <Link
                 href="/pricing"
@@ -217,6 +213,11 @@ export default async function AccountPage() {
             </a>
           </p>
         </div>
+      </Section>
+
+      <Section title={t.syncTokenTitle}>
+        <p className="text-sm text-neutral-400">{t.syncTokenDesc}</p>
+        <RotateSyncTokenButton locale={locale} />
       </Section>
 
       <Section title={t.aiConsentTitle}>
