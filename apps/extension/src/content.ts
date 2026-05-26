@@ -150,12 +150,15 @@ async function runSync(): Promise<unknown> {
       expected: expectedCount(),
     });
     const expected = expectedCount();
-    const result = (await chrome.runtime.sendMessage({
-      type: "PA_UPLOAD",
-      tracks: list,
-    })) as Record<string, unknown> | undefined;
+    // Upload directly from the content script. Previously this hopped
+    // through the background service worker, but MV3 SWs get suspended
+    // after ~30s of inactivity — the await on sendMessage would hang
+    // silently and the popup stayed at "Collecting…" forever. Content
+    // scripts have the same host_permissions and live as long as the
+    // tab, so the fetch reliably completes.
+    const result = await uploadDirect(list);
     const full: Record<string, unknown> = {
-      ...(result ?? {}),
+      ...result,
       captured: list.length,
       expected,
       domPeak: diag.domPeak,
@@ -165,9 +168,53 @@ async function runSync(): Promise<unknown> {
     };
     await writeStatus({ state: "done", result: full });
     return full;
+  } catch (err) {
+    // Any uncaught path must leave a `failed` state behind so the popup
+    // doesn't spin on "running" forever.
+    const error = err instanceof Error ? err.message : String(err);
+    await writeStatus({ state: "failed", error });
+    return { ok: false, error };
   } finally {
     clearInterval(statusTimer);
   }
+}
+
+/** Backend host is baked at build-time — mirrors background.ts. */
+const BACKEND: string =
+  (import.meta as unknown as { env?: { VITE_WEB_ORIGIN?: string } }).env
+    ?.VITE_WEB_ORIGIN ?? "https://earprint.kwanho.dev";
+
+/** Direct backend upload from the content script. Replaces the previous
+ *  background-SW hop that was prone to MV3 service-worker suspension. */
+async function uploadDirect(
+  list: CapturedTrack[],
+): Promise<Record<string, unknown>> {
+  const { syncToken } = await chrome.storage.sync.get(["syncToken"]);
+  if (!syncToken) {
+    return {
+      ok: false,
+      error: 'Extension not connected — click "Connect" in the popup',
+    };
+  }
+  const body = { source: "ytmusic", tracks: list };
+  let res: Response;
+  try {
+    res = await fetch(`${BACKEND}/api/sync`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${String(syncToken)}`,
+      },
+      body: JSON.stringify(body),
+      // 90-second cap so a hung backend surfaces as an error rather than
+      // an indefinite "uploading" state.
+      signal: AbortSignal.timeout(90_000),
+    });
+  } catch (err) {
+    return { ok: false, error: `Network error: ${String(err)}` };
+  }
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  return { ok: res.ok, status: res.status, ...data };
 }
 
 /** Reads the liked-songs total from the playlist header ("2,353곡 • …"). */

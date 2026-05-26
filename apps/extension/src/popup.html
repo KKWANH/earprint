@@ -4,172 +4,158 @@
     <meta charset="utf-8" />
     <title>Earprint</title>
     <style>
-      :root {
-        color-scheme: dark;
-      }
+      :root { color-scheme: dark; }
       * { box-sizing: border-box; }
       body {
         font: 13px/1.5 system-ui, -apple-system, sans-serif;
         width: 320px;
         margin: 0;
-        padding: 14px 16px 16px;
+        padding: 12px 14px 12px;
         background: #0a0a0b;
         color: #e5e5e5;
       }
+
+      /* ── Brand ─────────────────────────────────────────── */
       .brand {
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin-bottom: 14px;
+        gap: 7px;
+        margin-bottom: 10px;
       }
       .brand h3 {
         margin: 0;
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 800;
         letter-spacing: -0.01em;
       }
       .brand .accent { color: #34d399; }
+
+      /* ── Step rows ─────────────────────────────────────── */
+      /* flex-wrap so the .body child (when shown) breaks to a new line. */
       .step {
         display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        padding: 10px 12px;
-        margin-bottom: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        margin-bottom: 4px;
         border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 10px;
+        border-radius: 8px;
         background: rgba(255, 255, 255, 0.02);
+        font-size: 12px;
         transition: background-color 0.15s, border-color 0.15s;
       }
-      .step.active {
-        border-color: rgba(52, 211, 153, 0.35);
-        background: rgba(52, 211, 153, 0.06);
-      }
-      .step.done {
-        opacity: 0.7;
-      }
-      .badge {
+      .step .badge {
         flex-shrink: 0;
-        width: 22px;
-        height: 22px;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.08);
         color: #a3a3a3;
+        font-size: 10px;
         font-weight: 700;
-        font-size: 11px;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-top: 1px;
       }
-      .step.active .badge {
-        background: #34d399;
-        color: #06281d;
+      .step .label { flex: 1; font-weight: 500; color: #e5e5e5; }
+      .step.done .badge { background: rgba(52, 211, 153, 0.25); color: #34d399; }
+      .step.done .label { color: #888; }
+      /* Hidden by default — only shows under .step.active. */
+      .step .body { display: none; flex-basis: 100%; }
+
+      /* Active step: brighter chrome + expanded body. */
+      .step.active {
+        padding: 9px 11px;
+        border-color: rgba(52, 211, 153, 0.4);
+        background: rgba(52, 211, 153, 0.06);
       }
-      .step.done .badge {
-        background: rgba(52, 211, 153, 0.25);
-        color: #34d399;
+      .step.active .badge { background: #34d399; color: #06281d; }
+      .step.active .label { font-weight: 600; }
+      .step.active .body {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-top: 4px;
       }
-      .step .body {
-        flex: 1;
-        min-width: 0;
-      }
-      .step .label {
-        font-size: 12px;
-        font-weight: 600;
-        color: #e5e5e5;
-        margin-bottom: 2px;
-      }
-      .step .hint {
+      .step.active .hint {
         font-size: 11px;
-        color: #8a8a8a;
-        line-height: 1.45;
+        line-height: 1.4;
+        color: #9a9a9a;
       }
-      .step.done .label {
-        color: #a3a3a3;
-      }
+
+      /* ── Buttons + links ──────────────────────────────── */
       button {
         width: 100%;
-        padding: 9px 10px;
-        margin-top: 6px;
+        padding: 7px 10px;
+        margin-top: 2px;
         border: 1px solid transparent;
-        border-radius: 8px;
+        border-radius: 7px;
         cursor: pointer;
         font-weight: 600;
-        font-size: 12.5px;
+        font-size: 12px;
         transition: filter 0.12s, opacity 0.12s;
       }
       button:hover:not(:disabled) { filter: brightness(1.12); }
-      button:disabled {
-        cursor: not-allowed;
-        opacity: 0.45;
-      }
-      .btn-primary {
-        background: #34d399;
-        color: #06281d;
-      }
+      button:disabled { cursor: not-allowed; opacity: 0.4; }
+      .btn-primary { background: #34d399; color: #06281d; }
       .btn-secondary {
         background: rgba(255, 255, 255, 0.06);
         border-color: rgba(255, 255, 255, 0.1);
         color: #e5e5e5;
       }
       .lm-link {
-        display: inline-block;
-        margin-top: 4px;
-        font-size: 11px;
+        display: block;
+        margin-top: 2px;
+        font-size: 10.5px;
         color: #6ee7b7;
         text-decoration: none;
       }
       .lm-link:hover { color: #a7f3d0; text-decoration: underline; }
-      .tips {
-        margin: 6px 0 0;
-        padding-left: 16px;
-        font-size: 10.5px;
-        color: #707070;
+      .note {
+        margin: 4px 0 0;
+        font-size: 10px;
         line-height: 1.45;
+        color: #707070;
       }
-      .tips li { margin: 2px 0; }
+
+      /* ── Status message ───────────────────────────────── */
       #msg {
-        margin: 10px 0 0;
-        padding: 8px 10px;
-        font-size: 11.5px;
+        margin: 8px 0 0;
+        padding: 6px 9px;
+        font-size: 11px;
+        line-height: 1.4;
         color: #a3a3a3;
         background: rgba(255, 255, 255, 0.03);
         border-radius: 6px;
-        min-height: 18px;
+        min-height: 16px;
         white-space: pre-line;
         display: none;
       }
       #msg.show { display: block; }
       #msg.error { color: #fca5a5; background: rgba(220, 38, 38, 0.08); }
       #msg.success { color: #6ee7b7; background: rgba(5, 150, 105, 0.1); }
+
+      /* ── Footer ───────────────────────────────────────── */
       .footer {
-        margin-top: 12px;
-        padding-top: 10px;
+        margin-top: 10px;
+        padding-top: 8px;
         border-top: 1px solid rgba(255, 255, 255, 0.06);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 11px;
+        font-size: 10.5px;
         color: #6a6a6a;
       }
-      .footer a {
-        color: #8a8a8a;
-        text-decoration: none;
-      }
+      .footer a { color: #8a8a8a; text-decoration: none; }
       .footer a:hover { color: #e5e5e5; }
     </style>
   </head>
   <body>
     <div class="brand">
-      <svg viewBox="0 0 512 512" width="22" height="22" aria-hidden="true">
+      <svg viewBox="0 0 512 512" width="20" height="20" aria-hidden="true">
         <circle cx="256" cy="256" r="248" fill="#0a0a0b" />
-        <g
-          fill="none"
-          stroke="#34d399"
-          stroke-width="36"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
+        <g fill="none" stroke="#34d399" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
           <path d="M214 392 C 172 366 156 306 164 248 C 174 168 230 122 300 132 C 364 141 384 210 366 272 C 357 312 330 344 292 350" />
           <path d="M300 262 C 258 286 220 258 230 214 C 237 184 278 174 306 198" />
         </g>
@@ -179,32 +165,27 @@
 
     <div id="step-connect" class="step">
       <div class="badge">1</div>
+      <div class="label" data-i18n="step1Label"></div>
       <div class="body">
-        <div class="label" data-i18n="step1Label"></div>
-        <div class="hint" data-i18n="step1Hint"></div>
         <button id="connect" class="btn-secondary" data-i18n="step1Button"></button>
       </div>
     </div>
 
     <div id="step-sync" class="step">
       <div class="badge">2</div>
+      <div class="label" data-i18n="step2Label"></div>
       <div class="body">
-        <div class="label" data-i18n="step2Label"></div>
         <div class="hint" id="sync-hint" data-i18n="step2HintDefault"></div>
         <button id="sync" class="btn-primary" disabled data-i18n="step2Button"></button>
         <a id="open-lm" class="lm-link" target="_blank" rel="noopener noreferrer" data-i18n="step2OpenLm"></a>
-        <ul class="tips">
-          <li data-i18n="step2TipDontTouch"></li>
-          <li data-i18n="step2TipCountMayDiffer"></li>
-        </ul>
+        <p class="note" data-i18n="step2TipDontTouch"></p>
       </div>
     </div>
 
     <div id="step-view" class="step">
       <div class="badge">3</div>
+      <div class="label" data-i18n="step3Label"></div>
       <div class="body">
-        <div class="label" data-i18n="step3Label"></div>
-        <div class="hint" data-i18n="step3Hint"></div>
         <button id="view" class="btn-secondary" data-i18n="step3Button"></button>
       </div>
     </div>
@@ -213,7 +194,7 @@
 
     <div class="footer">
       <a id="guide-link" href="#" target="_blank" data-i18n="footerGuide"></a>
-      <span>v<span id="version">0.9.4</span></span>
+      <span>v<span id="version">0.9.5</span></span>
     </div>
 
     <script type="module" src="./popup.ts"></script>
