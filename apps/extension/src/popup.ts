@@ -64,8 +64,28 @@ function showMsg(text: string, kind: "info" | "error" | "success" = "info") {
   msgEl.classList.add("show");
 }
 
-/** Initial render — figure out where the user is in the funnel. */
+/** Initial render — figure out where the user is in the funnel.
+ *  Also cleans up stale `running` state from a previous popup session
+ *  that crashed mid-sync (otherwise the popup re-opens stuck on
+ *  "Collecting…" with no way out). */
 async function refresh() {
+  // Stale-state cleanup: if storage says we're still "running" but the
+  // startedAt is >10 min ago, treat it as abandoned and clear.
+  try {
+    const { paSyncStatus } = (await chrome.storage.local.get(
+      "paSyncStatus",
+    )) as { paSyncStatus?: { state?: string; startedAt?: number } };
+    if (
+      paSyncStatus?.state === "running" &&
+      typeof paSyncStatus.startedAt === "number" &&
+      Date.now() - paSyncStatus.startedAt > 10 * 60_000
+    ) {
+      await chrome.storage.local.remove("paSyncStatus");
+    }
+  } catch {
+    /* non-fatal */
+  }
+
   const [stored, [tab]] = await Promise.all([
     chrome.storage.sync.get(["syncToken"]),
     chrome.tabs.query({ active: true, currentWindow: true }),
@@ -231,6 +251,24 @@ syncBtn.addEventListener("click", async () => {
 
 viewBtn.addEventListener("click", () => {
   void chrome.tabs.create({ url: `${WEB_ORIGIN}/library` });
+});
+
+/** Nuclear reset — clears every bit of extension-local state so the next
+ *  pairing is guaranteed to be a clean read. Useful when the user has
+ *  re-created their account, rotated tokens externally, or the popup
+ *  has somehow ended up in an inconsistent state we can't reason about. */
+const resetLink = document.getElementById("reset-link") as HTMLAnchorElement | null;
+resetLink?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  await Promise.all([
+    chrome.storage.sync.remove("syncToken").catch(() => {}),
+    chrome.storage.local.remove("paSyncStatus").catch(() => {}),
+  ]);
+  showMsg(
+    "Extension state cleared. Click the Open earprint.kwanho.dev button above to re-pair.",
+    "info",
+  );
+  await refresh();
 });
 
 void refresh();
