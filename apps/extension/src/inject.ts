@@ -195,6 +195,8 @@
         post({ kind: "scrapeProgress", count: seen.size });
       }
 
+      post({ kind: "scrapePhase", phase: "settling" });
+
       // ── Settle: confirm the true end, patiently waiting out slow pages ──
       let spinnerSeen = false;
       for (let s = 0; s < 22; s++) {

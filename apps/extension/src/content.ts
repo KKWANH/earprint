@@ -42,6 +42,14 @@ window.addEventListener("message", (e: MessageEvent) => {
     if (t.videoId && t.title) tracks.set(t.videoId, t);
   } else if (msg.kind === "scrapeProgress") {
     lastProgress = msg.count ?? 0;
+  } else if (
+    msg.kind === "scrapePhase" &&
+    typeof (msg as { phase?: unknown }).phase === "string"
+  ) {
+    const p = (msg as { phase: string }).phase;
+    if (p === "scrolling" || p === "settling" || p === "uploading") {
+      currentPhase = p;
+    }
   } else if (msg.kind === "scrapeDone") {
     diag.domPeak = msg.domPeak ?? 0;
     diag.spinnerSeen = msg.spinnerSeen ?? false;
@@ -76,12 +84,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 /** Single source of truth for sync state. Popup polls / watches this key
- *  rather than awaiting a long-lived sendMessage that the SPA can kill. */
+ *  rather than awaiting a long-lived sendMessage that the SPA can kill.
+ *
+ *  Each writeStatus call stamps `updatedAt` — the popup compares it to
+ *  Date.now() so it can show "Updated 3s ago" and warn the user when no
+ *  update has arrived for a long time (likely stall). */
+type SyncPhase = "scrolling" | "settling" | "uploading";
+
 type SyncStatus =
-  | { state: "running"; startedAt: number; captured: number; expected: number | null }
-  | { state: "uploading"; captured: number; expected: number | null }
-  | { state: "done"; result: Record<string, unknown> }
-  | { state: "failed"; error: string };
+  | {
+      state: "running";
+      phase: SyncPhase;
+      startedAt: number;
+      updatedAt: number;
+      captured: number;
+      expected: number | null;
+    }
+  | { state: "done"; updatedAt: number; result: Record<string, unknown> }
+  | { state: "failed"; updatedAt: number; error: string };
 
 async function writeStatus(s: SyncStatus): Promise<void> {
   try {
@@ -91,10 +111,14 @@ async function writeStatus(s: SyncStatus): Promise<void> {
   }
 }
 
+/** Mutable shared state between runSync() and the periodic statusTimer. */
+let currentPhase: SyncPhase = "scrolling";
+let runStartedAt = 0;
+
 async function runSync(): Promise<unknown> {
   if (!location.href.includes("list=LM")) {
     const r = { ok: false, error: "Run this on the Liked Music (LM) playlist page" };
-    await writeStatus({ state: "failed", error: r.error });
+    await writeStatus({ state: "failed", updatedAt: Date.now(), error: r.error });
     return r;
   }
   tracks.clear();
@@ -103,19 +127,26 @@ async function runSync(): Promise<unknown> {
   diag.spinnerSeen = false;
   diag.endedClean = false;
   diag.lastTitle = "";
+
+  runStartedAt = Date.now();
+  currentPhase = "scrolling";
   await writeStatus({
     state: "running",
-    startedAt: Date.now(),
+    phase: currentPhase,
+    startedAt: runStartedAt,
+    updatedAt: Date.now(),
     captured: 0,
     expected: expectedCount(),
   });
 
-  // Periodic status refresh — popup can re-open mid-sync and pick up
-  // current progress without needing a live message channel.
+  // Periodic heartbeat — fresh updatedAt every 1500ms so the popup can
+  // tell "actively progressing" from "stuck since 30s ago" at a glance.
   const statusTimer = setInterval(() => {
     void writeStatus({
       state: "running",
-      startedAt: Date.now(),
+      phase: currentPhase,
+      startedAt: runStartedAt,
+      updatedAt: Date.now(),
       captured: tracks.size,
       expected: expectedCount(),
     });
@@ -140,22 +171,20 @@ async function runSync(): Promise<unknown> {
     const list = [...tracks.values()];
     if (list.length === 0) {
       const r = { ok: false, error: "No songs collected — refresh the page and try again" };
-      await writeStatus({ state: "failed", error: r.error });
+      await writeStatus({ state: "failed", updatedAt: Date.now(), error: r.error });
       return r;
     }
 
+    currentPhase = "uploading";
     await writeStatus({
-      state: "uploading",
+      state: "running",
+      phase: "uploading",
+      startedAt: runStartedAt,
+      updatedAt: Date.now(),
       captured: list.length,
       expected: expectedCount(),
     });
     const expected = expectedCount();
-    // Upload directly from the content script. Previously this hopped
-    // through the background service worker, but MV3 SWs get suspended
-    // after ~30s of inactivity — the await on sendMessage would hang
-    // silently and the popup stayed at "Collecting…" forever. Content
-    // scripts have the same host_permissions and live as long as the
-    // tab, so the fetch reliably completes.
     const result = await uploadDirect(list);
     const full: Record<string, unknown> = {
       ...result,
@@ -166,13 +195,11 @@ async function runSync(): Promise<unknown> {
       endedClean: diag.endedClean,
       lastTitle: diag.lastTitle,
     };
-    await writeStatus({ state: "done", result: full });
+    await writeStatus({ state: "done", updatedAt: Date.now(), result: full });
     return full;
   } catch (err) {
-    // Any uncaught path must leave a `failed` state behind so the popup
-    // doesn't spin on "running" forever.
     const error = err instanceof Error ? err.message : String(err);
-    await writeStatus({ state: "failed", error });
+    await writeStatus({ state: "failed", updatedAt: Date.now(), error });
     return { ok: false, error };
   } finally {
     clearInterval(statusTimer);

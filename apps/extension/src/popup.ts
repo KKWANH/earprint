@@ -198,13 +198,30 @@ syncBtn.addEventListener("click", async () => {
 
   // Watch chrome.storage.local for completion. We use both onChanged (fast
   // path) and a polling interval (fallback in case onChanged misses an
-  // update across tab restarts).
+  // update across tab restarts). A 1s ticker also re-renders the "updated
+  // Ns ago" line so the user sees freshness drift even when no storage
+  // change has fired in a while — that's exactly what surfaces a stall.
   let done = false;
+  let lastStatus:
+    | {
+        state?: string;
+        phase?: string;
+        captured?: number;
+        updatedAt?: number;
+        result?: Record<string, unknown>;
+        error?: string;
+      }
+    | null = null;
+  const ticker = setInterval(() => {
+    if (!lastStatus || done) return;
+    if (lastStatus.state === "running") onChange({ paSyncStatus: { newValue: lastStatus, oldValue: undefined } as chrome.storage.StorageChange });
+  }, 1000);
   const finish = (res: Record<string, unknown>) => {
     if (done) return;
     done = true;
     chrome.storage.onChanged.removeListener(onChange);
     clearInterval(poll);
+    clearInterval(ticker);
     renderSyncResult(res as Parameters<typeof renderSyncResult>[0]);
   };
 
@@ -212,14 +229,37 @@ syncBtn.addEventListener("click", async () => {
     const s = changes.paSyncStatus?.newValue as
       | {
           state?: string;
+          phase?: string;
           captured?: number;
+          updatedAt?: number;
           result?: Record<string, unknown>;
           error?: string;
         }
       | undefined;
     if (!s) return;
+    lastStatus = s;
     if (s.state === "running") {
-      showMsg(t("msgCollecting", [(s.captured ?? 0).toLocaleString()]));
+      // Translate phase + freshness into a single line so the user can
+      // tell "still working" from "wedged" without thinking.
+      const cap = (s.captured ?? 0).toLocaleString();
+      const phaseLabel =
+        s.phase === "uploading"
+          ? "Uploading"
+          : s.phase === "settling"
+            ? "Settling"
+            : "Scrolling";
+      const ageMs = s.updatedAt ? Date.now() - s.updatedAt : 0;
+      const ageLabel =
+        ageMs < 3_000
+          ? "live"
+          : ageMs < 60_000
+            ? `${Math.round(ageMs / 1000)}s ago`
+            : `${Math.round(ageMs / 60_000)}m ago`;
+      const stalled = ageMs > 20_000;
+      const msg =
+        `${phaseLabel} · ${cap} songs · updated ${ageLabel}` +
+        (stalled ? "\n⚠ No update in 20s — try Reset if it doesn't recover." : "");
+      showMsg(msg, stalled ? "error" : "info");
     } else if (s.state === "uploading") {
       showMsg(t("msgSyncing"));
     } else if (s.state === "done") {
@@ -243,6 +283,7 @@ syncBtn.addEventListener("click", async () => {
       done = true;
       chrome.storage.onChanged.removeListener(onChange);
       clearInterval(poll);
+      clearInterval(ticker);
       syncBtn.disabled = false;
       showMsg(t("msgError", ["sync timed out"]), "error");
     }
