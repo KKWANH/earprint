@@ -93,9 +93,17 @@ export default async function WorldcupHome() {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
-      <header>
-        <h1 className="text-2xl font-bold sm:text-3xl">{t.pageTitle}</h1>
-        <p className="mt-2 text-sm text-neutral-400">{t.pageIntro}</p>
+      <header className="flex items-baseline justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold sm:text-3xl">{t.pageTitle}</h1>
+          <p className="mt-2 text-sm text-neutral-400">{t.pageIntro}</p>
+        </div>
+        <Link
+          href="/worldcup/community"
+          className="shrink-0 rounded-md border border-emerald-500/40 px-3 py-1.5 text-xs font-medium text-emerald-200 hover:bg-emerald-500/10"
+        >
+          {locale === "ko" ? "커뮤니티" : "Community"}
+        </Link>
       </header>
 
       {/* "Continue where you left off" — scans localStorage for any

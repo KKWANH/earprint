@@ -22,7 +22,7 @@ const en = {
   instrumentsTitle: "Frequently appearing instruments",
   instrumentsEmpty: "Run an audio-feature analysis to fill this in.",
   albumsTitlePrefix: "Deepest-dived albums — liked tracks per album",
-  albumsTitleDeep: (n: number) => `(${n} albums with 3+ tracks)`,
+  albumsTitleDeep: (n: number) => `(${n} albums with 2+ liked tracks)`,
   albumsEmpty: "No album with multiple liked tracks yet.",
   excludedTitle: (n: number) => `Excluded artists (${n})`,
   tracksTitle: (n: number) => `Likes (newest ${n})`,
@@ -99,11 +99,11 @@ const en = {
   // these phrases anchor it to listener behaviour. Buckets sit at 15%
   // and 35% to match the natural split between singles-only / mixed /
   // album-listener listening styles.
-  albumImmersionSingles: "You mostly collect individual tracks rather than full albums.",
+  albumImmersionSingles: "Mostly singles — you collect songs rather than revisit albums.",
   albumImmersionMixed:
-    "You mix album-deep listening with one-off picks — some albums caught you, some songs stand alone.",
+    "Mixed — some albums got multiple likes, most picks stand alone.",
   albumImmersionDeep: (deepN: number) =>
-    `You sit with full albums — most of your likes come from ${deepN.toLocaleString()} albums you've genuinely lived in.`,
+    `Album-leaning — ${deepN.toLocaleString()} albums show up multiple times in your likes.`,
   // Audio feel one-line interpretation by axis + value. Each axis returns
   // a short read of where the listener sits on that spectrum.
   feelEnergyLow: "Calmer end — you reach for music that settles you down.",
@@ -147,7 +147,7 @@ const ko: typeof en = {
   instrumentsTitle: "주요 악기",
   instrumentsEmpty: "오디오 특성 분석을 돌리면 채워집니다.",
   albumsTitlePrefix: "주요 앨범 · 앨범당 좋아요 곡 수",
-  albumsTitleDeep: (n: number) => `(3곡 이상 앨범 ${n}개)`,
+  albumsTitleDeep: (n: number) => `(2곡 이상 좋아요한 앨범 ${n}개)`,
   albumsEmpty: "한 앨범에서 여러 곡을 좋아한 경우 없음.",
   excludedTitle: (n: number) => `제외된 아티스트 (${n})`,
   tracksTitle: (n: number) => `좋아요한 순서 · 최신 ${n}곡`,
@@ -209,11 +209,11 @@ const ko: typeof en = {
   confidenceBuilding: "준비 중 (아직 분석 안 됨)",
   confidenceSummary: (liked: string, analyzed: string, pct: number) =>
     `좋아요 ${liked} · 분석 완료 ${analyzed} (${pct}%)`,
-  albumImmersionSingles: "주로 앨범보다 개별 곡 단위로 모으는 편이에요.",
+  albumImmersionSingles: "주로 싱글 단위 — 앨범보다 곡 하나하나를 모으는 편.",
   albumImmersionMixed:
-    "앨범을 깊게 들은 것과 한 곡씩 고른 것이 섞여 있어요 — 어떤 앨범은 통째로 꽂혔고, 어떤 곡은 그 자체로 살아남았어요.",
+    "혼합 — 일부 앨범은 여러 곡이 좋아요로 들어왔고, 대부분은 한 곡씩 독립적으로 들어왔어요.",
   albumImmersionDeep: (deepN: number) =>
-    `앨범에 머무는 편이에요 — 좋아요 대부분이 깊게 파고든 ${deepN.toLocaleString()}장의 앨범에서 나옵니다.`,
+    `앨범 성향 — ${deepN.toLocaleString()}장의 앨범에서 여러 곡이 좋아요에 들어왔어요.`,
   feelEnergyLow: "잔잔한 쪽 — 마음을 가라앉히는 음악을 찾습니다.",
   feelEnergyMid: "중간 자리 — 곡에 따라 에너지가 달라지는 유연한 취향.",
   feelEnergyHigh: "에너지 높은 쪽 — 추진력과 임팩트 있는 사운드를 선호.",

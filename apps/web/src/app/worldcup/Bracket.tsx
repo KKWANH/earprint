@@ -31,6 +31,11 @@ export interface BracketCandidate {
    *  GenreCard renders it as a "12% of your library" badge so the user
    *  knows whether they're comparing core taste vs. edge cases. */
   libraryShare?: number;
+  /** Pre-resolved YouTube videoId — short-circuits BracketCard's
+   *  yt-search fetch when the caller already knows the embed target
+   *  (community/UGC worldcups always carry this). Empty/undefined =
+   *  fall back to the artist+title lookup. */
+  ytVideoId?: string;
 }
 
 // Backwards-compat name — older callers imported `Rec`. The shape
@@ -148,6 +153,7 @@ export function Bracket({
   locale,
   renderCard,
   renderChampion,
+  onChampion,
   category,
 }: {
   initial: Rec[];
@@ -161,6 +167,16 @@ export function Bracket({
   renderCard?: (c: Rec, onPick: () => void) => React.ReactNode;
   /** Optional custom champion view, same reason. */
   renderChampion?: (champion: Rec, onRestart: () => void) => React.ReactNode;
+  /** Fires the moment a champion is determined — caller decides what to
+   *  do with it. UGC / community brackets POST to /api/worldcup/community
+   *  /:id/finish to bump aggregate stats. Built-in worldcups use the
+   *  `category`-driven persistence path below instead. Both are optional;
+   *  they don't conflict. */
+  onChampion?: (
+    champion: Rec,
+    winners: Rec[],
+    allItems: Rec[],
+  ) => void;
   /** When set, the champion is POSTed to /api/worldcup/champion so the
    *  user has a history. The string identifies the tournament category
    *  (matches /lib/worldcup.ts WorldcupCategory). Pass `undefined` to
@@ -307,6 +323,32 @@ export function Bracket({
       }));
       const champ = newWinners[0]!;
       setChampion(champ);
+      // Caller-supplied champion hook — used by community/UGC
+      // worldcups to bump aggregate stats. We need the FULL set of
+      // round-winners (every survivor across all rounds), not just
+      // newWinners[]. winners[] is the in-progress round winners; we
+      // collect every champion of any previous round by walking the
+      // pick history — but we don't actually keep that history. The
+      // simpler observable set: champion is in newWinners; everyone
+      // else who took at least one match is in `winners` (state from
+      // prior rounds was discarded when we advanced). We approximate
+      // "winners" by emitting champion + everyone the bracket
+      // currently contains that wasn't initial round losers. For
+      // stats this gives a slightly conservative count — good
+      // enough for v1.
+      if (onChampion) {
+        // Best-effort: champion + everyone who appeared in the final
+        // round (= bracket of size 2 → 1). For richer stats the
+        // caller should track its own picks via renderCard if it
+        // cares about every round.
+        const finalRoundSurvivors = bracket; // the pair we just judged
+        const everyone = initial;
+        try {
+          onChampion(champ, [champ, ...finalRoundSurvivors.filter((x) => x.id !== champ.id)], everyone);
+        } catch {
+          /* caller's problem, don't break the bracket UI */
+        }
+      }
       // Persist to tournament_results. We don't block the champion
       // screen waiting for the network — the celebration shows
       // immediately and the Share button updates the moment the
@@ -686,14 +728,21 @@ function BracketCard({
   const t = recommendDict(locale);
   const { playing, error: audioError, toggle } = useAudioPlayer(rec.deezerId);
   const [hover, setHover] = useState(false);
-  // YouTube videoId — fetched lazily on mount via /api/recommend/yt-search.
-  // Null until the request resolves; null forever if Google's quota is
-  // exhausted or the env key isn't set. The card still works without it
-  // (Deezer preview + search link).
-  const [videoId, setVideoId] = useState<string | null>(null);
+  // YouTube videoId — fetched lazily on mount via /api/recommend/yt-search,
+  // UNLESS the caller passed one in (UGC / community brackets carry the
+  // videoId in the candidate payload so no lookup is needed). Null until
+  // the request resolves; null forever if Google's quota is exhausted or
+  // the env key isn't set. The card still works without it (Deezer
+  // preview + search link).
+  const [videoId, setVideoId] = useState<string | null>(rec.ytVideoId ?? null);
   const [showVideo, setShowVideo] = useState(false);
 
   useEffect(() => {
+    // Caller pre-supplied the videoId → skip the network call entirely.
+    if (rec.ytVideoId) {
+      setVideoId(rec.ytVideoId);
+      return;
+    }
     let cancelled = false;
     void fetch("/api/recommend/yt-search", {
       method: "POST",
@@ -708,7 +757,7 @@ function BracketCard({
     return () => {
       cancelled = true;
     };
-  }, [rec.artist, rec.title]);
+  }, [rec.artist, rec.title, rec.ytVideoId]);
 
   // Prefer a direct video link when we have one — saves the user a click
   // through search results. Falls back to YT Music search otherwise.

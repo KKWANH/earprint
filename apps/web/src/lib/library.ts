@@ -353,7 +353,13 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
           WHERE ut.user_id = ${userId} AND t.album IS NOT NULL AND t.album <> ''
             AND t.artist <> ALL(${excluded}::text[])
             AND (NOT t.resolved OR t.match_confidence >= 0.65)
-          GROUP BY t.album HAVING count(*) >= 3
+          -- Threshold lowered May 2026 from 3 → 2. Earprint is built
+          -- on YT Music likes, where users rarely like an entire
+          -- album — even an album they obsess over usually shows
+          -- 2-3 likes. The old 3+ bar erased most of the signal;
+          -- 2+ correctly captures "this album resonated enough
+          -- that the user came back to it" without overstating it.
+          GROUP BY t.album HAVING count(*) >= 2
         ) s`,
       sql`
         SELECT count(*)::int AS analyzed,
