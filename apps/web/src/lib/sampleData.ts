@@ -79,6 +79,16 @@ export const SAMPLE_STATS: LibraryStats = {
     { id: "folk", label: "Folk / Singer-Songwriter", labelKo: "포크/싱어송라이터",
       count: 18, sample: ["indie folk"] },
   ],
+  topRegions: [
+    { name: "american", count: 312 },
+    { name: "british", count: 88 },
+    { name: "korean", count: 24 },
+  ],
+  topEras: [
+    { name: "2010s", count: 287 },
+    { name: "2020s", count: 134 },
+    { name: "modern", count: 41 },
+  ],
   audioFeel: {
     analyzed: 463,
     energy: 0.42,

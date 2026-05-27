@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import {
+  findGenre,
   genreFamily,
   isExcludedGenre,
   listFamilies,
@@ -59,6 +60,13 @@ export interface LibraryStats {
    *  "you're 38% Pop / 22% Rock / …" without the user squinting at
    *  every sub-genre row. */
   topFamilies: FamilyCount[];
+  /** Region tag distribution (May 2026+ analyses only — empty for
+   *  legacy rows). "korean" / "japanese" / "british" / "latin" /
+   *  "african" etc. Populated as Gemini backfill runs. */
+  topRegions: Count[];
+  /** Era tag distribution (May 2026+ analyses only). "2020s" / "90s"
+   *  / "modern" / "retro" etc. Drives the reminiscence-bump view. */
+  topEras: Count[];
   audioFeel: AudioFeelAgg | null;
   albumDepth: AlbumDepth;
   tracks: TrackRow[];
@@ -203,34 +211,96 @@ async function topTags(
   excluded: string[],
   column: "genres" | "moods",
 ): Promise<Count[]> {
-  // Genres need a post-SQL pass through isExcludedGenre() to drop
-  // Religious / Spoken / Children / Novelty / ASMR keys — those are
-  // pure noise in the Top Genres rollup. The exclusion map lives in
-  // genreDict (TS) so SQL can't apply it; we over-fetch (LIMIT 30 vs
-  // the 14 we eventually keep) so the filter doesn't starve the result.
-  // Moods don't need this filter — mood vocabulary is small and doesn't
-  // overlap with excluded families.
+  // Genres: union of three sources, deduped + canonicalised in TS:
+  //   1. NEW: analysis.primary_genre (single canonical id per track)
+  //   2. NEW: analysis.sub_genres TEXT[] (additional ids per track)
+  //   3. LEGACY: analysis.genres jsonb keys — used ONLY when both
+  //      new columns are empty (= analyses run before the multi-label
+  //      schema landed; haven't been backfilled yet).
+  //
+  // Over-fetch LIMIT 60 because dedup-by-canonical-id collapses
+  // legacy and new IDs of the same genre into one row, so the raw
+  // SQL output is naturally inflated. After TS dedup + family-exclude
+  // we slice to 14.
+  //
+  // Moods don't have multi-label columns yet — keep legacy path.
   if (column === "genres") {
     const rows = await sql`
       WITH lib_size AS (
         SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
+      ),
+      genre_signal AS (
+        -- new schema: primary_genre (1 per analysed track)
+        SELECT ut.list_position, lib_size.n, a.primary_genre AS name
+        FROM analysis a
+        JOIN user_tracks ut ON ut.track_id = a.track_id
+        JOIN tracks t ON t.id = a.track_id
+        CROSS JOIN lib_size
+        WHERE ut.user_id = ${userId}
+          AND a.primary_genre IS NOT NULL
+          AND t.artist <> ALL(${excluded}::text[])
+          AND (NOT t.resolved OR t.match_confidence >= 0.65)
+        UNION ALL
+        -- new schema: sub_genres (N per analysed track)
+        SELECT ut.list_position, lib_size.n, sg AS name
+        FROM analysis a
+        JOIN user_tracks ut ON ut.track_id = a.track_id
+        JOIN tracks t ON t.id = a.track_id
+        CROSS JOIN lib_size
+        CROSS JOIN LATERAL unnest(coalesce(a.sub_genres, ARRAY[]::text[])) AS sg
+        WHERE ut.user_id = ${userId}
+          AND a.sub_genres IS NOT NULL
+          AND t.artist <> ALL(${excluded}::text[])
+          AND (NOT t.resolved OR t.match_confidence >= 0.65)
+        UNION ALL
+        -- legacy fallback: jsonb keys ONLY when BOTH new fields are
+        -- null (= row predates the multi-label migration AND hasn't
+        -- been backfilled). Double-counting prevention is the
+        -- "primary_genre IS NULL AND sub_genres IS NULL" guard.
+        SELECT ut.list_position, lib_size.n, k.key AS name
+        FROM analysis a
+        JOIN user_tracks ut ON ut.track_id = a.track_id
+        JOIN tracks t ON t.id = a.track_id
+        CROSS JOIN lib_size
+        CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
+        WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
+          AND a.primary_genre IS NULL
+          AND a.sub_genres IS NULL
+          AND t.artist <> ALL(${excluded}::text[])
+          AND (NOT t.resolved OR t.match_confidence >= 0.65)
       )
-      SELECT k.key AS name, count(*)::int AS count
-      FROM analysis a
-      JOIN user_tracks ut ON ut.track_id = a.track_id
-      JOIN tracks t ON t.id = a.track_id
-      CROSS JOIN lib_size
-      CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
-      WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
-        AND t.artist <> ALL(${excluded}::text[])
-        AND (NOT t.resolved OR t.match_confidence >= 0.65)
-      GROUP BY k.key
-      ORDER BY sum(recency_weight(ut.list_position, lib_size.n)) DESC
-      LIMIT 30`;
-    return rows
-      .filter((r) => !isExcludedGenre(r.name as string))
+      SELECT name, count(*)::int AS count,
+             sum(recency_weight(list_position, n))::real AS weighted
+      FROM genre_signal
+      WHERE name IS NOT NULL AND name <> ''
+      GROUP BY name
+      ORDER BY weighted DESC
+      LIMIT 60`;
+    // TS dedup: map every raw label to its genreDict canonical id so
+    // "indie pop" (legacy) and "indie_pop" (new) collapse into one
+    // row. Drop excluded families (religious / spoken / children /
+    // novelty / ASMR) on the way through. Take top 14 by COUNT
+    // (not weighted) so the displayed number matches the recency-
+    // sorted order — i.e. the bars stay honest.
+    const merged = new Map<
+      string,
+      { label: string; count: number; weighted: number }
+    >();
+    for (const r of rows) {
+      const raw = r.name as string;
+      if (isExcludedGenre(raw)) continue;
+      const node = findGenre(raw);
+      const key = node ? node.id : raw.toLowerCase().trim();
+      const label = node ? node.label : raw;
+      const entry = merged.get(key) ?? { label, count: 0, weighted: 0 };
+      entry.count += r.count as number;
+      entry.weighted += Number(r.weighted) || 0;
+      merged.set(key, entry);
+    }
+    return [...merged.values()]
+      .sort((a, b) => b.weighted - a.weighted)
       .slice(0, 14)
-      .map((r) => ({ name: r.name as string, count: r.count as number }));
+      .map((v) => ({ name: v.label, count: v.count }));
   }
   const rows = await sql`
     WITH lib_size AS (
@@ -262,7 +332,7 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
   const sql = getSql();
   const excluded = await getExcludedArtists(userId);
 
-  const [base, artists, recentArtists, topGenres, topMoods, instruments, albums, depth, feel, tracks, allGenreRows] =
+  const [base, artists, recentArtists, topGenres, topMoods, instruments, albums, depth, feel, tracks, allGenreRows, regionRows, eraRows] =
     await Promise.all([
       // Base counts. `total` and `enriched` here are AGGREGATE PROGRESS
       // numbers so we keep them honest (no confidence filter — the user
@@ -384,16 +454,68 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
       // the 18 families. We can't bucket in SQL because the family map
       // lives in genreDict.ts. Confidence filter still applies so
       // YouTuber junk doesn't reach the family rollup.
+      //
+      // Source priority mirrors topTags(): new schema first (primary +
+      // sub), legacy jsonb only when both new fields are null.
       sql`
-        SELECT k.key AS name, count(*)::int AS count
+        SELECT name, count(*)::int AS count FROM (
+          SELECT a.primary_genre AS name
+          FROM analysis a
+          JOIN user_tracks ut ON ut.track_id = a.track_id
+          JOIN tracks t ON t.id = a.track_id
+          WHERE ut.user_id = ${userId} AND a.primary_genre IS NOT NULL
+            AND t.artist <> ALL(${excluded}::text[])
+            AND (NOT t.resolved OR t.match_confidence >= 0.65)
+          UNION ALL
+          SELECT sg AS name
+          FROM analysis a
+          JOIN user_tracks ut ON ut.track_id = a.track_id
+          JOIN tracks t ON t.id = a.track_id
+          CROSS JOIN LATERAL unnest(coalesce(a.sub_genres, ARRAY[]::text[])) AS sg
+          WHERE ut.user_id = ${userId} AND a.sub_genres IS NOT NULL
+            AND t.artist <> ALL(${excluded}::text[])
+            AND (NOT t.resolved OR t.match_confidence >= 0.65)
+          UNION ALL
+          SELECT k.key AS name
+          FROM analysis a
+          JOIN user_tracks ut ON ut.track_id = a.track_id
+          JOIN tracks t ON t.id = a.track_id
+          CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
+          WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
+            AND a.primary_genre IS NULL AND a.sub_genres IS NULL
+            AND t.artist <> ALL(${excluded}::text[])
+            AND (NOT t.resolved OR t.match_confidence >= 0.65)
+        ) s
+        WHERE name IS NOT NULL AND name <> ''
+        GROUP BY name`,
+      // Region tag rollup — only available when analysis was run with
+      // the multi-label prompt (May 2026+). Powers a future "your
+      // library by region" UI; populated lazily as backfill runs.
+      sql`
+        SELECT rt AS name, count(*)::int AS count
         FROM analysis a
         JOIN user_tracks ut ON ut.track_id = a.track_id
         JOIN tracks t ON t.id = a.track_id
-        CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
-        WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
+        CROSS JOIN LATERAL unnest(coalesce(a.region_tags, ARRAY[]::text[])) AS rt
+        WHERE ut.user_id = ${userId} AND a.region_tags IS NOT NULL
           AND t.artist <> ALL(${excluded}::text[])
           AND (NOT t.resolved OR t.match_confidence >= 0.65)
-        GROUP BY k.key`,
+        GROUP BY rt
+        ORDER BY count DESC
+        LIMIT 8`,
+      // Era tag rollup — same caveat as region. "70s" / "2020s" / etc.
+      sql`
+        SELECT et AS name, count(*)::int AS count
+        FROM analysis a
+        JOIN user_tracks ut ON ut.track_id = a.track_id
+        JOIN tracks t ON t.id = a.track_id
+        CROSS JOIN LATERAL unnest(coalesce(a.era_tags, ARRAY[]::text[])) AS et
+        WHERE ut.user_id = ${userId} AND a.era_tags IS NOT NULL
+          AND t.artist <> ALL(${excluded}::text[])
+          AND (NOT t.resolved OR t.match_confidence >= 0.65)
+        GROUP BY et
+        ORDER BY count DESC
+        LIMIT 6`,
     ]);
 
   // ── Family rollup. Each genre key maps via genreDict.genreFamily()
@@ -454,6 +576,14 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
     })),
     topAlbums: albums.map((r) => ({ name: r.name as string, count: r.count as number })),
     topFamilies,
+    topRegions: regionRows.map((r) => ({
+      name: r.name as string,
+      count: r.count as number,
+    })),
+    topEras: eraRows.map((r) => ({
+      name: r.name as string,
+      count: r.count as number,
+    })),
     audioFeel:
       analyzed > 0
         ? {

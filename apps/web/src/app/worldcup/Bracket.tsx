@@ -483,12 +483,15 @@ export function Bracket({
           </p>
         </div>
       ) : (
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs">
           <span className="text-sm font-bold uppercase tracking-wider text-emerald-300">
             {t.bracketRound(round, layout.totalRounds)}
           </span>
           <span className="text-neutral-500">
             {t.bracketPairOf(pairIdx + 1, pairsInRound)}
+            <span className="ml-2 text-neutral-600">
+              · {bracket.length}{locale === "ko" ? "곡 남음" : " remain"}
+            </span>
           </span>
         </div>
       )}
@@ -505,7 +508,14 @@ export function Bracket({
           the most. Stacking the cards vertically on mobile would
           force the user to scroll between options every pair, which
           kills the snap-judgment flow this UI is built for. */}
-      <div className={`grid grid-cols-2 ${isFinal ? "gap-2 sm:gap-5" : "gap-2 sm:gap-3"}`}>
+      {/* Key on round + pairIdx so React unmounts/remounts the pair
+          row whenever we advance — driving the pa-fade-in keyframe
+          fresh each time. Without the key the children stay in place
+          and the animation only plays on the first mount. */}
+      <div
+        key={`pair-${round}-${pairIdx}`}
+        className={`pa-fade-in grid grid-cols-2 ${isFinal ? "gap-2 sm:gap-5" : "gap-2 sm:gap-3"}`}
+      >
         {renderCard
           ? renderCard(left, () => pick(left, right))
           : <BracketCard rec={left} onPick={() => pick(left, right)} locale={locale} finalRound={isFinal} />}
@@ -614,11 +624,11 @@ function ChampionView({
 }) {
   const t = recommendDict(locale);
   return (
-    <div className="flex flex-col items-center gap-5 rounded-2xl border border-amber-400/30 bg-gradient-to-br from-amber-950/40 via-neutral-950 to-neutral-900 p-8 text-center">
+    <div className="pa-fade-in flex flex-col items-center gap-5 rounded-2xl border border-amber-400/30 bg-gradient-to-br from-amber-950/40 via-neutral-950 to-neutral-900 p-8 text-center">
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
         {t.bracketChampionTitle}
       </p>
-      <div className="relative aspect-square w-36 overflow-hidden rounded-2xl border border-amber-400/40 bg-neutral-800 sm:w-48">
+      <div className="pa-pop-in pa-pulse-soft relative aspect-square w-36 overflow-hidden rounded-2xl border border-amber-400/40 bg-neutral-800 sm:w-48">
         {champion.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

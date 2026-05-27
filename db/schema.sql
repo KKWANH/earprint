@@ -461,53 +461,45 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- App-wide tuning knobs (single-row table). Updated via:
---   UPDATE app_settings SET recency_alpha = 0.4;
+--   UPDATE app_settings SET recency_alpha = 1.5;
 -- We read the dial through SQL rather than env vars so a tweak doesn't
 -- need a Workers redeploy — change in Neon, next query picks it up.
 CREATE TABLE IF NOT EXISTS app_settings (
   id              int  PRIMARY KEY DEFAULT 1,
-  -- α (May 2026 retune): linear recency dial, gentler than the old
-  -- "newest 2× oldest" scheme that flattened multi-year libraries
-  -- into "only the last few months matter". New semantics:
-  --   weight = 1.0 + α × (0.5 - position/total)
-  -- so weight ranges from 1 - α/2 (oldest) to 1 + α/2 (newest).
-  --   α = 0.0 → recency disabled, every track equal
-  --   α = 0.2 → newest = 1.10×, oldest = 0.90× (≈10% spread)  ← default
-  --   α = 0.4 → newest = 1.20×, oldest = 0.80×
-  --   α = 1.0 → newest = 1.50×, oldest = 0.50× (was old default)
-  -- Tester (May 2026): "1400곡 라이브러리에서 5-6년 전 곡들도 같이
-  -- 비교되어야 하니 90% vs 110% 정도면 적당". α=0.2 honours that —
-  -- old songs are slightly demoted but stay in the running rather
-  -- than getting erased.
-  recency_alpha   real NOT NULL DEFAULT 0.2,
+  -- α controls how aggressively recent likes outweigh old ones.
+  --   0.0 → recency disabled, every track weighted equally (legacy)
+  --   1.0 → default: newest = 2× oldest (linear)
+  --   2.0 → newest = 3× oldest (steeper)
+  -- Settings above 3.0 start ignoring most of the library.
+  --
+  -- Briefly retuned to 0.2 (May 2026) but reverted at user request —
+  -- the punchier 1.0→2.0 spread gives a more visible "what I'm into
+  -- now" lift on dashboards, and the half-life impact on older
+  -- tracks (1.0×) is acceptable.
+  recency_alpha   real NOT NULL DEFAULT 1.0,
   updated_at      timestamptz NOT NULL DEFAULT now(),
   CHECK (id = 1)
 );
 INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
--- Existing rows from the old default (1.0) get rebased to the new
--- gentler default. UPDATE-on-noop is cheap, idempotent on re-run.
-UPDATE app_settings SET recency_alpha = 0.2 WHERE id = 1 AND recency_alpha = 1.0;
+-- Restore the original default for any deployment that ran the
+-- short-lived 0.2 migration. Idempotent on re-run.
+UPDATE app_settings SET recency_alpha = 1.0 WHERE id = 1 AND recency_alpha = 0.2;
 
--- Recency weight from list_position. Linear, symmetric around 1.0:
---   newest = 1.0 + α/2
---   middle = 1.0
---   oldest = 1.0 - α/2
--- α from app_settings (so a tuning change is one SQL statement, not
--- a redeploy). NULL position (legacy syncs from before this column)
--- falls back to a flat 1.0.
+-- Recency weight from list_position. Linear: newest = 1.0 + α, oldest = 1.0.
+-- α defaults to the current app_settings value, so every call site auto-
+-- picks up tuning changes. NULL position (legacy syncs from before this
+-- column) falls back to a flat 1.0.
 --
 -- Used by topArtists / topGenres / recommend seeds / taste centroid to
--- gently weight current taste over the average of everything ever
--- liked — without erasing the 5-year-old likes the user added back
--- when their taste was different.
+-- surface current taste over the average of everything ever liked.
 CREATE OR REPLACE FUNCTION recency_weight(p_pos int, p_total int)
 RETURNS real AS $$
   SELECT CASE
     WHEN p_pos IS NULL OR p_total IS NULL OR p_total <= 0 THEN 1.0::real
     ELSE (1.0 + COALESCE(
       (SELECT recency_alpha FROM app_settings WHERE id = 1),
-      0.2::real
-    ) * (0.5 - p_pos::real / greatest(p_total - 1, 1)::real))::real
+      1.0::real
+    ) * greatest(0.0, 1.0 - p_pos::real / p_total::real))::real
   END;
 $$ LANGUAGE sql STABLE;
 
