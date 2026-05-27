@@ -78,7 +78,11 @@ export function captureError(
           ? "production"
           : "development"),
       tags: ctx?.tag ? { source: ctx.tag } : undefined,
-      extra: ctx?.extra,
+      // PII-safe extras: drop fields whose name looks like PII
+      // (email / token / authorization), redact string values that
+      // look like an email or a >= 32-char token-like blob. Callers
+      // can still pass artist / title / target / reason etc. as-is.
+      extra: ctx?.extra ? redactExtra(ctx.extra) : undefined,
       exception: {
         values: [
           {
@@ -171,6 +175,50 @@ function parseRoutes(): Array<{ prefix: string; url: string }> | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Strip PII from the `extra` payload before it ships to Sentry.
+ *
+ * Two passes:
+ *   1. Field-name blocklist — any key whose name suggests it carries
+ *      a secret (email / token / auth / session / cookie / sapisid /
+ *      access / refresh / api_key) is replaced with "[redacted:NAME]".
+ *   2. String-value heuristic — values that look like an email or a
+ *      ≥ 32-char alphanumeric blob (likely a token) are replaced with
+ *      "[redacted:value]" regardless of the field name.
+ *
+ * Numbers, booleans, short non-PII strings (artist / title / target /
+ * reason / count) pass through. Nested objects recurse one level — we
+ * don't expect deeply structured PII in extras.
+ */
+const PII_FIELD_RE =
+  /^(?:email|token|auth(?:orization)?|session|cookie|sapisid|access|refresh|api[_-]?key|sync[_-]?token|password|secret)$/i;
+const EMAIL_RE = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+const TOKEN_RE = /[A-Za-z0-9_\-]{32,}/;
+
+function redactValue(v: unknown): unknown {
+  if (typeof v === "string") {
+    if (EMAIL_RE.test(v)) return "[redacted:email]";
+    if (TOKEN_RE.test(v)) return "[redacted:token-like]";
+    return v;
+  }
+  if (typeof v === "number" || typeof v === "boolean" || v == null) return v;
+  if (Array.isArray(v)) return v.map(redactValue);
+  if (typeof v === "object") return redactExtra(v as Record<string, unknown>);
+  return v;
+}
+
+function redactExtra(extra: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(extra)) {
+    if (PII_FIELD_RE.test(k)) {
+      out[k] = `[redacted:${k}]`;
+      continue;
+    }
+    out[k] = redactValue(v);
+  }
+  return out;
 }
 
 /** Best-effort parser for V8/JS stack traces into Sentry's frame shape. */

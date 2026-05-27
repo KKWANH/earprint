@@ -98,6 +98,14 @@ export async function getCandidates(
     case "mix":       return getMixedCandidates(userId, size);
     case "liked":     return getLibraryRandomCandidates(userId, size); // legacy alias
     case "genre":     return []; // Genre uses its own runner — call getGenreCandidates directly
+    default: {
+      // Exhaustive switch — if a new WorldcupCategory value is added
+      // to the union without a case here, TypeScript will fail this
+      // assignment at compile time. Better than the runtime "0 cards
+      // in the bracket" symptom the old code produced.
+      const _exhaustive: never = category;
+      return _exhaustive;
+    }
   }
 }
 

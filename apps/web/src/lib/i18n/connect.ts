@@ -78,7 +78,8 @@ const en = {
     "Sync needs the music.youtube.com tab open in front",
   ],
   exactModePrivacyNote:
-    "The extension runs in your tab as you. We never receive your YouTube session cookies, Authorization headers, or SAPISID hash. The server only sees the same per-song fields any sync surfaces: title, artist, album, videoId, like-position.",};
+    "The extension runs in your tab as you. We never receive your YouTube session cookies, Authorization headers, or SAPISID hash. The server only sees the same per-song fields any sync surfaces: title, artist, album, videoId, like-position.",
+};
 
 const ko: typeof en = {
   // connect/page.tsx
@@ -156,7 +157,8 @@ const ko: typeof en = {
     "동기화 시 music.youtube.com 탭이 활성화돼 있어야 함",
   ],
   exactModePrivacyNote:
-    "확장은 본인 탭에서 본인 자격으로 실행됩니다. 서버는 YouTube 세션 쿠키 · Authorization 헤더 · SAPISID 해시를 받지 않습니다. 다른 동기화 경로와 마찬가지로, 곡당 title · artist · album · videoId · 좋아요-위치 만 전송됩니다.",};
+    "확장은 본인 탭에서 본인 자격으로 실행됩니다. 서버는 YouTube 세션 쿠키 · Authorization 헤더 · SAPISID 해시를 받지 않습니다. 다른 동기화 경로와 마찬가지로, 곡당 title · artist · album · videoId · 좋아요-위치 만 전송됩니다.",
+};
 
 export function connectDict(locale: Locale) {
   return locale === "ko" ? ko : en;

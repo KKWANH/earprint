@@ -74,11 +74,20 @@ export async function POST(req: Request) {
     if (!v.success) return json({ description: null, error: "schema" }, 200);
     parsed = v.data;
   } catch (e) {
-    // Gemini cap or transient error — return null so the card hides
-    // the description block. We don't cache the failure: next visit
-    // tries again (rare enough that polling cost is negligible).
-    captureError(e, { tag: "recommend.describe" });
-    return json({ description: null }, 200);
+    // Two cases the UI cares about (so we surface a reason key it can
+    // act on instead of a generic null):
+    //   cap   → user's daily Gemini quota or our global budget is out.
+    //           Card should keep working without the blurb and not
+    //           refire on every scroll.
+    //   error → transient / network / region — same UX, but tagged
+    //           differently so analytics can spot persistent failures.
+    const msg = String(e);
+    const reason =
+      msg.includes("GEMINI_DAILY_CAP") || msg.includes("GEMINI_REGION_UNSUPPORTED")
+        ? "cap"
+        : "error";
+    captureError(e, { tag: "recommend.describe", extra: { reason } });
+    return json({ description: null, reason }, 200);
   }
 
   const description = (parsed.ko?.trim() || parsed.en?.trim() || "") || null;

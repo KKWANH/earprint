@@ -52,9 +52,20 @@ export async function POST(req: Request) {
   // Daily housekeeping — both calls return null on minutes when the 24 h
   // window hasn't elapsed yet, so they're cheap (one INSERT…ON CONFLICT
   // each) on the 1,439 ticks per day where nothing's due.
+  //
+  // Failures get reported to Sentry instead of being swallowed —
+  // retention silently failing would leave inactive accounts alive past
+  // their deletion deadline, which is a privacy commitment we made on
+  // /privacy. Same for mirBackfill once it's wired up to a real worker.
   const [retention, mirBackfill] = await Promise.all([
-    runRetentionIfDue().catch(() => null),
-    runMirBackfillIfDue().catch(() => null),
+    runRetentionIfDue().catch((e) => {
+      captureError(e, { tag: "cron.retention", severity: "critical" });
+      return null;
+    }),
+    runMirBackfillIfDue().catch((e) => {
+      captureError(e, { tag: "cron.mir-backfill" });
+      return null;
+    }),
   ]);
 
   return json(

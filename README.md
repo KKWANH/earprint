@@ -5,18 +5,14 @@
   <p>
     <a href="https://earprint.kwanho.dev">🌐 earprint.kwanho.dev</a> ·
     <a href="https://chromewebstore.google.com/detail/nfhgnpjhiencoajdfdadegnfbbhfjjkj">🧩 Chrome extension</a> ·
-    <a href="https://earprint.kwanho.dev/guide">📖 Setup guide</a>
+    <a href="https://earprint.kwanho.dev/guide">📖 Setup guide</a> ·
+    <a href="https://earprint.kwanho.dev/demo">🎧 Sample report (no sign-in)</a>
   </p>
 </div>
 
-Earprint is a web app + Chrome extension that reads the songs you've **liked
-on YouTube Music**, analyzes them with Gemini, and renders an interactive
-picture of *why* you listen to what you listen to — top artists, genre
-constellation, an artist map, an AI music-psychology profile, a 12-sign
-music zodiac and a shareable persona page.
+Earprint reads the songs you've **liked on YouTube Music**, analyzes them with Gemini, and renders an interactive picture of *why* you listen to what you listen to — top artists, an artist map, a 12-archetype music zodiac, an AI music-psychology profile, taste-bracket Worldcup, and a shareable persona page.
 
-> The Chrome extension does the collection (YouTube Music has no public API
-> for personal likes). The web app does everything else.
+> YouTube Music has no public "my liked songs" API. The Chrome extension does the collection by reading your own page in your own logged-in tab; the web app does everything else.
 
 ---
 
@@ -31,40 +27,40 @@ music zodiac and a shareable persona page.
 
 ---
 
+## Two ways to import your library
+
+| Mode | Path | Coverage | Best for |
+|---|---|---|---|
+| 📱 **Fast Import** | OAuth + YouTube Data API + music filter | Partial (LL ⊊ YT Music) | Mobile / no-install / quick check |
+| 🧩 **Exact Import** | Chrome extension on `music.youtube.com` | Full Liked Music | Desktop / accurate / power users |
+
+Both are append-only — once a song lands in your Earprint library, un-liking it on YouTube Music does **not** remove it. Earprint is your permanent "everything I've ever liked" history.
+
+---
+
 ## What it does
 
 | Area | Feature |
 |---|---|
-| **Collect** | Chrome MV3 extension scrolls the YouTube Music Liked Music list (with auto-pagination + completeness checks) and uploads canonicalised tracks to your account |
-| **Mobile sync** | Optional Data API path (`youtube.readonly`) pulls your YouTube Liked Videos — works without the extension, partial coverage |
-| **Analyse** | Deezer enrichment (album · preview · release year · popularity) + AI per-track tagging (genre · mood · energy / tempo / acousticness · instruments) |
-| **Library** | Top artists / genres / moods / instruments, album-depth, audio-feel chart, artist exclusion |
+| **Collect (Exact)** | Chrome MV3 extension scrolls the YouTube Music Liked Music list with periodic partial uploads (so a tab crash doesn't lose progress) and a manual **Stop now** button |
+| **Collect (Fast)** | OAuth + Data API `playlistItems.list` with a multi-signal music filter (`categoryId` · `topicDetails` · duration · channel suffix · title patterns) — skips vlogs / podcasts / reactions before they reach the library |
+| **Analyse** | Deezer enrichment (album · preview · release year · popularity) + Gemini per-track AI (genre · mood · energy / tempo / acousticness · instruments) |
+| **Library** | Top artists / genres / moods / instruments, album-depth, audio-feel chart, data-confidence rollup, artist hide/restore |
 | **Taste DNA** | Reminiscence-bump *imprint core* + a familiarity↔novelty index from genre entropy and mainstream-distance |
 | **Artist map** | Force-directed canvas of your artists; unheard but related artists appear as empty circles you can add with one tap |
-| **Genre constellation** | Interactive graph of your genres, edges weighted by how often you mix them on the same track |
-| **Music zodiac** | 12-sign mapping from your top genres + moods, with per-sign breakdown |
-| **Recommend** | Five modes (song · genre · unheard-genre · indie · mix), Tinder-style swipe; ratings feed back into the library |
-| **Share** | Public `/s/<id>` page with dynamic OG image |
-| **Account** | Sign in / out, connection management, full account + data deletion |
-| **Report** | Optional completion email with a taste summary (Resend) |
+| **Music Zodiac** | 12 archetypes derived from your top genres + moods (not astrology — taste constellation) |
+| **AI profile** | Gemini-written persona, headline, traits, digging score, improvement tips — once per analysis credit |
+| **Recommend** | Five modes (song · genre · unheard-genre · indie · mix), swipe-style rating with optimistic-rollback on failure |
+| **Worldcup** | Self-bracket from full library (random / recent / forgotten) + genre / discover / mix modes, 8–256 sizes |
+| **Share** | `/s/<id>` public page with native share-sheet integration on mobile + dynamic OG image |
 
 ## The idea — research, not vibes
 
-The app isn't another year-end recap; it tries to *explain* taste through
-three established bodies of music-psychology research:
+The app isn't another year-end recap; it tries to *explain* taste through three established bodies of music-psychology research:
 
-- **Prediction & reward.** Musical pleasure peaks at the sweet spot between
-  predictability and surprise (Huron's *Sweet Anticipation*; Gold et al.,
-  *J. Neuroscience* 2019; Salimpoor et al., *Nature Neuroscience* 2011). The
-  **novelty index** places a library on a familiarity↔novelty axis from
-  genre entropy, sub-genre specificity and distance from the mainstream.
-- **The reminiscence bump.** Music heard at ~15–25 (emotional peak ≈ 17) is
-  encoded with unusually strong memory traces. The **imprint core** overlays
-  that window on the library's release-year histogram.
-- **Taste trajectory & openness.** Discovery peaks ~24 and crystallises
-  ~31–33 as the Openness trait declines (Rentfrow & Gosling, 2003;
-  Cambridge "musical ages"). The imprint stage labels a listener as
-  still-digging / imprinted / balanced.
+- **Prediction & reward.** Musical pleasure peaks at the sweet spot between predictability and surprise (Huron's *Sweet Anticipation*; Gold et al., *J. Neuroscience* 2019; Salimpoor et al., *Nature Neuroscience* 2011). The **novelty index** places a library on a familiarity↔novelty axis from genre entropy, sub-genre specificity and distance from the mainstream.
+- **The reminiscence bump.** Music heard at ~15–25 (emotional peak ≈ 17) is encoded with unusually strong memory traces. The **imprint core** overlays that window on the library's release-year histogram.
+- **Taste trajectory & openness.** Discovery peaks ~24 and crystallises ~31–33 as the Openness trait declines (Rentfrow & Gosling, 2003; Cambridge "musical ages"). The imprint stage labels a listener as still-digging / imprinted / balanced.
 
 ## Architecture
 
@@ -79,114 +75,79 @@ flowchart LR
     CRON["Cron Worker<br/>every minute"]
   end
   DB[("Neon Postgres<br/>+ pgvector")]
-  LOCAL["Local runner (optional)<br/>Deezer + local Qwen"]
-  API["Deezer · Last.fm · Gemini · Resend"]
-  EXT -- "liked songs" --> WEB
-  UI <-- "auth · dashboard · DNA · map · recommend" --> WEB
+  FLY["Fly worker<br/>(MIR pipeline · optional)"]
+  API["Deezer · Last.fm · MusicBrainz · Gemini"]
+  EXT -- "liked songs (append-only)" --> WEB
+  UI <-- "auth · dashboard · DNA · map · recommend · share" --> WEB
   CRON -- "tick" --> WEB
   WEB <--> DB
-  LOCAL <--> DB
-  WEB -- "search · tags · AI · email" --> API
+  FLY <--> DB
+  WEB -- "search · tags · AI" --> API
 ```
 
-Everything is **serverless** — the Next.js app runs on Cloudflare Workers
-(OpenNext adapter); a tiny separate **Cron Worker** fires every minute so
-background analysis continues after you close the tab.
+- **Web app + Cron worker** run serverless on Cloudflare Workers (OpenNext adapter).
+- **Neon Postgres** with pgvector for AI embeddings.
+- **Fly worker** (`services/analysis`) is scaffolded for an Essentia + Discogs-EffNet MIR pipeline, currently `DRY_RUN=true` until the model cache lands on R2.
+- No email transport — analysis results stay in-app; users share via OS native share sheet from `/library`.
 
 ## Data pipeline
 
 ```mermaid
 flowchart TD
-  CAP["Extension scrolls + reads the liked list"] --> SYNC["sync_liked_tracks()<br/>canonicalize → tracks + user_tracks"]
-  SYNC --> ENR["Phase 1 — Deezer<br/>album · preview · release year · rank"]
-  ENR --> AI["Phase 2 — AI<br/>genre · mood · energy/tempo/acousticness · instruments"]
-  AI --> VIEWS["Library · Taste DNA · Map · Constellation · Zodiac · Recommend · Share"]
+  CAP["Capture<br/>(extension or Data API)"] --> SYNC["sync_liked_tracks()<br/>append-only · canonicalize → tracks + user_tracks"]
+  SYNC --> ENR["Phase 1 — Deezer<br/>album · preview · release year · popularity"]
+  ENR --> AI["Phase 2 — Gemini<br/>genre · mood · energy/tempo/acousticness · instruments"]
+  AI --> VIEWS["Library · Taste DNA · Map · Constellation · Zodiac · Recommend · Worldcup · Share"]
 ```
 
-- **Capture.** The extension scrolls the real YouTube Music UI and reads
-  each rendered row (Polymer `.data`, with a DOM-text fallback). It
-  self-diagnoses whether it reached the true end of the list.
-- **Canonicalization.** `track_canon_key()` folds live versions, re-uploads
-  and repeat likes into one canonical `tracks` row; `user_tracks` holds the
-  per-user like. Sync is replace-mode for YouTube likes; map/recommendation
-  additions use a separate `discover` source that survives re-syncs.
-- **Enrichment** is Deezer-only (free, no key). **AI analysis** produces
-  genres / moods / audio-feel.
+Both phases are cached per-track: same canonical `(artist, title)` analysed once even if many users like it. The per-track analysis row never expires — re-running analysis just bumps the AI profile, not the per-track inference.
 
-### Cloud or local analysis
+## Pricing
 
-The AI phase can run two ways:
+- **Free** — `₩0` / `$0`. Starter credit (1 AI profile), library up to 500 tracks, all dashboards / zodiac / share / worldcup.
+- **Single Analysis** — `₩2,500` / `$1.99` / `€1.99`. One additional AI profile, no subscription.
+- Pro monthly subscription is paused until the analysis-history feature lands.
 
-| | Where | Cost |
-|---|---|---|
-| **Cloud** | Cloudflare cron → Google Gemini | paid API |
-| **Local** | `pnpm --filter web analyze:local` → your machine | **$0** |
-
-The local runner (`apps/web/scripts/analyze-local.mjs`) connects straight to
-the database and uses a **local Qwen model** via any OpenAI-compatible
-endpoint (Ollama / LM Studio) — same pipeline, no API bill.
-
-## Recommendation modes
-
-| Mode | Source |
-|---|---|
-| 🎲 mix | song + unheard-genre blend |
-| ❤️ song | Last.fm tracks similar to your liked songs |
-| 🎼 genre | top tracks of your dominant genres |
-| 🧭 unheard | broad genres you barely touch |
-| 💎 indie | similar tracks filtered to low-popularity artists |
-
-Ratings feed back: disliked artists are excluded; liked / "I already know
-it" picks are added to the library.
+Margin at ₩2,500: Lemon Squeezy ~$0.59 fee + Gemini ~$0.014 cost = ~$1.25 net per sale.
 
 ## Tech stack
 
 - **Extension** (`apps/extension`): MV3, TypeScript, Vite + CRXJS, `chrome.i18n`
-- **Web app / API** (`apps/web`): Next.js 15 (App Router, server actions),
-  TypeScript, Tailwind, Auth.js v5 (Google OAuth + incremental scope flow),
-  HTML5 canvas for the force-directed maps
-- **Cron worker** (`apps/cron`): scheduled Worker driving background jobs
+- **Web** (`apps/web`): Next.js 15 (App Router), TypeScript, Tailwind, Auth.js v5 (Google OAuth + incremental YouTube scope), HTML5 canvas for the maps, Zod for runtime validation
+- **Cron** (`apps/cron`): scheduled Worker driving background jobs
+- **MIR** (`services/analysis`): FastAPI + Essentia, Python, Dockerised on Fly
 - **Hosting**: Cloudflare Workers (OpenNext adapter)
 - **DB**: Neon Postgres + pgvector
-- **External**: Deezer (no auth) · Last.fm · YouTube Data API v3 · Google
-  Gemini · Resend · local Qwen
+- **External**: Deezer · Last.fm · MusicBrainz · Google Gemini · YouTube Data API v3 · Lemon Squeezy
 - **Monorepo**: pnpm workspaces + Turborepo
 
 ## Repo layout
 
 ```
 apps/
-  extension/          Chrome MV3 collector
-  web/                Next.js app + API routes + analyze-local.mjs
+  extension/          Chrome MV3 collector  +  store-assets/  +  LOAD-LOCALLY.md
+  web/                Next.js app + API routes
   cron/               minute cron worker
-db/schema.sql         full schema (functions, canonicalization, jobs)
-packages/shared/      shared TypeScript types
+services/analysis/    Python MIR (Essentia) on Fly
+db/schema.sql         full schema (functions, append-only sync, jobs, MIR)
+packages/shared/      shared TypeScript types (SyncRequest, CapturedTrack, …)
 ```
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for the design rationale and
-[DEPLOY.md](./DEPLOY.md) for deployment.
-
-## Status & limitations
-
-- **List completeness** — very large liked lists (2k+) can be slow to
-  scroll; the extension reports how much it captured.
-- **Metadata coverage** — release year / popularity come from Deezer, which
-  doesn't match every track (esp. obscure or non-Western releases), so the
-  imprint chart covers the matched subset.
-- **No audio-signal MIR yet** — energy / tempo / acousticness are
-  model-estimated, not extracted from audio. The `analysis` table reserves
-  columns + a pgvector embedding slot for a future Essentia pipeline.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for design rationale and [DEPLOY.md](./DEPLOY.md) for full deployment steps.
 
 ## Self-hosting
 
-1. Create a Neon Postgres DB → apply `db/schema.sql`.
-2. Get your own keys: Google OAuth, Last.fm, Gemini (optional if using local
-   Qwen), Resend (optional, for email).
-3. Deploy `apps/web` to Cloudflare (`pnpm --filter web run deploy`) +
-   register secrets.
-4. Build `apps/extension` and load it unpacked in Chrome.
+1. **Neon** — create a Postgres project → SQL Editor → paste `db/schema.sql` → Run. Idempotent on re-runs.
+2. **Secrets**: Google OAuth (`AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET`), Last.fm (`LASTFM_API_KEY`), Gemini (`GEMINI_API_KEY` — **enable billing on the GCP project for KR / non-US regions**), optionally Lemon Squeezy (`LEMON_*`), optionally Sentry (`SENTRY_DSN`).
+3. **Deploy web**: `pnpm --filter @playlist-analyzer/web run deploy`.
+4. **Build extension**: `pnpm --filter @playlist-analyzer/extension run build`. Test locally with `apps/extension/LOAD-LOCALLY.md`, upload `earprint-extension-v*.zip` to the Chrome Web Store.
 
-Full steps in [DEPLOY.md](./DEPLOY.md). Self-hosters use **their own keys**.
+## Status & limitations
+
+- **List completeness** — very large liked lists (2k+) can be slow to scroll; the extension uploads partial state every ~250 tracks so a tab crash never wipes progress. Manual **Stop now** button lets the user end early.
+- **Metadata coverage** — release year / popularity come from Deezer, which doesn't match every track (esp. obscure / non-Western releases). The Deezer match has a per-row confidence; below 0.65 we suppress year / rank / preview to avoid showing wrong-artist data as ground truth.
+- **MIR not yet enabled** — `services/analysis` is scaffolded but `DRY_RUN=true` until the model cache + R2 setup land. Per-track audio characteristics are Gemini-estimated for now.
+- **Pro subscription paused** — re-introduces with analysis-history (so "did my taste change since May?" has a real answer).
 
 ## License
 

@@ -77,10 +77,21 @@ export function priceForLocale(
 
 /** Email allowlist for `/admin` and any operator-only API. Keep this
  *  short — these accounts can change tuning knobs that affect every
- *  user's results. */
+ *  user's results. Entries MUST be lowercased — the match in
+ *  isAdminEmail() normalises the incoming value but doesn't normalise
+ *  the constant. A pre-flight assertion below catches a typo at module
+ *  load instead of when someone tries to admin-sign-in months later. */
 export const ADMIN_EMAILS = ["kwanho0096@gmail.com"] as const;
+
+// Assert each entry is already lowercase so a future PR can't silently
+// break admin auth by adding "Operator@Example.com" to the list.
+for (const e of ADMIN_EMAILS) {
+  if (e !== e.toLowerCase()) {
+    throw new Error(`ADMIN_EMAILS must be lowercase: "${e}"`);
+  }
+}
 
 export function isAdminEmail(email: string | null | undefined): boolean {
   if (!email) return false;
-  return ADMIN_EMAILS.includes(email.toLowerCase() as (typeof ADMIN_EMAILS)[number]);
+  return (ADMIN_EMAILS as readonly string[]).includes(email.toLowerCase());
 }
