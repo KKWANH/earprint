@@ -46,6 +46,8 @@ const en = {
   needsAiConsent:
     "AI profiling is off in your account settings — turn it on to generate your music-psychology profile.",
   accountLink: "Go to account →",
+  regionUnavailable:
+    "🌍 AI analysis is temporarily unavailable in your region while we expand coverage. Your analysis credit has been refunded — please try again later.",
   shareHeading: "Share your music persona",
   shareCopy: "Copy share link",
   shareCopied: "Link copied",
@@ -107,6 +109,8 @@ const ko: typeof en = {
   needsAiConsent:
     "계정 설정에서 AI 프로파일링이 꺼져있습니다 — 음악 심리분석을 생성하려면 켜주세요.",
   accountLink: "계정 페이지로 →",
+  regionUnavailable:
+    "🌍 현재 거주 지역에서 AI 분석이 일시 중단 상태입니다 (지역 확장 작업 중). 분석 크레딧은 환불되었습니다 — 잠시 뒤에 다시 시도해 주세요.",
   shareHeading: "페르소나 공유하기",
   shareCopy: "공유 링크 복사",
   shareCopied: "링크 복사됨",

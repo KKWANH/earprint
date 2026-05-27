@@ -10,6 +10,22 @@ import {
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /**
+ * Sentinel thrown when Gemini rejects the call because the END USER (or
+ * the Worker's outbound IP) is in a country the API isn't enabled for —
+ * the message body looks like:
+ *
+ *   { "error": { "code": 400, "status": "FAILED_PRECONDITION",
+ *     "message": "User location is not supported for the API use." }}
+ *
+ * This is NOT a code bug — the project's API key needs billing enabled
+ * in Google Cloud Console (the paid tier is available in ~100 more
+ * countries than the free tier, including KR). Callers should catch
+ * this and surface a one-line "AI service unavailable in your region —
+ * we're working on it" instead of dumping the raw 400.
+ */
+export const GEMINI_REGION_ERROR = "GEMINI_REGION_UNSUPPORTED";
+
+/**
  * Default model — used by callers that don't pass an override. `gemini-2.0-flash`
  * is the cheap workhorse; the music-psychology profile bumps to `gemini-2.5-pro`
  * via the `model` argument because that single high-value generation is worth
@@ -63,6 +79,15 @@ export async function geminiJson<T>(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
+    // Specific surface for the region-restriction case so the UI can
+    // distinguish "service genuinely not available where you are" from
+    // a transient 4xx. See GEMINI_REGION_ERROR docstring above.
+    if (
+      res.status === 400 &&
+      /User location is not supported|FAILED_PRECONDITION/i.test(body)
+    ) {
+      throw new Error(GEMINI_REGION_ERROR);
+    }
     throw new Error(`Gemini ${res.status}: ${body.slice(0, 300)}`);
   }
 

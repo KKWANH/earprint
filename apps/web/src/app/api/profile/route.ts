@@ -1,7 +1,8 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
+import { GEMINI_REGION_ERROR } from "@/lib/gemini";
 import { getLocale } from "@/lib/i18n-server";
-import { spendCredit } from "@/lib/plan";
+import { refundCredit, spendCredit } from "@/lib/plan";
 import { generateProfile } from "@/lib/profile";
 import { newShareId } from "@/lib/share";
 import { GEMINI_CAP_ERROR, isWhitelisted } from "@/lib/usage";
@@ -81,8 +82,19 @@ export async function POST() {
     }
     return json({ ok: true }, 200);
   } catch (e) {
-    if (String(e).includes(GEMINI_CAP_ERROR)) {
+    const msg = String(e);
+    if (msg.includes(GEMINI_CAP_ERROR)) {
+      // Cap is on us, refund so the user isn't charged for a cap they
+      // didn't choose to hit.
+      await refundCredit(userId);
       return json({ ok: false, capped: true }, 200);
+    }
+    if (msg.includes(GEMINI_REGION_ERROR)) {
+      // Region restriction is also outside the user's control — refund.
+      // UI surfaces a "AI service unavailable in your region" message
+      // instead of the raw Gemini 400 body.
+      await refundCredit(userId);
+      return json({ ok: false, regionUnavailable: true }, 200);
     }
     return json({ ok: false, error: String(e) }, 500);
   }

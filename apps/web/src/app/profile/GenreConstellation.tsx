@@ -289,14 +289,33 @@ export function GenreConstellation({
     drag.current = { mode: null, idx: -1, sx: 0, sy: 0, moved: false };
     canvasRef.current?.releasePointerCapture(e.pointerId);
   };
-  const onWheel = (e: React.WheelEvent) => {
-    const [sx, sy] = localXY(e);
-    const c = cam.current;
-    const next = Math.min(4, Math.max(0.3, c.scale * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
-    c.x = sx - ((sx - c.x) / c.scale) * next;
-    c.y = sy - ((sy - c.y) / c.scale) * next;
-    c.scale = next;
-  };
+  // React's synthetic onWheel is bound as a passive listener, so calling
+  // preventDefault() on its event has no effect — the page kept scrolling
+  // alongside the zoom and visitors complained the constellation card was
+  // unusable on a phone or trackpad. We register a NATIVE wheel listener
+  // with passive: false instead so preventDefault sticks.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const onWheelNative = (e: WheelEvent) => {
+      // Only swallow the scroll when the pointer is genuinely over the
+      // canvas (event.target check is implicit by binding to the canvas).
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const c = cam.current;
+      const next = Math.min(
+        4,
+        Math.max(0.3, c.scale * (e.deltaY < 0 ? 1.12 : 1 / 1.12)),
+      );
+      c.x = sx - ((sx - c.x) / c.scale) * next;
+      c.y = sy - ((sy - c.y) / c.scale) * next;
+      c.scale = next;
+    };
+    el.addEventListener("wheel", onWheelNative, { passive: false });
+    return () => el.removeEventListener("wheel", onWheelNative);
+  }, []);
 
   return (
     <div ref={wrapRef} className="relative h-[24rem] w-full overflow-hidden rounded-xl sm:h-[28rem]">
@@ -305,8 +324,9 @@ export function GenreConstellation({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onWheel={onWheel}
-        className="touch-none select-none"
+        // wheel handler registered as native non-passive listener via
+        // useEffect above — React's onWheel prop can't preventDefault.
+        className="touch-none select-none overscroll-contain"
         style={{ cursor: "grab" }}
       />
       <p className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/60 px-2 py-1 text-[11px] text-neutral-400 backdrop-blur">

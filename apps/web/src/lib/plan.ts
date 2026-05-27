@@ -85,6 +85,26 @@ export async function spendCredit(userId: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/**
+ * Refund a previously-spent credit. Called when the work the credit
+ * paid for couldn't actually be delivered (e.g. Gemini rejected the
+ * call with a region restriction the user can't fix themselves).
+ *
+ * Idempotent against the credits-floor — never goes above whatever
+ * is currently there. PAYMENTS_ENABLED off / Pro users are no-ops
+ * since they didn't spend a credit to begin with.
+ */
+export async function refundCredit(userId: string): Promise<void> {
+  if (!PAYMENTS_ENABLED) return;
+  if (await isPro(userId)) return;
+  const sql = getSql();
+  await sql`
+    UPDATE users
+       SET credits = credits + 1,
+           updated_at = now()
+     WHERE id = ${userId}`;
+}
+
 /** Convenience: just the boolean. */
 export async function isPro(userId: string): Promise<boolean> {
   return (await getPlanState(userId)).isPro;

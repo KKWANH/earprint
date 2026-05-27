@@ -21,6 +21,7 @@ export function GenerateButton({
   const [capped, setCapped] = useState(false);
   const [needsCredit, setNeedsCredit] = useState(false);
   const [needsAiConsent, setNeedsAiConsent] = useState(false);
+  const [regionUnavailable, setRegionUnavailable] = useState(false);
 
   async function go() {
     setBusy(true);
@@ -28,6 +29,7 @@ export function GenerateButton({
     setCapped(false);
     setNeedsCredit(false);
     setNeedsAiConsent(false);
+    setRegionUnavailable(false);
     try {
       const res = await fetch("/api/profile", { method: "POST" });
       const d = (await res.json()) as {
@@ -36,10 +38,12 @@ export function GenerateButton({
         capped?: boolean;
         needsCredit?: boolean;
         needsAiConsent?: boolean;
+        regionUnavailable?: boolean;
       };
       if (d.needsAiConsent) setNeedsAiConsent(true);
       else if (d.needsCredit) setNeedsCredit(true);
       else if (d.capped) setCapped(true);
+      else if (d.regionUnavailable) setRegionUnavailable(true);
       else if (!d.ok) setError(d.error ?? `${t.errorStatus} ${res.status}`);
     } catch (e) {
       setError(String(e));
@@ -74,6 +78,9 @@ export function GenerateButton({
             {t.accountLink}
           </Link>
         </p>
+      )}
+      {regionUnavailable && (
+        <p className="text-xs leading-relaxed text-amber-300">{t.regionUnavailable}</p>
       )}
       {error && <p className="text-xs text-red-400">{t.errorPrefix} {error}</p>}
     </div>

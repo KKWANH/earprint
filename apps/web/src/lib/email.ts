@@ -1,3 +1,4 @@
+import { captureError } from "./sentry";
 import type { LibraryStats } from "./library";
 
 /**
@@ -5,11 +6,22 @@ import type { LibraryStats } from "./library";
  * No-op when RESEND_API_KEY is unset, so the app runs fine without it.
  *
  * Set in apps/web with:  wrangler secret put RESEND_API_KEY
- * With no verified domain, Resend only allows from=onboarding@resend.dev and
- * delivery to the account owner's address — which is exactly our use case.
+ *
+ * SENDING DOMAIN — load-bearing config:
+ * Resend REJECTS the send with a 403 (no detail in the failure-mode our
+ * old code surfaced) when the `from` address is on a domain that hasn't
+ * been verified on the Resend account. So the previous hardcoded
+ * `noreply@earprint.kwanho.dev` was silently failing every send unless
+ * that domain had been verified — exactly the "API key is set but no
+ * mail arrives" bug we're fixing now.
+ *
+ * Now: RESEND_FROM env var overrides the from address. If unset we fall
+ * back to onboarding@resend.dev, Resend's sandbox sender — that ALWAYS
+ * works but can only deliver to the address that owns the Resend account.
+ * Production should set RESEND_FROM to a verified-domain address.
  */
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
-const FROM = "Earprint <noreply@earprint.kwanho.dev>";
+const FROM = process.env.RESEND_FROM ?? "Earprint <onboarding@resend.dev>";
 // Replies to report emails land in a real inbox the owner monitors.
 const REPLY_TO = "kwanho0096@gmail.com";
 const APP_URL = "https://earprint.kwanho.dev";
@@ -71,8 +83,22 @@ export async function sendEmail(args: SendArgs): Promise<SendResult> {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     });
-    return res.ok ? "sent" : "failed";
-  } catch {
+    if (res.ok) return "sent";
+    // Capture the Resend response body so a failed send isn't a black
+    // box. The most common cause is 403 "domain not verified" — the
+    // body explicitly says so, which is exactly what we want to see in
+    // logs the next time someone reports "the mail didn't arrive".
+    const errBody = await res.text().catch(() => "");
+    captureError(new Error(`Resend ${res.status}: ${errBody.slice(0, 300)}`), {
+      tag: "email.send",
+      extra: { subject: args.subject, to: args.to ?? REPLY_TO, from: FROM },
+    });
+    return "failed";
+  } catch (e) {
+    captureError(e, {
+      tag: "email.send.network",
+      extra: { subject: args.subject, to: args.to ?? REPLY_TO },
+    });
     return "failed";
   }
 }
