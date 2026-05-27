@@ -82,18 +82,23 @@ export async function POST() {
     }
     return json({ ok: true }, 200);
   } catch (e) {
+    // Audit fix (May 2026): refund the credit on ANY exception, not
+    // just cap / region. The previous code silently kept the credit
+    // when Gemini returned malformed JSON, the DB write rolled back,
+    // or any other unexpected error fired — the user effectively paid
+    // for nothing. Refund first, then categorise the error for the
+    // client surface.
+    await refundCredit(userId).catch(() => {
+      /* refund best-effort — if it fails the operator can fix manually
+       * but at least the user got the response. */
+    });
     const msg = String(e);
     if (msg.includes(GEMINI_CAP_ERROR)) {
-      // Cap is on us, refund so the user isn't charged for a cap they
-      // didn't choose to hit.
-      await refundCredit(userId);
       return json({ ok: false, capped: true }, 200);
     }
     if (msg.includes(GEMINI_REGION_ERROR)) {
-      // Region restriction is also outside the user's control — refund.
       // UI surfaces a "AI service unavailable in your region" message
       // instead of the raw Gemini 400 body.
-      await refundCredit(userId);
       return json({ ok: false, regionUnavailable: true }, 200);
     }
     return json({ ok: false, error: String(e) }, 500);

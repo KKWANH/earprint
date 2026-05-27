@@ -235,10 +235,14 @@ async function getRecentCandidates(
 
 /** Random sample from the oldest 50% of the user's library by
  *  list_position. The "rediscovery" / "forgotten gems" mode — tracks
- *  the user liked long ago that haven't surfaced in any recent
- *  bracket. Returns nothing meaningful on libraries that all share
- *  the same / NULL list_position (older sync data); caller should
- *  fall back to library mode for those users. */
+ *  the user liked long ago that haven't surfaced in any recent bracket.
+ *
+ *  Falls back to a uniform random sample over the full library when
+ *  the user has no non-NULL list_position values — that's the case
+ *  for libraries synced before list_position rolled out, where the
+ *  percentile_cont query would return zero rows and leave the bracket
+ *  empty. Better to show SOMETHING than to silently 404 the mode.
+ */
 async function getForgottenCandidates(
   userId: string,
   size: number,
@@ -264,6 +268,11 @@ async function getForgottenCandidates(
     WHERE lib.list_position >= lib.median_pos
     ORDER BY random()
     LIMIT ${size}`;
+  if (rows.length === 0) {
+    // Legacy-library fallback: no position metadata to compute "old
+    // half" against, so just hand back a uniform random sample.
+    return getLibraryRandomCandidates(userId, size);
+  }
   return rows.map((r) => ({
     id: r.id as string,
     artist: r.artist as string,

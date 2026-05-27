@@ -115,7 +115,7 @@ export async function POST(req: Request) {
   // of LM) so the append-only default fits naturally here too.
   const procRows = await sql`
     SELECT * FROM sync_liked_tracks(
-      ${userId},
+      ${userId}::uuid,
       ${JSON.stringify(tracks)}::jsonb
     )`;
 

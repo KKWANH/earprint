@@ -38,15 +38,42 @@ export const FREE_LIMITS = {
   shareThemes: 0,
 } as const;
 
-/** Pricing displayed on the /pricing page and the upgrade card.
- *  Two paths: the Pro monthly subscription (unlimited analyses) and a
- *  one-shot Single Analysis credit purchase for users who don't want a
- *  recurring relationship. Lifetime is gone — it didn't fit the
- *  "report-style product, regenerated rarely" usage shape. */
+/**
+ * Pricing for the /pricing page and the upgrade card.
+ *
+ * Multi-currency display (single SKU, settled in USD by Lemon Squeezy).
+ * KR users see ₩2,500 — small enough for impulse purchase, large enough
+ * that the Lemon Squeezy fee ($0.50 + 5%) leaves a healthy margin over
+ * the per-analysis Gemini cost (~$0.014).
+ *
+ * Margin math at ₩2,500 single (≈ $1.85):
+ *   Lemon fee:   $0.50 + 5%   = ~$0.59
+ *   Gemini cost: ~$0.014
+ *   Net per sale: ~$1.25
+ *
+ * Monthly subscription paused — re-introduce once the analysis-history
+ * feature lands so "why pay again next month" has a real answer.
+ */
 export const PLAN_PRICES = {
-  monthly: { amount: 5, currency: "USD", label: "$5 / month" },
-  analysis: { amount: 2, currency: "USD", label: "$2 per analysis" },
+  /** Single one-off analysis credit. Display currency follows locale;
+   *  Lemon Squeezy still settles in USD. Subject to ±1% display rounding
+   *  at the regional payment surface. */
+  analysis: {
+    KRW: { amount: 2500, label: "₩2,500" },
+    USD: { amount: 1.99, label: "$1.99" },
+    EUR: { amount: 1.99, label: "€1.99" },
+  },
 } as const;
+
+/** Pick the display variant for the current locale. KR → KRW, default
+ *  KR-EN to USD; everything else USD too. EUR is exposed for the
+ *  payment surface but not auto-defaulted from locale (Europe users
+ *  often have USD cards anyway and Lemon Squeezy will let them switch). */
+export function priceForLocale(
+  locale: "ko" | "en",
+): (typeof PLAN_PRICES.analysis)[keyof typeof PLAN_PRICES.analysis] {
+  return locale === "ko" ? PLAN_PRICES.analysis.KRW : PLAN_PRICES.analysis.USD;
+}
 
 /** Email allowlist for `/admin` and any operator-only API. Keep this
  *  short — these accounts can change tuning knobs that affect every

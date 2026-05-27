@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
 
   const rows = await sql`
     SELECT * FROM sync_liked_tracks(
-      ${userId},
+      ${userId}::uuid,
       ${JSON.stringify(tracks)}::jsonb
     )`;
 

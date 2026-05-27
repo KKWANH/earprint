@@ -317,7 +317,13 @@ async function uploadDirect(
       signal: AbortSignal.timeout(90_000),
     });
   } catch (err) {
-    return { ok: false, error: `Network error: ${String(err)}` };
+    // Sanitised — String(err) on some browsers includes request details
+    // (some polyfills leak the full Request including Authorization
+    // header into the error message). The user only needs to know "the
+    // network call didn't make it"; never include the raw error.
+    const code =
+      err instanceof Error && err.name === "TimeoutError" ? "timeout" : "network";
+    return { ok: false, error: `Network error (${code})` };
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   // 401 specifically means the stored sync_token isn't in the users table

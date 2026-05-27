@@ -118,28 +118,30 @@ export async function geminiJson<T>(
   }
 
   const primaryModel = opts?.model ?? DEFAULT_MODEL;
+  // Audit fix (May 2026): count BOTH calls when the region failover
+  // kicks in. The previous code only recorded once at the end, so a
+  // fallover-succeeded request charged the user for 1 call but actually
+  // burned 2 against Google's quota (the primary's 400 still counts on
+  // some plans, and our internal cap also undercounted). We now record
+  // after each successful callModel — failed calls don't record.
   let result: T;
   try {
     result = await callModel<T>(key, primaryModel, prompt, schema);
+    await recordGemini();
+    if (opts?.userId) await recordGeminiForUser(opts.userId);
   } catch (e) {
-    // Region failover: lighter model has wider country support; try once.
     if (
       String(e).includes(GEMINI_REGION_ERROR) &&
       primaryModel !== REGION_FALLBACK_MODEL
     ) {
-      try {
-        result = await callModel<T>(key, REGION_FALLBACK_MODEL, prompt, schema);
-      } catch (e2) {
-        // Both blocked — surface the region sentinel so the UI can show
-        // its localised message + the route can refund the credit.
-        throw e2;
-      }
+      // The primary 400'd before producing tokens, so we don't record
+      // it. Try the fallback model; if THAT succeeds, count that one.
+      result = await callModel<T>(key, REGION_FALLBACK_MODEL, prompt, schema);
+      await recordGemini();
+      if (opts?.userId) await recordGeminiForUser(opts.userId);
     } else {
       throw e;
     }
   }
-
-  await recordGemini();
-  if (opts?.userId) await recordGeminiForUser(opts.userId);
   return result;
 }

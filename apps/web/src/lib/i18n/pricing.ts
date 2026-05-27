@@ -1,9 +1,21 @@
 import type { Locale } from "../i18n";
 
+/**
+ * Pricing i18n.
+ *
+ * Two SKUs only: Free + Single Analysis. The Pro monthly subscription
+ * was paused — without an analysis-history feature ("did my taste
+ * change since last month?") there's no real reason to ask for a
+ * recurring charge. It comes back once history lands.
+ *
+ * Prices: KR sees ₩2,500 / EN sees $1.99 — same Lemon Squeezy SKU,
+ * display follows locale. Settled in USD by the payment provider.
+ */
+
 const en = {
   pageTitle: "Pricing",
   tagline:
-    "Earprint stays free for the core analysis. Pro removes the daily caps and unlocks the heavier features.",
+    "Earprint stays free for the core analysis. Pay once per extra AI profile when you want a fresh run — no subscription.",
   comingSoon:
     "Payments aren't open yet — this page is a preview. Everything is currently unlocked for everyone.",
 
@@ -24,57 +36,45 @@ const en = {
 
   analysis: {
     name: "Single Analysis",
-    price: "$2",
+    price: "$1.99",
     period: "one-time",
-    desc: "Top up one extra AI profile generation when you want a fresh take. No subscription.",
-    cta: "Buy 1 analysis — $2",
-  },
-
-  pro: {
-    name: "Pro",
-    badge: "Best value",
-    monthly: "$5 / month",
-    monthlyCta: "Upgrade — $5/month",
-    perks: [
-      "Unlimited AI profile regeneration",
-      "Unlimited library size (2,000+ tracks)",
-      "Detailed track-level analysis (genre + mood + audio feel for every song)",
-      "Custom share-page slug + 6 zodiac themes",
-      "Priority email support",
-      "Cancel any time",
-    ],
+    desc: "Top up one extra AI profile generation when you want a fresh take on your taste. No subscription, no recurring charge.",
+    cta: "Buy 1 analysis — $1.99",
   },
 
   comparison: {
-    title: "What's the difference?",
+    title: "What's included",
     rows: [
-      { feature: "Liked-songs sync", free: "✓", pro: "✓" },
-      { feature: "Top artists / genres / moods", free: "✓", pro: "✓" },
-      { feature: "Music Zodiac", free: "✓", pro: "✓" },
-      { feature: "Share page", free: "Default theme", pro: "6 themes + custom slug" },
-      { feature: "Detailed per-track analysis", free: "First 100 tracks", pro: "Unlimited" },
-      { feature: "AI profile regeneration", free: "1 / day", pro: "Unlimited" },
-      { feature: "Library size", free: "Up to 500 tracks", pro: "Unlimited" },
+      { feature: "Liked-songs sync", free: "✓", paid: "✓" },
+      { feature: "Library dashboard · top artists / genres / moods", free: "✓", paid: "✓" },
+      { feature: "Music Zodiac portrait", free: "✓", paid: "✓" },
+      { feature: "Taste DNA · Artist Map · Recommendations · Worldcup", free: "✓", paid: "✓" },
+      { feature: "AI music-psychology profile", free: "1 starter", paid: "+1 per purchase" },
+      { feature: "Public share page", free: "Default theme", paid: "Default theme" },
     ],
   },
 
   faqTitle: "Common questions",
   faq: [
     {
-      q: "Can I cancel?",
-      a: "Yes, any time. Subscriptions stay active until the end of the period you paid for; lifetime is a one-shot purchase.",
+      q: "Why per-analysis instead of subscription?",
+      a: "Earprint is a report-style product — most people want to run an analysis when their taste has actually moved, not once a month. Per-analysis pricing lines up with how the product gets used.",
     },
     {
       q: "Refunds?",
-      a: "If something's broken on our side, email and we'll refund. Lemon Squeezy (our payment provider) handles the actual refund mechanic.",
+      a: "If something's broken on our side, email at the address on the /security page and we'll refund. Lemon Squeezy (our payment provider) handles the actual refund mechanic.",
     },
     {
       q: "Why so cheap?",
-      a: "Earprint is a side project — pricing covers Gemini API costs and a little operating budget. Money isn't the point.",
+      a: "Earprint is a side project — pricing covers the Gemini API cost per analysis (~$0.014) plus the payment fees, with a little headroom. Volume isn't the point yet.",
     },
     {
-      q: "Will my data be deleted if I downgrade?",
-      a: "No. Downgrading just re-applies the free-tier caps to new actions. Your synced library, analyses and AI profile stay.",
+      q: "Will my data be deleted if I stop buying analyses?",
+      a: "No. Your library, past analyses, and zodiac result stay. The credit just gates running a new AI profile — everything else (library dashboard, share page, worldcup, etc.) keeps working.",
+    },
+    {
+      q: "Will there be a subscription option later?",
+      a: "When the analysis-history feature lands — being able to compare 'May vs August' versions of your taste — a monthly subscription will make sense. Until then it's pay-as-you-go.",
     },
   ],
 };
@@ -82,13 +82,13 @@ const en = {
 const ko: typeof en = {
   pageTitle: "요금제",
   tagline:
-    "Earprint 의 핵심 분석은 무료로 제공됩니다. Pro 요금제는 모든 한도를 해제하고 부가 기능을 활성화합니다.",
+    "Earprint 의 핵심 분석은 무료로 제공됩니다. 새로 분석을 한 번 더 돌리고 싶을 때만 1회 결제 — 구독 없음.",
   comingSoon:
     "결제 기능은 아직 오픈하지 않았습니다. 본 페이지는 미리보기이며, 모든 기능을 모든 이용자에게 무료로 제공하고 있습니다.",
 
   free: {
     name: "Free",
-    price: "$0",
+    price: "₩0",
     period: "시작 플랜",
     cta: "현재 플랜",
     features: [
@@ -103,57 +103,45 @@ const ko: typeof en = {
 
   analysis: {
     name: "1회 분석권",
-    price: "$2",
+    price: "₩2,500",
     period: "일회성 결제",
-    desc: "구독 없이 AI 분석을 한 번 더 돌려보고 싶을 때 선택하시기 바랍니다.",
-    cta: "1회 분석권 구매 — $2",
-  },
-
-  pro: {
-    name: "Pro",
-    badge: "추천",
-    monthly: "$5 / 월",
-    monthlyCta: "Pro 구독 시작 — $5/월",
-    perks: [
-      "AI 분석 무제한 재생성",
-      "라이브러리 무제한 (2,000곡 이상)",
-      "곡별 상세 분석 (장르·무드·오디오 특성 전곡 분석)",
-      "공유 페이지 사용자 지정 URL + 별자리 테마 6종",
-      "우선 메일 지원",
-      "언제든 해지 가능",
-    ],
+    desc: "취향이 바뀌었을 때 AI 분석을 한 번 더 돌려보고 싶을 때 선택하세요. 구독 없이 일회성.",
+    cta: "1회 분석권 구매 — ₩2,500",
   },
 
   comparison: {
-    title: "요금제 비교",
+    title: "포함 내역",
     rows: [
-      { feature: "좋아요 곡 동기화", free: "✓", pro: "✓" },
-      { feature: "주요 아티스트·장르·무드", free: "✓", pro: "✓" },
-      { feature: "음악 별자리", free: "✓", pro: "✓" },
-      { feature: "공유 페이지", free: "기본 테마", pro: "테마 6종 + 사용자 지정 URL" },
-      { feature: "곡별 상세 분석", free: "최초 100곡", pro: "무제한" },
-      { feature: "AI 프로필 재생성", free: "분석권 단위", pro: "무제한" },
-      { feature: "라이브러리 크기", free: "최대 500곡", pro: "무제한" },
+      { feature: "좋아요 곡 동기화", free: "✓", paid: "✓" },
+      { feature: "라이브러리 대시보드 · 주요 아티스트·장르·무드", free: "✓", paid: "✓" },
+      { feature: "Music Zodiac 별자리 프로필", free: "✓", paid: "✓" },
+      { feature: "Taste DNA · Artist Map · Recommendations · Worldcup", free: "✓", paid: "✓" },
+      { feature: "AI 음악 심리분석", free: "시작 1회", paid: "결제 시 +1회" },
+      { feature: "공개 공유 페이지", free: "기본 테마", paid: "기본 테마" },
     ],
   },
 
   faqTitle: "자주 묻는 질문",
   faq: [
     {
-      q: "구독을 해지할 수 있나요?",
-      a: "언제든 해지 가능합니다. Pro 월 구독은 결제한 기간 종료 시까지 유효하며, 자동 갱신을 중단할 수 있습니다. 1회 분석권은 일회성 결제로 별도 해지 절차가 없습니다.",
+      q: "왜 구독이 아니라 1회 결제인가요?",
+      a: "Earprint 는 리포트형 제품입니다 — 매달 분석하는 게 아니라, 취향이 실제로 변했을 때 한 번 돌려보는 사용 패턴. 1회 결제가 실제 사용 흐름과 더 잘 맞습니다.",
     },
     {
       q: "환불이 가능한가요?",
-      a: "서비스 측 결함으로 정상 이용이 불가했던 경우 메일로 문의 주시면 환불해 드립니다. 실제 환불 처리는 결제 대행사인 Lemon Squeezy 를 통해 진행됩니다.",
+      a: "서비스 측 결함으로 정상 이용이 불가했던 경우 /security 페이지의 이메일로 문의 주시면 환불해 드립니다. 실제 환불 처리는 결제 대행사인 Lemon Squeezy 를 통해 진행됩니다.",
     },
     {
       q: "가격을 이렇게 책정한 이유는 무엇인가요?",
-      a: "Earprint 는 개인 프로젝트로 운영되고 있습니다. 책정된 금액은 Gemini API 호출 비용과 최소한의 운영비를 충당하기 위한 수준이며, 이윤이 주된 목적이 아닙니다.",
+      a: "Earprint 는 개인 프로젝트입니다. 가격은 분석 1회당 Gemini API 비용 (약 $0.014) + 결제 수수료를 충당하고 약간의 운영 여유를 두는 수준이며, 이윤 극대화가 목적이 아닙니다.",
     },
     {
-      q: "다운그레이드 시 데이터는 어떻게 되나요?",
-      a: "데이터는 그대로 유지됩니다. 다운그레이드는 신규 액션에만 무료 플랜의 한도를 다시 적용할 뿐이며, 이미 동기화한 라이브러리·분석 결과·AI 프로필은 보존됩니다.",
+      q: "분석권을 더 안 사면 데이터가 사라지나요?",
+      a: "아니요. 라이브러리·과거 분석·별자리 결과는 그대로 유지됩니다. 분석권은 새 AI 프로필을 추가로 생성할 때만 차감되며, 그 외 기능 (대시보드·공유 페이지·월드컵 등) 은 그대로 사용 가능합니다.",
+    },
+    {
+      q: "나중에 구독 옵션이 생기나요?",
+      a: "분석 히스토리 기능 (5월 vs 8월 취향 비교) 이 들어오면 월 구독이 의미를 갖게 됩니다. 그때까지는 1회 결제로만 운영합니다.",
     },
   ],
 };

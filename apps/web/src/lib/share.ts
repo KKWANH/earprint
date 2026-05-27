@@ -1,8 +1,19 @@
 import { getSql } from "./db";
 
-/** A short, unguessable id for a public share link (/s/<id>). */
+/**
+ * A short, unguessable id for a public share link (/s/<id>).
+ *
+ * 16 hex chars = 64 bits of entropy. Birthday-paradox collision becomes
+ * possible around 2^32 ≈ 4 billion IDs — comfortably more than we'll
+ * ever issue. The previous 12-char (48-bit) ID would have started
+ * colliding around 2^24 = 16 million, which is at-best-marginal for a
+ * sharing-friendly URL where collisions silently overwrite each other.
+ *
+ * Still short enough to paste into a tweet / DM (16 chars + the /s/
+ * prefix = 19 chars).
+ */
 export function newShareId(): string {
-  return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
+  return crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 }
 
 /**

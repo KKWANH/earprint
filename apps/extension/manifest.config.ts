@@ -20,7 +20,7 @@ export default defineManifest({
   manifest_version: 3,
   name: "__MSG_appName__",
   default_locale: "en",
-  version: "0.11.0",
+  version: "0.11.1",
   description: "__MSG_appDescription__",
   icons: {
     "16": "icons/icon-16.png",
