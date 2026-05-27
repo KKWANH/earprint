@@ -131,6 +131,13 @@
       const seen = new Set<string>();
       let domPeak = 0;
 
+      // Recency order is captured implicitly by the *order in which we
+      // first see a videoId*: DOM querySelectorAll returns rows top-to-
+      // bottom, and YT serves the LM playlist newest-first. The Map
+      // downstream (content.ts) preserves insertion order on first set(),
+      // so the upload array indices line up with the user's like order.
+      // The backend then assigns list_position from array index in
+      // sync_liked_tracks (WITH ORDINALITY) — no extension-side bookkeeping.
       const scrapeNow = () => {
         const rows = Array.from(
           document.querySelectorAll("ytmusic-responsive-list-item-renderer"),
@@ -157,6 +164,36 @@
         return rows[rows.length - 1] as HTMLElement | undefined;
       };
 
+      /** Remove rows that have scrolled well past the top of the viewport.
+       *  YT Music's virtualisation is conservative — for ~1,500-row
+       *  libraries it keeps the lot in the DOM after scrolling, which is
+       *  what eventually OOMs the renderer. We've already captured the
+       *  row's data into `seen`, so dropping the DOM node is safe (the
+       *  continuation pagination uses an internal token, not DOM state).
+       *  Keeps a buffer above the visible viewport so YT's own scroll
+       *  recyclers don't fight us. */
+      const REMOVE_BUFFER_PX = 2000; // ~30 rows of headroom above viewport
+      const cleanupOffscreen = () => {
+        const rows = document.querySelectorAll("ytmusic-responsive-list-item-renderer");
+        const scroller = findScroller();
+        const scrollTop = scroller.scrollTop;
+        let removed = 0;
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i] as HTMLElement;
+          // offsetTop is relative to nearest positioned ancestor — for YT
+          // Music's playlist that's effectively the scroller. Close enough
+          // for the "is this row well above the viewport?" check.
+          if (row.offsetTop + row.offsetHeight < scrollTop - REMOVE_BUFFER_PX) {
+            row.remove();
+            removed++;
+          } else {
+            // Rows below threshold; the rest are even closer to viewport.
+            break;
+          }
+        }
+        return removed;
+      };
+
       // YouTube's "load more" sentinel. While this element exists the list
       // still has more pages; when it is gone the list has truly ended.
       const moreToLoad = () =>
@@ -165,86 +202,113 @@
           "tp-yt-paper-spinner[active], tp-yt-paper-spinner-lite[active]",
         ) != null;
 
-      // ── Scroll loop, redesigned to terminate on time-based criteria ──
+      // ── Multi-pass scroll, redesigned around the failure modes we hit:
       //
-      // The previous iteration-based stall counter (30 iterations of no
-      // growth) could stay stuck forever when YT served fresh-but-dup
-      // rows: seen.size never grew enough to flip the stall flag, and
-      // the loop just kept scrolling. The new termination is purely
-      // wall-clock based and inspects the actual scroll position + the
-      // loading sentinel, which gives a deterministic upper bound.
+      // 1. **YT silently stops paginating** around 1,400-1,500 rows on big
+      //    libraries. The 'still loading' sentinel may stay forever even
+      //    though no new rows ever come in. We need a hard wall-clock cap.
       //
-      //   STALL_MS               12s — no new items at all = stalled.
-      //   STALL_BAILOUT_MS       45s — even if still 'loading', give up.
-      //   MAX_TOTAL_MS           5 min — hard ceiling for the whole scroll.
-      //   ATBOTTOM_FUZZ          50px — counts as 'at the bottom of the list'.
+      // 2. **Renderer OOM**: the virtualised list keeps too much DOM at
+      //    once on big libraries and Chrome kills the tab ("Aw, snap!").
+      //    Doing a top-of-list ⇄ bottom-of-list cycle lets YT recycle
+      //    off-screen nodes between passes, releasing memory.
       //
-      // Done when: at the very bottom of the scroller AND no spinner /
-      // continuation sentinel AND no new items for STALL_MS.
-      // Bailout when: total time exceeds MAX_TOTAL_MS, or stalled for
-      // STALL_BAILOUT_MS regardless of scroll position.
-      const STALL_MS = 12_000;
-      const STALL_BAILOUT_MS = 45_000;
-      const MAX_TOTAL_MS = 300_000;
-      const ATBOTTOM_FUZZ = 50;
+      // 3. **scrapeNow() on every step iterates the entire row list (O(N))**
+      //    — fine at 100 rows, painful at 1,500. Throttle DOM scraping to
+      //    once every ~1s. The fetch-intercept side (window.fetch hook
+      //    above) keeps capturing browse responses regardless.
+      //
+      // Up to 3 passes; bails early if a full pass adds zero rows.
+      const PASSES = 3;
+      const PASS_STALL_MS = 8_000;    // no new rows for 8s ends a pass
+      const PASS_BAILOUT_MS = 35_000; // hard cap per pass
+      const ATBOTTOM_FUZZ = 60;
+      const SCRAPE_THROTTLE_MS = 900; // run scrapeNow at most once per second
 
-      findScroller().scrollTop = 0;
-      window.scrollTo(0, 0);
-      await sleep(900);
-      scrapeNow();
+      let lastScrapeAt = 0;
+      let lastCleanupAt = 0;
+      // DOM cleanup runs less often than scrape — every ~3s. More frequent
+      // cleanup risks fighting YT's own recycling logic; less frequent
+      // lets the DOM pile up again. 3s with 2000px buffer = ~30 rows of
+      // headroom which YT comfortably manages.
+      const CLEANUP_THROTTLE_MS = 3000;
+      const maybeScrape = () => {
+        const now = Date.now();
+        if (now - lastScrapeAt < SCRAPE_THROTTLE_MS) return;
+        lastScrapeAt = now;
+        scrapeNow();
+        if (now - lastCleanupAt > CLEANUP_THROTTLE_MS) {
+          lastCleanupAt = now;
+          const removed = cleanupOffscreen();
+          if (removed > 0) post({ kind: "scrapeCleanup", removed });
+        }
+      };
 
-      const startedAt = Date.now();
-      let lastGrowAt = Date.now();
-      let lastSize = 0;
       let spinnerSeen = false;
+      let totalLastSize = 0;
 
-      while (Date.now() - startedAt < MAX_TOTAL_MS) {
-        scrapeNow();
-        const scroller = findScroller();
-        const stepPx = Math.max(360, scroller.clientHeight * 0.7);
-        scroller.scrollTop += stepPx;
-        window.scrollBy(0, stepPx);
+      for (let pass = 0; pass < PASSES; pass++) {
+        post({ kind: "scrapePhase", phase: "scrolling" });
+        post({ kind: "scrapePass", pass: pass + 1, total: PASSES });
 
-        // After each scroll, give the virtualised list time to render —
-        // longer when a loading spinner is visible (YT is fetching) so we
-        // don't accidentally count its working time against the stall.
-        const loadingDuringStep = moreToLoad();
-        if (loadingDuringStep) spinnerSeen = true;
-        await sleep(loadingDuringStep ? 700 : 280);
-        scrapeNow();
+        // Reset to top — this prompts YT to release the rows it had
+        // virtualised at the bottom, fixing the memory pressure that
+        // crashed the renderer mid-scroll on big libraries.
+        findScroller().scrollTop = 0;
+        window.scrollTo(0, 0);
+        await sleep(pass === 0 ? 900 : 1500);
+        maybeScrape();
 
-        if (seen.size > lastSize) {
-          lastSize = seen.size;
-          lastGrowAt = Date.now();
+        const passStart = Date.now();
+        let passLastGrow = Date.now();
+        let passLastSize = seen.size;
+
+        while (Date.now() - passStart < PASS_BAILOUT_MS) {
+          maybeScrape();
+          const scroller = findScroller();
+          const stepPx = Math.max(360, scroller.clientHeight * 0.7);
+          scroller.scrollTop += stepPx;
+          window.scrollBy(0, stepPx);
+
+          const loading = moreToLoad();
+          if (loading) spinnerSeen = true;
+          await sleep(loading ? 700 : 280);
+          maybeScrape();
+
+          if (seen.size > passLastSize) {
+            passLastSize = seen.size;
+            passLastGrow = Date.now();
+          }
+          post({ kind: "scrapeProgress", count: seen.size });
+
+          const stalledMs = Date.now() - passLastGrow;
+          const sc = findScroller();
+          const atBottom =
+            sc.scrollTop + sc.clientHeight >= sc.scrollHeight - ATBOTTOM_FUZZ;
+          const stillLoading = moreToLoad();
+
+          if (stalledMs > PASS_STALL_MS / 2) {
+            lastRow()?.scrollIntoView({ block: "end" });
+          }
+          // End pass when at bottom + nothing loading + stalled for the
+          // grace window. Always exit on PASS_BAILOUT_MS via the while.
+          if (atBottom && !stillLoading && stalledMs > PASS_STALL_MS) break;
         }
-        post({ kind: "scrapeProgress", count: seen.size });
 
-        const stalledMs = Date.now() - lastGrowAt;
-        const scroller2 = findScroller();
-        const atBottom =
-          scroller2.scrollTop + scroller2.clientHeight >=
-          scroller2.scrollHeight - ATBOTTOM_FUZZ;
-        const loading = moreToLoad();
+        // Run one synchronous scrape at the bottom so anything still
+        // rendered gets captured before we reset for the next pass.
+        scrapeNow();
 
-        // Nudge the last row into view when we've stalled — sometimes
-        // unsticks YT's virtualisation.
-        if (stalledMs > STALL_MS / 2) {
-          lastRow()?.scrollIntoView({ block: "end" });
-        }
-
-        // Done: bottom reached, no loading indicator, no new items for STALL_MS.
-        if (atBottom && !loading && stalledMs > STALL_MS) break;
-        // Bailout: stalled too long even though we're still 'loading' —
-        // YT throttled us or quietly stopped serving rows. Trust what
-        // we have and move on.
-        if (stalledMs > STALL_BAILOUT_MS) break;
+        // No new rows during this entire pass → further passes won't help.
+        if (seen.size === totalLastSize) break;
+        totalLastSize = seen.size;
       }
 
       post({ kind: "scrapePhase", phase: "settling" });
 
-      // ── Settle pass — short and time-capped this time. Just gives YT one
-      // last chance to render anything that was about to come in. ──
-      const SETTLE_MAX_MS = 20_000;
+      // ── Settle pass — short and time-capped. Just gives YT one last
+      // chance to render anything that was about to come in. ──
+      const SETTLE_MAX_MS = 15_000;
       const settleStart = Date.now();
       while (Date.now() - settleStart < SETTLE_MAX_MS) {
         const scroller = findScroller();
@@ -253,7 +317,7 @@
         lastRow()?.scrollIntoView({ block: "end" });
         const loading = moreToLoad();
         if (loading) spinnerSeen = true;
-        await sleep(loading ? 2000 : 1000);
+        await sleep(loading ? 1800 : 900);
         const before = seen.size;
         scrapeNow();
         post({ kind: "scrapeProgress", count: seen.size });

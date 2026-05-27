@@ -152,6 +152,45 @@ async function runSync(): Promise<unknown> {
     });
   }, 1500);
 
+  // Incremental upload — every ~PARTIAL_THRESHOLD new captures, fire an
+  // append-only upload of the current snapshot. This rescues the user
+  // when the YT Music renderer dies mid-scroll (Aw Snap on 5k-track
+  // libraries): every 250 captured songs are already on the server,
+  // so a tab crash at 1,200/5,000 leaves them with 1,000+ tracks saved
+  // instead of zero. Server gates the destructive delete on `complete`
+  // and these all carry complete=false → strictly additive, no risk.
+  //
+  // Tradeoff: every periodic call also costs 1 against the per-token
+  // daily sync cap. A 5k library does ~20 partials + 1 final = 21
+  // calls; cap is 500/day (lifted from 200 specifically to accommodate
+  // this flow), so a user can re-sync ~20 times/day before hitting it.
+  const PARTIAL_THRESHOLD = 250;
+  let lastUploadedSize = 0;
+  let partialUploading = false;
+  const partialTimer = setInterval(() => {
+    if (partialUploading) return;
+    if (tracks.size - lastUploadedSize < PARTIAL_THRESHOLD) return;
+    const snapshot = [...tracks.values()];
+    const sizeAtUpload = snapshot.length;
+    partialUploading = true;
+    void uploadDirect(snapshot, { partial: true })
+      .then((res) => {
+        // Only advance the watermark on confirmed-OK uploads. If the
+        // periodic call fails (network blip, 429 rate limit), the next
+        // tick will retry the same chunk plus any new growth.
+        const ok =
+          res && typeof res === "object" && (res as { ok?: unknown }).ok === true;
+        if (ok) lastUploadedSize = sizeAtUpload;
+      })
+      .catch(() => {
+        /* partials are best-effort — the final upload at scrape end
+         * always sends the complete set with complete=actuallyComplete. */
+      })
+      .finally(() => {
+        partialUploading = false;
+      });
+  }, 5000);
+
   try {
     await new Promise<void>((resolve) => {
       onScrapeDone = resolve;
@@ -203,6 +242,7 @@ async function runSync(): Promise<unknown> {
     return { ok: false, error };
   } finally {
     clearInterval(statusTimer);
+    clearInterval(partialTimer);
   }
 }
 
@@ -212,9 +252,14 @@ const BACKEND: string =
     ?.VITE_WEB_ORIGIN ?? "https://earprint.kwanho.dev";
 
 /** Direct backend upload from the content script. Replaces the previous
- *  background-SW hop that was prone to MV3 service-worker suspension. */
+ *  background-SW hop that was prone to MV3 service-worker suspension.
+ *  `opts.partial=true` forces complete=false even when the scrape would
+ *  otherwise look done — used by the in-flight periodic uploader so a
+ *  mid-scrape snapshot can never trigger the server's destructive
+ *  replace-mode delete branch. */
 async function uploadDirect(
   list: CapturedTrack[],
+  opts: { partial?: boolean } = {},
 ): Promise<Record<string, unknown>> {
   const { syncToken } = await chrome.storage.sync.get(["syncToken"]);
   if (!syncToken) {
@@ -223,7 +268,32 @@ async function uploadDirect(
       error: 'Extension not connected — click "Connect" in the popup',
     };
   }
-  const body = { source: "ytmusic", tracks: list };
+  // Completeness is the single decision the server uses to allow
+  // delete-on-replace. Be strict: require BOTH the scroller's own
+  // "I reached the bottom" assertion AND the captured count to be
+  // within 1% of the playlist header's expected count. A stalled
+  // scrape that THINKS it ended cleanly but is short by 30% should
+  // not authorise the server to drop the missing tracks.
+  // For partial periodic uploads, force false unconditionally — the
+  // scrape isn't finished, the snapshot is a subset by definition.
+  const expected = expectedCount();
+  const captured = list.length;
+  const headerSatisfied =
+    expected === null || captured >= Math.floor(expected * 0.99);
+  const complete = !opts.partial && diag.endedClean && headerSatisfied;
+  const body = {
+    source: "ytmusic" as const,
+    tracks: list,
+    complete,
+    diagnostics: {
+      expected,
+      captured,
+      endedClean: !opts.partial && diag.endedClean,
+      domPeak: diag.domPeak,
+      spinnerSeen: diag.spinnerSeen,
+      lastTitle: diag.lastTitle || null,
+    },
+  };
   let res: Response;
   try {
     res = await fetch(`${BACKEND}/api/sync`, {

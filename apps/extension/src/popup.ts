@@ -18,13 +18,12 @@ document.querySelectorAll<HTMLElement>("[data-i18n]").forEach((el) => {
 
 const stepConnect = document.getElementById("step-connect") as HTMLDivElement;
 const stepSync = document.getElementById("step-sync") as HTMLDivElement;
-const stepView = document.getElementById("step-view") as HTMLDivElement;
 const connectBtn = document.getElementById("connect") as HTMLButtonElement;
 const syncBtn = document.getElementById("sync") as HTMLButtonElement;
-const viewBtn = document.getElementById("view") as HTMLButtonElement;
 const syncHint = document.getElementById("sync-hint") as HTMLDivElement;
 const msgEl = document.getElementById("msg") as HTMLParagraphElement;
 const guideLink = document.getElementById("guide-link") as HTMLAnchorElement;
+const dashboardLink = document.getElementById("dashboard-link") as HTMLAnchorElement;
 
 // Web origin is baked at build-time via Vite so a fork / staging build
 // only needs to flip one env: VITE_WEB_ORIGIN=https://staging.example.com pnpm run build
@@ -32,20 +31,23 @@ const WEB_ORIGIN: string =
   (import.meta as unknown as { env?: { VITE_WEB_ORIGIN?: string } }).env
     ?.VITE_WEB_ORIGIN ?? "https://earprint.kwanho.dev";
 guideLink.href = `${WEB_ORIGIN}/guide`;
+dashboardLink.href = `${WEB_ORIGIN}/library`;
 
 const openLmLink = document.getElementById("open-lm") as HTMLAnchorElement | null;
 if (openLmLink) {
   openLmLink.href = "https://music.youtube.com/playlist?list=LM";
 }
 
-type Step = "connect" | "sync" | "view";
+// Two-step funnel only: connect → sync. The dashboard isn't a funnel goal —
+// after sync the user usually wants to be able to re-sync (their likes
+// change), so we stay on step 2. Dashboard access is a sidelink instead.
+type Step = "connect" | "sync";
 
 function setStep(active: Step, doneBefore = true) {
-  const order: Step[] = ["connect", "sync", "view"];
+  const order: Step[] = ["connect", "sync"];
   const els: Record<Step, HTMLDivElement> = {
     connect: stepConnect,
     sync: stepSync,
-    view: stepView,
   };
   const idx = order.indexOf(active);
   for (let i = 0; i < order.length; i++) {
@@ -126,28 +128,51 @@ function renderSyncResult(res: {
   expected?: number | null;
   endedClean?: boolean;
   lastTitle?: string;
+  /** New server fields. `complete` reflects whether the server treated
+   *  the upload as a full-library replace (allowed to delete missing
+   *  tracks) or append-only. `removed` is the count actually deleted
+   *  in this round — non-zero only when complete=true. */
+  complete?: boolean;
+  removed?: number;
+  plan_dropped?: number;
+  plan_cap?: number;
 }) {
   syncBtn.disabled = false;
   if (res.ok) {
     const cap = res.captured ?? 0;
-    const exp = res.expected ?? 0;
-    if (!exp || cap >= exp * 0.97) {
-      showMsg(
-        t("msgSyncSuccess", [cap.toLocaleString(), String(res.total ?? "?")]),
-        "success",
-      );
-    } else if (res.endedClean) {
-      showMsg(
-        t("msgSyncPartial", [String(cap), String(exp), res.lastTitle ?? "?"]),
-        "info",
-      );
+    const expected = res.expected ?? null;
+    const removed = res.removed ?? 0;
+
+    // Differentiate three success shapes so the user knows what actually
+    // landed on the backend:
+    //
+    //   • Complete & matched header → "✓ Saved N (complete)"
+    //   • Server saw an append-only round (extension didn't reach bottom,
+    //     or the header expected more than we captured) → warn so the
+    //     user runs another sync rather than assuming this was full.
+    //   • Free-tier slice happened (plan_dropped > 0) → say it was
+    //     capped and how many were dropped before the slice.
+    let msg: string;
+    let kind: "info" | "error" | "success" = "success";
+    if (res.complete === true) {
+      const removedSuffix = removed > 0 ? ` · ${removed.toLocaleString()} removed` : "";
+      msg = `✓ Saved ${cap.toLocaleString()} songs (complete)${removedSuffix}`;
+    } else if (expected != null && cap < expected) {
+      msg =
+        `⚠ Partial sync — saved ${cap.toLocaleString()} of ${expected.toLocaleString()}.\n` +
+        `Library was NOT replaced. Run sync again to capture the rest.`;
+      kind = "error";
     } else {
-      showMsg(
-        t("msgSyncStopped", [String(cap), String(exp)]),
-        "error",
-      );
+      msg =
+        `✓ Saved ${cap.toLocaleString()} songs (append-only — full-library replace not authorised this round)`;
+      kind = "info";
     }
-    setStep("view");
+    if (res.plan_dropped && res.plan_dropped > 0) {
+      msg += `\n📦 Free-tier cap: ${res.plan_dropped.toLocaleString()} extra tracks were dropped before save (limit ${(res.plan_cap ?? 0).toLocaleString()}).`;
+    }
+    showMsg(msg, kind);
+    // Stay on step 2 so re-syncing is one click away — the user's likes
+    // change over time and this is the primary loop of the popup.
     return;
   }
 
@@ -288,10 +313,6 @@ syncBtn.addEventListener("click", async () => {
       showMsg(t("msgError", ["sync timed out"]), "error");
     }
   }, 600000);
-});
-
-viewBtn.addEventListener("click", () => {
-  void chrome.tabs.create({ url: `${WEB_ORIGIN}/library` });
 });
 
 /** Nuclear reset — clears every bit of extension-local state so the next

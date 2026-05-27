@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
-import { json } from "@/lib/http";
+import { json, readJsonBody } from "@/lib/http";
 import {
   fetchLikedVideos,
   refreshGoogleAccessToken,
@@ -29,8 +29,11 @@ import {
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return json({ error: "not signed in" }, 401);
-  const body = (await req.json().catch(() => ({}))) as { after?: string };
-  const pageToken = typeof body.after === "string" ? body.after : undefined;
+  // Body is optional — { after?: pageToken }. Tiny payload, hard cap 1 KB.
+  const parsed = await readJsonBody<{ after?: string }>(req, 1024);
+  if (!parsed.ok) return parsed.response;
+  const pageToken =
+    typeof parsed.data?.after === "string" ? parsed.data.after : undefined;
 
   const { userId } = await ensureConnection();
   const sql = getSql();
@@ -93,6 +96,12 @@ export async function POST(req: Request) {
       {
         ok: true,
         captured: 0,
+        // `rawCount` reflects items returned by playlistItems.list this
+        // page BEFORE the music-category filter. expected (totalResults)
+        // counts everything in the user's LL playlist (incl. non-music).
+        // Surfacing both lets the client say "0 music in this batch of
+        // 250 liked videos" instead of just "0 captured — try again".
+        rawCount: result.rawCount,
         expected: result.total,
         nextAfter: result.nextPageToken,
         note: "empty",
@@ -101,16 +110,23 @@ export async function POST(req: Request) {
     );
   }
 
+  // YouTube Data API "Liked Videos" is paged and isn't a strict superset of
+  // YT Music's Liked Music playlist — some Music tracks aren't visible here
+  // and some non-Music videos are. Treat every page as append-only: never
+  // pass complete=true, so the server won't delete tracks that the
+  // extension scraped but this API path didn't see.
   const procRows = await sql`
     SELECT * FROM sync_liked_tracks(
       ${userId},
-      ${JSON.stringify(tracks)}::jsonb
+      ${JSON.stringify(tracks)}::jsonb,
+      ${false}
     )`;
 
   return json(
     {
       ok: true,
       captured: tracks.length,
+      rawCount: result.rawCount,
       expected: result.total,
       nextAfter: result.nextPageToken,
       ...procRows[0],

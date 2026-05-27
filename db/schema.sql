@@ -53,6 +53,18 @@ CREATE INDEX IF NOT EXISTS idx_users_last_seen ON users(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_users_tos_accepted ON users(tos_accepted_at)
   WHERE tos_accepted_at IS NULL;
 
+-- Last extension-sync telemetry — surfaced on /connect so the user can
+-- tell at a glance whether their most recent sync replaced their library
+-- (complete=true, removed N stale tracks) or just appended (complete=false,
+-- meaning the scrape didn't reach the bottom of YT Music's liked-music
+-- page). Without these the only place this info lives is the extension
+-- popup, which doesn't help web-only checks.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sync_at        TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sync_complete  BOOLEAN;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sync_captured  INT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sync_expected  INT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sync_removed   INT;
+
 -- Per-user, per-day counters for paywalled features (free tier daily caps).
 CREATE TABLE IF NOT EXISTS user_usage (
   user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -108,6 +120,16 @@ CREATE TABLE IF NOT EXISTS user_tracks (
   PRIMARY KEY (user_id, track_id)
 );
 CREATE INDEX IF NOT EXISTS idx_user_tracks_user ON user_tracks (user_id);
+
+-- Zero-based index in the user's Liked Music list at last sync time.
+-- YT serves likes newest-first, so position 0 is the most recently liked
+-- song; higher numbers are older. Used as a recency-weighting input by
+-- the taste profile and recommendation queries — "current taste" tracks
+-- get more pull than five-year-old likes.
+ALTER TABLE user_tracks ADD COLUMN IF NOT EXISTS list_position INT;
+CREATE INDEX IF NOT EXISTS idx_user_tracks_user_pos
+  ON user_tracks (user_id, list_position)
+  WHERE list_position IS NOT NULL;
 
 -- ── Feature analysis results (versioned) ──────────────
 CREATE TABLE IF NOT EXISTS analysis (
@@ -207,22 +229,148 @@ $$ LANGUAGE sql IMMUTABLE;
 
 CREATE INDEX IF NOT EXISTS idx_tracks_canon ON tracks (canon_key);
 
+-- Race-safe dedup: two concurrent INSERTs for the same (artist, title) used
+-- to be able to slip past the SELECT-then-INSERT pattern inside sync /
+-- add_liked_tracks and create duplicate rows for the same canonical track.
+-- A UNIQUE index turns that race into a deterministic ON CONFLICT path —
+-- harmless to the call site and impossible to produce duplicates.
+--
+-- WHERE clause excludes (a) NULL canon_key (legacy rows pre-backfill, since
+-- migrated) and (b) the trivial "|" value the canonicaliser returns when
+-- both artist and title were unparseable. Without the WHERE, those non-
+-- meaningful keys would all collide with each other.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_tracks_canon_key
+  ON tracks (canon_key)
+  WHERE canon_key IS NOT NULL AND canon_key <> '|';
+
+-- ── Artist aliases (cross-script / multi-spelling dedup) ──────────────
+-- The track-level canon_key only normalizes punctuation; it cannot merge
+-- "BTS" with "방탄소년단" or "BLACKPINK" with "블랙핑크" because these are
+-- entirely different strings. This table maps raw artist strings (any
+-- lowercased variant) to a single canonical display name so artist counts,
+-- the artist map and per-artist stats treat them as one.
+--
+-- source:
+--   'manual'  — hand-curated (seed below + admin additions)
+--   'deezer'  — auto-suggested from tracks sharing a deezer_artist_id
+CREATE TABLE IF NOT EXISTS artist_aliases (
+  raw        TEXT PRIMARY KEY,             -- lowercased raw artist string
+  canonical  TEXT NOT NULL,                -- canonical display name
+  source     TEXT NOT NULL DEFAULT 'manual',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Deezer-side artist linkage: captured during Phase 1 enrichment from the
+-- search hit's `artist` subobject. Two tracks with the same deezer_artist_id
+-- are the same artist regardless of how YouTube spelled the name — the
+-- basis for the auto-merge fallback below.
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS deezer_artist_id   BIGINT;
+ALTER TABLE tracks ADD COLUMN IF NOT EXISTS deezer_artist_name TEXT;
+CREATE INDEX IF NOT EXISTS idx_tracks_deezer_artist
+  ON tracks (deezer_artist_id) WHERE deezer_artist_id IS NOT NULL;
+
+-- Canonicalize an artist string for grouping / display. Resolution order:
+--   1. Explicit alias in artist_aliases (operator-curated, always wins).
+--   2. Auto-merge by shared deezer_artist_id — pick the most common raw
+--      name among all tracks sharing that ID (tie-break: shortest).
+--   3. Fall back to the raw input unchanged.
+-- The Deezer arg is optional: when callers don't have it handy, only the
+-- alias table is consulted (still useful for hand-curated dedup).
+CREATE OR REPLACE FUNCTION artist_canon(p_raw text, p_deezer_artist_id bigint DEFAULT NULL)
+RETURNS text AS $$
+DECLARE
+  result text;
+BEGIN
+  -- 1. Explicit alias.
+  SELECT canonical INTO result FROM artist_aliases
+    WHERE raw = lower(coalesce(p_raw, ''))
+    LIMIT 1;
+  IF result IS NOT NULL THEN RETURN result; END IF;
+
+  -- 2. Same Deezer artist ID → most-common raw name for that ID.
+  IF p_deezer_artist_id IS NOT NULL THEN
+    SELECT artist INTO result FROM tracks
+     WHERE deezer_artist_id = p_deezer_artist_id
+     GROUP BY artist
+     ORDER BY count(*) DESC, length(artist) ASC
+     LIMIT 1;
+    IF result IS NOT NULL THEN RETURN result; END IF;
+  END IF;
+
+  RETURN p_raw;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+-- Seed manual aliases for common KO↔EN pairs so dedup works retroactively on
+-- the existing ~1,400 tracks (which were enriched before deezer_artist_id
+-- was captured). Add more rows here or via /account when needed.
+INSERT INTO artist_aliases (raw, canonical, source) VALUES
+  ('방탄소년단',             'BTS',              'manual'),
+  ('뉴진스',                 'NewJeans',         'manual'),
+  ('아이브',                 'IVE',              'manual'),
+  ('에스파',                 'aespa',            'manual'),
+  ('르세라핌',               'LE SSERAFIM',      'manual'),
+  ('블랙핑크',               'BLACKPINK',        'manual'),
+  ('투모로우바이투게더',     'TXT',              'manual'),
+  ('스트레이 키즈',          'Stray Kids',       'manual'),
+  ('세븐틴',                 'SEVENTEEN',        'manual'),
+  ('엔하이픈',               'ENHYPEN',          'manual'),
+  ('아이유',                 'IU',               'manual'),
+  ('레드벨벳',               'Red Velvet',       'manual'),
+  ('소녀시대',               'Girls'' Generation','manual'),
+  ('빅뱅',                   'BIGBANG',          'manual'),
+  ('투피엠',                 '2PM',              'manual'),
+  ('동방신기',               'TVXQ',             'manual'),
+  ('엑소',                   'EXO',              'manual'),
+  ('갓세븐',                 'GOT7',             'manual'),
+  ('마마무',                 'MAMAMOO',          'manual'),
+  ('트와이스',               'TWICE',            'manual')
+ON CONFLICT (raw) DO NOTHING;
+
 -- ── Like sync (extension → backend) ───────────────────
--- Replace-mode: the extension sends the full liked list each time.
 -- Tracks are canonical — every videoId of one song (live versions, re-uploads,
 -- repeat likes) maps to a single tracks row; videoIds live in track_sources.
-CREATE OR REPLACE FUNCTION sync_liked_tracks(p_user_id uuid, p_tracks jsonb)
-RETURNS TABLE(new_tracks int, new_likes int, total int) AS $$
+--
+-- p_complete contract:
+--   true  → REPLACE mode. The caller asserts the captured list is the FULL
+--           liked-music library. Any user_tracks row not in the upload is
+--           safely deleted (the user un-liked it elsewhere). Only the
+--           extension after a clean scroll-to-bottom should pass true.
+--   false → APPEND mode. Insert new tracks, refresh list_position on
+--           existing ones, but NEVER delete. Safe for partial uploads
+--           (extension stall, manual top-up, Takeout CSV slice, etc.).
+--
+-- The old behaviour used `total >= 20` as a proxy for "looks like a full
+-- library" — that was unsafe in both directions (a real 8-track library
+-- never replaced, a stalled 50/2000 scrape wiped 1950 tracks). The flag
+-- replaces that heuristic; the threshold guard is gone.
+--
+-- DROP first because adding a parameter changes the function signature
+-- (CREATE OR REPLACE only edits the body, not the arglist).
+DROP FUNCTION IF EXISTS sync_liked_tracks(uuid, jsonb);
+CREATE OR REPLACE FUNCTION sync_liked_tracks(
+  p_user_id  uuid,
+  p_tracks   jsonb,
+  p_complete boolean DEFAULT false
+)
+RETURNS TABLE(new_tracks int, new_likes int, total int, removed int) AS $$
 DECLARE
   rec        jsonb;
+  v_pos      int;
   v_ck       text;
   v_track_id uuid;
   v_ids      uuid[] := '{}';
+  v_removed  int := 0;
 BEGIN
   new_tracks := 0;
   new_likes  := 0;
   total      := 0;
-  FOR rec IN SELECT jsonb_array_elements(p_tracks) LOOP
+  -- WITH ORDINALITY hands us the array index, which the extension
+  -- guarantees lines up with the user's Liked Music order (newest-first).
+  -- We store that as list_position so downstream recency-weighting reads
+  -- it directly — no per-user "newest captured_at" wrangling needed.
+  FOR rec, v_pos IN SELECT value, (ord - 1)::int
+                    FROM jsonb_array_elements(p_tracks) WITH ORDINALITY t(value, ord) LOOP
     total := total + 1;
     v_ck := track_canon_key(rec->>'artist', rec->>'title');
 
@@ -249,25 +397,73 @@ BEGIN
         ON CONFLICT (source, source_id) DO NOTHING;
     END IF;
 
-    INSERT INTO user_tracks (user_id, track_id, source, liked_at)
+    -- Insert when new, refresh list_position when already liked. Split
+    -- into two statements so `new_likes` only counts genuine inserts —
+    -- ON CONFLICT DO UPDATE makes FOUND ambiguous between the two.
+    INSERT INTO user_tracks (user_id, track_id, source, liked_at, list_position)
       VALUES (p_user_id, v_track_id, 'ytmusic',
-              NULLIF(rec->>'likedAt', '')::timestamptz)
+              NULLIF(rec->>'likedAt', '')::timestamptz,
+              v_pos)
       ON CONFLICT (user_id, track_id) DO NOTHING;
     IF FOUND THEN
       new_likes := new_likes + 1;
+    ELSE
+      -- Already liked — bump the recency position so the taste profile
+      -- sees this as a current pick. A track that moved up the user's
+      -- list (re-liked, etc.) should weight more now than its first sync.
+      UPDATE user_tracks SET list_position = v_pos
+        WHERE user_id = p_user_id AND track_id = v_track_id;
     END IF;
     v_ids := array_append(v_ids, v_track_id);
   END LOOP;
 
-  -- Replace mode: drop likes no longer present (guarded against a tiny sync).
-  IF total >= 20 THEN
+  -- Replace mode: drop likes the user no longer has. ONLY when the caller
+  -- asserts a complete capture — never on partial uploads.
+  IF p_complete THEN
     DELETE FROM user_tracks
     WHERE user_id = p_user_id AND source = 'ytmusic' AND track_id <> ALL(v_ids);
+    GET DIAGNOSTICS v_removed = ROW_COUNT;
   END IF;
+  removed := v_removed;
 
   RETURN NEXT;
 END;
 $$ LANGUAGE plpgsql;
+
+-- App-wide tuning knobs (single-row table). Updated via:
+--   UPDATE app_settings SET recency_alpha = 1.5;
+-- We read the dial through SQL rather than env vars so a tweak doesn't
+-- need a Workers redeploy — change in Neon, next query picks it up.
+CREATE TABLE IF NOT EXISTS app_settings (
+  id              int  PRIMARY KEY DEFAULT 1,
+  -- α controls how aggressively recent likes outweigh old ones.
+  --   0.0 → recency disabled, every track weighted equally (legacy)
+  --   1.0 → default: newest = 2× oldest (linear)
+  --   2.0 → newest = 3× oldest (steeper)
+  -- Settings above 3.0 start ignoring most of the library.
+  recency_alpha   real NOT NULL DEFAULT 1.0,
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  CHECK (id = 1)
+);
+INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Recency weight from list_position. Linear: newest = 1.0 + α, oldest = 1.0.
+-- α defaults to the current app_settings value, so every call site auto-
+-- picks up tuning changes. NULL position (legacy syncs from before this
+-- column) falls back to a flat 1.0.
+--
+-- Used by topArtists / topGenres / recommend seeds / taste centroid to
+-- surface current taste over the average of everything ever liked.
+CREATE OR REPLACE FUNCTION recency_weight(p_pos int, p_total int)
+RETURNS real AS $$
+  SELECT CASE
+    WHEN p_pos IS NULL OR p_total IS NULL OR p_total <= 0 THEN 1.0::real
+    ELSE (1.0 + COALESCE(
+      (SELECT recency_alpha FROM app_settings WHERE id = 1),
+      1.0::real
+    ) * greatest(0.0, 1.0 - p_pos::real / p_total::real))::real
+  END;
+$$ LANGUAGE sql STABLE;
 
 -- ── Add liked tracks outside a full sync (map "discover", recommendations) ──
 -- Not replace-mode: these likes survive a later YouTube re-sync (source='discover').
@@ -380,14 +576,16 @@ DECLARE
 BEGIN
   FOR rec IN SELECT jsonb_array_elements(p_rows) LOOP
     UPDATE tracks SET
-      deezer_id        = COALESCE(NULLIF(rec->>'deezerId', '')::bigint, deezer_id),
-      album            = COALESCE(album, NULLIF(rec->>'album', '')),
-      preview_url      = COALESCE(NULLIF(rec->>'previewUrl', ''), preview_url),
-      release_year     = COALESCE(NULLIF(rec->>'releaseYear', '')::int, release_year),
-      deezer_rank      = COALESCE(NULLIF(rec->>'rank', '')::bigint, deezer_rank),
-      resolved         = true,
-      match_confidence = NULLIF(rec->>'matchConfidence', '')::real,
-      updated_at       = now()
+      deezer_id          = COALESCE(NULLIF(rec->>'deezerId', '')::bigint, deezer_id),
+      deezer_artist_id   = COALESCE(NULLIF(rec->>'deezerArtistId', '')::bigint, deezer_artist_id),
+      deezer_artist_name = COALESCE(NULLIF(rec->>'deezerArtistName', ''), deezer_artist_name),
+      album              = COALESCE(album, NULLIF(rec->>'album', '')),
+      preview_url        = COALESCE(NULLIF(rec->>'previewUrl', ''), preview_url),
+      release_year       = COALESCE(NULLIF(rec->>'releaseYear', '')::int, release_year),
+      deezer_rank        = COALESCE(NULLIF(rec->>'rank', '')::bigint, deezer_rank),
+      resolved           = true,
+      match_confidence   = NULLIF(rec->>'matchConfidence', '')::real,
+      updated_at         = now()
     WHERE id = (rec->>'trackId')::uuid;
 
     INSERT INTO analysis (track_id, analysis_version, bpm, genres, moods, source_flags)
@@ -448,6 +646,17 @@ CREATE TABLE IF NOT EXISTS lastfm_cache (
 CREATE TABLE IF NOT EXISTS deezer_match (
   cache_key  TEXT PRIMARY KEY,
   payload    JSONB NOT NULL,
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- YouTube Data API search cache: keyed by lowercased "artist|title" so the
+-- same recommendation across users hits the cache. video_id is nullable —
+-- a stored NULL means "we searched and found nothing", which avoids burning
+-- the daily search quota (100 search calls/day on the default key) on the
+-- same dead-end query over and over.
+CREATE TABLE IF NOT EXISTS yt_search_cache (
+  cache_key  TEXT PRIMARY KEY,
+  video_id   TEXT,
   fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -521,6 +730,24 @@ ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS cover_url TEXT;  -- Deezer 
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS blurb     TEXT;  -- AI history/significance (lazy)
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS rec_type  TEXT DEFAULT 'similar';  -- 'similar' | 'explore'
 -- rating values: NULL | 'superlike' | 'like' | 'pass' | 'dislike' | 'strong_dislike' | 'known'
+
+-- ── Worldcup tournament results (per-user history) ──
+-- Records the champion of every completed /worldcup bracket so the user
+-- can look back at "what was my absolute pick on June 5" etc. The card
+-- payload is denormalized (artist/title/cover_url stored inline) so
+-- displaying history doesn't require a join back to tracks — and so
+-- the row survives even if the source track/rec gets later deleted.
+CREATE TABLE IF NOT EXISTS tournament_results (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category    TEXT NOT NULL,                  -- 'liked' | 'discover' | 'mix' | 'genre'
+  size        INT  NOT NULL,                  -- 8 / 16 / 32 / 64 / 128 / 256
+  pattern     TEXT NOT NULL DEFAULT 'random', -- random | favorites | opposites | cross
+  champion    JSONB NOT NULL,                 -- denormalized card: { artist, title, coverUrl, ... }
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_tournament_results_user
+  ON tournament_results (user_id, created_at DESC);
 
 -- Bulk-save recommendation candidates. p_rows keys: artist, title, album, deezerId, previewUrl, seedTrack
 CREATE OR REPLACE FUNCTION save_recommendations(p_user uuid, p_rows jsonb)
@@ -597,6 +824,84 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- ── MIR results ingest (Essentia + Discogs-EffNet — Phase 5) ──
+-- Mirrors save_enrichments / save_ai_analysis: takes a JSONB array
+-- emitted by services/analysis/app/pipeline/enricher.py:mir_batch and
+-- updates tracks (bpm/key/scale), analysis (danceability + mood + voice),
+-- and embeddings (1280-d vector via pgvector) in one tx per row.
+--
+-- The embedding cast: a JSONB array `[0.12, -0.05, ...]` has a text
+-- representation `[0.12, -0.05, ...]` that pgvector accepts when cast
+-- with `::vector` — no parsing in the function body needed.
+CREATE OR REPLACE FUNCTION save_mir_analysis(p_rows jsonb)
+RETURNS int AS $$
+DECLARE
+  rec jsonb;
+  n   int := 0;
+BEGIN
+  FOR rec IN SELECT jsonb_array_elements(p_rows) LOOP
+    UPDATE tracks SET
+      bpm         = COALESCE(NULLIF(rec->>'bpm', '')::real, bpm),
+      music_key   = COALESCE(NULLIF(rec->>'musicKey', ''), music_key),
+      music_scale = COALESCE(NULLIF(rec->>'musicScale', ''), music_scale)
+    WHERE id = (rec->>'trackId')::uuid;
+
+    UPDATE analysis SET
+      danceability       = COALESCE(NULLIF(rec->>'danceability', '')::real, danceability),
+      valence            = COALESCE(NULLIF(rec->>'valence', '')::real, valence),
+      arousal            = COALESCE(NULLIF(rec->>'arousal', '')::real, arousal),
+      voice_instrumental = COALESCE(NULLIF(rec->>'voiceInstrumental', ''), voice_instrumental),
+      source_flags       = COALESCE(source_flags, '{}'::jsonb) || '{"mir":"essentia"}'::jsonb
+    WHERE track_id = (rec->>'trackId')::uuid AND analysis_version = 1;
+
+    -- Only insert the embedding when the analyzer actually produced one.
+    -- A schema-failed track would have null `embedding` and we don't
+    -- want to occupy the HNSW index with garbage rows.
+    IF jsonb_typeof(rec->'embedding') = 'array' THEN
+      INSERT INTO embeddings (track_id, model, vector)
+      VALUES (
+        (rec->>'trackId')::uuid,
+        COALESCE(NULLIF(rec->>'embeddingModel', ''), 'unknown'),
+        ((rec->'embedding')::text)::vector
+      )
+      ON CONFLICT (track_id) DO UPDATE SET
+        vector = EXCLUDED.vector,
+        model  = EXCLUDED.model;
+    END IF;
+
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Recomputes a user's taste centroid as the mean of their liked tracks'
+-- embeddings. Called by the Fly worker after each MIR batch finishes so
+-- the recommendation embedding pool (lib/recommend.ts:embeddingPool)
+-- stays current as new audio features land. Cheap: pgvector's avg()
+-- runs in a single scan and we always upsert one row.
+CREATE OR REPLACE FUNCTION update_taste_centroid(p_user_id uuid) RETURNS void AS $$
+DECLARE
+  v_centroid vector(1280);
+  v_count    int;
+BEGIN
+  SELECT avg(e.vector)::vector(1280), count(*)::int
+    INTO v_centroid, v_count
+  FROM embeddings e
+  JOIN user_tracks ut ON ut.track_id = e.track_id
+  WHERE ut.user_id = p_user_id;
+
+  IF v_count = 0 THEN RETURN; END IF;
+
+  INSERT INTO taste_profiles (user_id, centroid, track_count, updated_at)
+  VALUES (p_user_id, v_centroid, v_count, now())
+  ON CONFLICT (user_id) DO UPDATE SET
+    centroid    = EXCLUDED.centroid,
+    track_count = EXCLUDED.track_count,
+    updated_at  = now();
+END;
+$$ LANGUAGE plpgsql;
+
 -- ── Background jobs (cron-driven enrichment that survives tab close) ──
 -- kind:   'analyze'  (single 2-phase job: enrich → ai analysis)
 -- status: 'running' | 'stopped' | 'done'
@@ -609,6 +914,11 @@ CREATE TABLE IF NOT EXISTS background_jobs (
   PRIMARY KEY (user_id, kind)
 );
 ALTER TABLE background_jobs ADD COLUMN IF NOT EXISTS notified_at TIMESTAMPTZ;
+-- Worker mutex. Set to now()+TTL before a batch starts, NULL (or now-past)
+-- when free. Lets cron and /api/jobs/tick race the same user without
+-- both burning Gemini/Deezer on the same tracks. TTL self-heals when a
+-- worker dies mid-batch — next call sees an expired lock and proceeds.
+ALTER TABLE background_jobs ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_background_jobs_running
   ON background_jobs (status) WHERE status = 'running';
 

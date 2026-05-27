@@ -1,0 +1,118 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Earprint — taste map</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+  .map-stage {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .map-card {
+    width: 640px;
+    height: 480px;
+    background:
+      linear-gradient(135deg, rgba(52, 211, 153, 0.06), rgba(56, 189, 248, 0.04)),
+      #0c0c0e;
+    border: 1px solid rgba(52, 211, 153, 0.20);
+    border-radius: 18px;
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8);
+    position: relative;
+    overflow: hidden;
+  }
+  .map-card svg { width: 100%; height: 100%; }
+  /* Floating labels on a few nodes — gives the screenshot context without
+     needing the live interactive panel. */
+  .map-card .label {
+    position: absolute;
+    font-size: 12px;
+    font-weight: 600;
+    color: #f5f5f5;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+</style>
+</head><body>
+<div class="frame">
+  <div class="brand">
+    <svg viewBox="0 0 512 512" width="22" height="22" aria-hidden="true">
+      <circle cx="256" cy="256" r="248" fill="#0a0a0b"/>
+      <g fill="none" stroke="#34d399" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M214 392 C 172 366 156 306 164 248 C 174 168 230 122 300 132 C 364 141 384 210 366 272 C 357 312 330 344 292 350"/>
+        <path d="M300 262 C 258 286 220 258 230 214 C 237 184 278 174 306 198"/>
+      </g>
+    </svg>
+    <span>Ear<span class="accent">print</span></span>
+  </div>
+
+  <div style="flex:0 0 380px;">
+    <span class="eyebrow">🗺 Taste map</span>
+    <h1 class="headline">See your music<br>as a map.</h1>
+    <p class="subhead">
+      Each artist becomes a node. Similar genres pull together.
+      Unheard related artists fade in at the edges — so you can see,
+      and add, what's next door.
+    </p>
+  </div>
+
+  <div class="map-stage">
+    <div class="map-card">
+      <svg viewBox="0 0 640 480" preserveAspectRatio="xMidYMid meet">
+        <!-- edges -->
+        <g stroke="#ffffff" stroke-opacity="0.12" stroke-width="1">
+          <line x1="160" y1="120" x2="210" y2="92"/>
+          <line x1="160" y1="120" x2="195" y2="165"/>
+          <line x1="160" y1="120" x2="125" y2="170"/>
+          <line x1="195" y1="165" x2="320" y2="220"/>
+          <line x1="320" y1="220" x2="290" y2="270"/>
+          <line x1="320" y1="220" x2="370" y2="180"/>
+          <line x1="320" y1="220" x2="450" y2="140"/>
+          <line x1="320" y1="220" x2="280" y2="330"/>
+          <line x1="450" y1="140" x2="500" y2="105"/>
+          <line x1="450" y1="140" x2="420" y2="180"/>
+          <line x1="420" y1="180" x2="370" y2="180"/>
+          <line x1="280" y1="330" x2="330" y2="305"/>
+          <line x1="520" y1="290" x2="450" y2="140"/>
+        </g>
+        <!-- ghost edges -->
+        <g stroke="#ffffff" stroke-opacity="0.20" stroke-width="1" stroke-dasharray="4 4">
+          <line x1="240" y1="200" x2="195" y2="165"/>
+          <line x1="240" y1="200" x2="320" y2="220"/>
+          <line x1="395" y1="270" x2="320" y2="220"/>
+          <line x1="495" y1="215" x2="450" y2="140"/>
+        </g>
+        <!-- nodes (genre-coloured) -->
+        <g>
+          <circle cx="160" cy="120" r="26" fill="#34d399" fill-opacity="0.92"/>
+          <circle cx="210" cy="92"  r="14" fill="#6ee7b7" fill-opacity="0.92"/>
+          <circle cx="125" cy="170" r="11" fill="#6ee7b7" fill-opacity="0.92"/>
+          <circle cx="195" cy="165" r="20" fill="#34d399" fill-opacity="0.92"/>
+          <circle cx="320" cy="220" r="32" fill="#fbbf24" fill-opacity="0.92"/>
+          <circle cx="290" cy="270" r="16" fill="#fbbf24" fill-opacity="0.92"/>
+          <circle cx="370" cy="180" r="14" fill="#fde68a" fill-opacity="0.92"/>
+          <circle cx="450" cy="140" r="24" fill="#22d3ee" fill-opacity="0.92"/>
+          <circle cx="500" cy="105" r="12" fill="#22d3ee" fill-opacity="0.92"/>
+          <circle cx="420" cy="180" r="16" fill="#67e8f9" fill-opacity="0.92"/>
+          <circle cx="280" cy="330" r="20" fill="#c084fc" fill-opacity="0.92"/>
+          <circle cx="330" cy="305" r="13" fill="#c084fc" fill-opacity="0.92"/>
+          <circle cx="520" cy="290" r="18" fill="#f87171" fill-opacity="0.92"/>
+        </g>
+        <!-- ghost (unheard) nodes -->
+        <g fill="none" stroke="#ffffff" stroke-opacity="0.50" stroke-dasharray="3 3">
+          <circle cx="240" cy="200" r="14"/>
+          <circle cx="395" cy="270" r="12"/>
+          <circle cx="495" cy="215" r="13"/>
+        </g>
+      </svg>
+      <div class="label" style="left:108px; top:78px;">indie pop</div>
+      <div class="label" style="left:362px; top:188px;">city pop</div>
+      <div class="label" style="left:486px; top:96px;">electronic</div>
+      <div class="label" style="left:308px; top:308px;">k-pop</div>
+    </div>
+  </div>
+</div>
+</body></html>

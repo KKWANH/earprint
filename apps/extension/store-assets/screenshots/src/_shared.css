@@ -1,0 +1,188 @@
+/* Shared base — applied to every 1280×800 screenshot.
+   Background, type, popup mockup styles all live here so each variant
+   only carries its own layout. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 1280px;
+  height: 800px;
+  overflow: hidden;
+  background: #0a0a0b;
+  color: #e5e5e5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  font-feature-settings: "ss01", "ss02";
+  -webkit-font-smoothing: antialiased;
+}
+/* Subtle radial glow behind everything so flat pages don't look dead. */
+body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 18% 20%, rgba(52, 211, 153, 0.10), transparent 60%),
+    radial-gradient(ellipse 50% 40% at 92% 90%, rgba(56, 189, 248, 0.07), transparent 60%);
+  pointer-events: none;
+}
+
+.frame {
+  position: relative;
+  width: 1280px;
+  height: 800px;
+  padding: 64px 80px;
+  display: flex;
+  align-items: center;
+  gap: 80px;
+}
+.brand {
+  position: absolute;
+  top: 36px;
+  left: 80px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.brand .accent { color: #34d399; }
+.eyebrow {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6ee7b7;
+  background: rgba(52, 211, 153, 0.10);
+  border: 1px solid rgba(52, 211, 153, 0.30);
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+h1.headline {
+  margin-top: 18px;
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  background: linear-gradient(135deg, #ffffff 0%, #6ee7b7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.subhead {
+  margin-top: 22px;
+  max-width: 520px;
+  font-size: 20px;
+  line-height: 1.5;
+  color: #a3a3a3;
+}
+
+/* ── Popup mockup — pixel-faithful to the real extension popup, scaled up. */
+.popup-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.popup-stage::before {
+  /* Soft halo so the popup reads as the hero subject. */
+  content: "";
+  position: absolute;
+  inset: -40px;
+  background: radial-gradient(ellipse 60% 50%, rgba(52, 211, 153, 0.18), transparent 70%);
+  filter: blur(20px);
+  pointer-events: none;
+}
+.popup {
+  width: 320px;
+  padding: 14px 16px 14px;
+  background: #0a0a0b;
+  color: #e5e5e5;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow:
+    0 30px 60px -10px rgba(0, 0, 0, 0.6),
+    0 18px 36px -12px rgba(52, 211, 153, 0.20);
+  transform: scale(1.6);
+  transform-origin: center center;
+}
+.popup .brand-row {
+  display: flex; align-items: center; gap: 7px;
+  margin-bottom: 10px;
+}
+.popup .brand-row h3 {
+  margin: 0; font-size: 14px; font-weight: 800; letter-spacing: -0.01em;
+}
+.popup .brand-row .accent { color: #34d399; }
+
+.popup .step {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 7px 10px; margin-bottom: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 12px;
+}
+.popup .step .badge {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #a3a3a3;
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.popup .step .label { flex: 1; font-weight: 500; }
+.popup .step.done .badge { background: rgba(52, 211, 153, 0.25); color: #34d399; }
+.popup .step.done .label { color: #888; }
+.popup .step.active {
+  padding: 9px 11px;
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.06);
+}
+.popup .step.active .badge { background: #34d399; color: #06281d; }
+.popup .step.active .label { font-weight: 600; }
+.popup .step .body {
+  flex-basis: 100%;
+  display: flex; flex-direction: column; gap: 5px;
+  margin-top: 4px;
+}
+.popup .hint { font-size: 11px; color: #9a9a9a; }
+.popup button {
+  width: 100%; padding: 7px 10px;
+  border: 1px solid transparent; border-radius: 7px;
+  font-weight: 600; font-size: 12px;
+  cursor: pointer;
+}
+.popup .btn-primary { background: #34d399; color: #06281d; }
+.popup .btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e5e5e5;
+}
+.popup .lm-link {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: #6ee7b7;
+  text-decoration: none;
+}
+.popup .note {
+  margin: 4px 0 0;
+  font-size: 10px; line-height: 1.45;
+  color: #707070;
+}
+.popup .msg {
+  margin: 8px 0 0;
+  padding: 6px 9px;
+  font-size: 11px; line-height: 1.4;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+.popup .msg.info    { color: #a3a3a3; }
+.popup .msg.success { color: #6ee7b7; background: rgba(5, 150, 105, 0.10); }
+.popup .footer {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex; justify-content: space-between;
+  font-size: 10.5px; color: #6a6a6a;
+}
+.popup .footer a { color: #8a8a8a; text-decoration: none; }
