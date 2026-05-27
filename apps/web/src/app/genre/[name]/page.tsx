@@ -7,6 +7,7 @@ import { genreHue } from "@/lib/forceGraph";
 import { getLocale } from "@/lib/i18n-server";
 import { genreDict } from "@/lib/i18n/genre";
 import { PreviewButton } from "../../library/PreviewButton";
+import { AboutBox } from "./AboutBox";
 
 export async function generateMetadata({
   params,
@@ -88,9 +89,13 @@ export default async function GenrePage({
       </header>
 
       <Section title={t.about}>
-        <p className="text-sm leading-relaxed text-neutral-300">
-          {description ?? t.aboutEmpty}
-        </p>
+        <AboutBox
+          name={d.name}
+          initial={description}
+          locale={locale}
+          emptyText={t.aboutEmpty}
+          warmingText={t.aboutWarming ?? t.aboutEmpty}
+        />
       </Section>
 
       {d.topArtists.length > 0 && (

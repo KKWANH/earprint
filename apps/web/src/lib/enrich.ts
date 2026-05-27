@@ -3,6 +3,8 @@ import { searchDeezer } from "./deezer";
 /** One input row for save_enrichments(). */
 export interface EnrichmentRow {
   deezerId: number | null;
+  deezerArtistId: number | null;
+  deezerArtistName: string | null;
   album: string | null;
   previewUrl: string | null;
   releaseYear: number | null;
@@ -22,6 +24,8 @@ export async function enrichTrack(artist: string, title: string): Promise<Enrich
   const deezer = await searchDeezer(artist, title);
   return {
     deezerId: deezer.deezerId,
+    deezerArtistId: deezer.artistId,
+    deezerArtistName: deezer.artistName,
     album: deezer.album,
     previewUrl: deezer.previewUrl,
     releaseYear: deezer.releaseYear,

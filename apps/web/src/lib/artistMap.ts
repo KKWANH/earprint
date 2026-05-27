@@ -12,10 +12,23 @@ export interface ArtistNode {
   genres: [string, number][];
 }
 
+/** Audio-embedding-derived edge between two artists in the user's library.
+ *  Each tuple is [canonical-artist-key A, canonical-artist-key B, cosine
+ *  similarity 0..1]. Keys match the lowercased canonArtist() output the
+ *  client uses for node identity, so the map renderer can wire edges
+ *  straight to existing nodes without a name re-resolve. */
+export type EmbeddingEdge = [string, string, number];
+
 export interface ArtistMapData {
   artists: ArtistNode[];
   /** How many of the returned artists have any genre data yet. */
   analyzed: number;
+  /** Optional: high-confidence artist-pair similarities computed from
+   *  the Discogs-EffNet embeddings (Phase 5 MIR). Empty until enough
+   *  tracks have been MIR-analysed. When present, the map renderer
+   *  prefers these over Last.fm tag cosine — embedding similarity
+   *  captures arrangement / production style the tag graph can't see. */
+  embeddingEdges: EmbeddingEdge[];
 }
 
 const MAX_ARTISTS = 160; // a readable, performant map
@@ -62,28 +75,39 @@ export async function getArtistMap(userId: string): Promise<ArtistMapData> {
   const excludedCanon = new Set(excluded.map((a) => canonArtist(a).toLowerCase()));
   const affinities = await getAffinities(userId);
 
-  // Per (artist, genre): how many of the artist's liked tracks carry that genre.
-  // Per-artist track counts are computed once in a CTE (the old LATERAL
-  // re-ran the count for every track row — O(tracks × artists)).
+  // Per (artist, genre): how many of the artist's liked tracks carry that
+  // genre. The artist column is run through `artist_canon()` so KO↔EN
+  // variants ("BTS" / "방탄소년단") and other aliased pairs collapse to a
+  // single row — see db/schema.sql for the resolution order (alias table
+  // first, Deezer artist_id auto-merge second).
+  //
+  // track_canon CTE: compute the canonical artist once per track instead
+  // of once per result row (much cheaper at the same correctness).
   const rows = await sql`
-    WITH artist_counts AS (
-      SELECT t.artist AS artist, count(*)::int AS n
+    WITH track_canon AS (
+      SELECT t.id,
+             artist_canon(t.artist, t.deezer_artist_id) AS canon
+      FROM tracks t
+      WHERE t.id IN (SELECT track_id FROM user_tracks WHERE user_id = ${userId})
+    ),
+    artist_counts AS (
+      SELECT tc.canon AS artist, count(*)::int AS n
       FROM user_tracks ut
-      JOIN tracks t ON t.id = ut.track_id
+      JOIN track_canon tc ON tc.id = ut.track_id
       WHERE ut.user_id = ${userId}
-      GROUP BY t.artist
+      GROUP BY tc.canon
     )
-    SELECT t.artist                       AS artist,
+    SELECT tc.canon                       AS artist,
            ac.n                           AS track_count,
            g.key                          AS genre,
            count(*)::int                  AS genre_count
     FROM user_tracks ut
-    JOIN tracks t ON t.id = ut.track_id
-    JOIN artist_counts ac ON ac.artist = t.artist
-    LEFT JOIN analysis a ON a.track_id = t.id AND a.analysis_version = 1
+    JOIN track_canon tc ON tc.id = ut.track_id
+    JOIN artist_counts ac ON ac.artist = tc.canon
+    LEFT JOIN analysis a ON a.track_id = ut.track_id AND a.analysis_version = 1
     LEFT JOIN LATERAL jsonb_object_keys(a.genres) AS g(key) ON true
-    WHERE ut.user_id = ${userId} AND t.artist <> ALL(${excluded}::text[])
-    GROUP BY t.artist, ac.n, g.key`;
+    WHERE ut.user_id = ${userId} AND tc.canon <> ALL(${excluded}::text[])
+    GROUP BY tc.canon, ac.n, g.key`;
 
   interface Acc {
     display: string;
@@ -131,7 +155,50 @@ export async function getArtistMap(userId: string): Promise<ArtistMapData> {
   return {
     artists,
     analyzed: artists.filter((a) => a.genres.length > 0).length,
+    embeddingEdges: await loadEmbeddingEdges(userId),
   };
+}
+
+/** Pulls high-confidence artist-pair similarities from the user's audio
+ *  embeddings. Returns [] when no embeddings exist for this user yet
+ *  (the common case before MIR Phase 5 has run) — caller treats empty as
+ *  "fall back to genre cosine on the client". */
+async function loadEmbeddingEdges(userId: string): Promise<EmbeddingEdge[]> {
+  const sql = getSql();
+  try {
+    const rows = await sql`
+      WITH artist_emb AS (
+        SELECT artist_canon(t.artist, t.deezer_artist_id) AS artist,
+               avg(e.vector)::vector(1280)                AS centroid,
+               count(*)                                   AS n
+        FROM user_tracks ut
+        JOIN tracks t      ON t.id = ut.track_id
+        JOIN embeddings e  ON e.track_id = t.id
+        WHERE ut.user_id = ${userId}
+        GROUP BY artist_canon(t.artist, t.deezer_artist_id)
+        HAVING count(*) >= 2
+        LIMIT 80
+      )
+      SELECT a.artist AS a_artist,
+             b.artist AS b_artist,
+             1 - (a.centroid <=> b.centroid) AS sim
+      FROM artist_emb a
+      JOIN artist_emb b ON a.artist < b.artist
+      WHERE 1 - (a.centroid <=> b.centroid) > 0.5
+      ORDER BY sim DESC
+      LIMIT 200`;
+    return rows.map((r) => [
+      // Re-run canonArtist + lowercase so edge keys match the node keys
+      // the UI builds (which apply the same text normalisation).
+      canonArtist(r.a_artist as string).toLowerCase(),
+      canonArtist(r.b_artist as string).toLowerCase(),
+      r.sim as number,
+    ]);
+  } catch {
+    // No pgvector / embeddings table / centroid column missing in dev —
+    // the rest of the map works fine without these edges.
+    return [];
+  }
 }
 
 /* ───────────────  Discovery: unheard, related artists  ─────────────── */

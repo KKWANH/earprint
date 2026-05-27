@@ -6,6 +6,7 @@ import type { Locale } from "@/lib/i18n";
 import { profileDict } from "@/lib/i18n/profile";
 import {
   ALL_ZODIACS,
+  type FlavorShare,
   type MusicZodiac,
   type SignBreakdown,
   type Zodiac,
@@ -63,6 +64,13 @@ export function MusicZodiacCard({
   const name = locale === "ko" ? active.nameKo : active.nameEn;
   const archetype = locale === "ko" ? active.archetypeKo : active.archetypeEn;
   const blurb = locale === "ko" ? active.blurbKo : active.blurbEn;
+  // Sub-archetype only shows on the *matched* sign — clicking through to
+  // other signs from the strip below shouldn't pretend we have flavor
+  // data for them. data.flavor is computed from the user's actual matches
+  // against the winning sign and isn't meaningful otherwise.
+  const flavor = isMatched && data.flavor
+    ? { name: locale === "ko" ? data.flavor.nameKo : data.flavor.nameEn, share: data.flavor.share }
+    : null;
 
   return (
     <section className="flex flex-col gap-3">
@@ -99,9 +107,20 @@ export function MusicZodiacCard({
           <h2 className="mt-1 text-2xl font-extrabold leading-tight text-white sm:text-3xl">
             {archetype}
           </h2>
+          {flavor && (
+            <p className="mt-1 text-sm font-medium text-amber-200/80">
+              · {flavor.name}
+            </p>
+          )}
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/75">
             {blurb}
           </p>
+          {/* Flavor breakdown chart. Only meaningful on the matched sign
+              AND when there's more than one flavor to compare — single-
+              flavor or no-flavor signs would just be a single full bar. */}
+          {isMatched && data.flavorBreakdown.length >= 2 && (
+            <FlavorChart breakdown={data.flavorBreakdown} locale={locale} />
+          )}
           {/* Per-sign match rate. Even non-winning signs surface their share
               so users see "what little of you lives here". */}
           <p className="mt-3 text-[11px] uppercase tracking-wider text-white/45">
@@ -142,10 +161,14 @@ export function MusicZodiacCard({
           const share = bySign.get(other.sign)?.share ?? 0;
           const pct = Math.round(share * 100);
           return (
+            // min-w / w-[N] keeps every sign tile the same width, otherwise
+            // long Korean names (사수자리, 물병자리) stretch their button
+            // and the strip looks uneven. Padding is unchanged so the
+            // tiles still feel comfortable on touch.
             <button
               key={other.sign}
               onClick={() => setActive(other)}
-              className={`flex shrink-0 flex-col items-center gap-0.5 rounded-lg border px-3 py-2 transition-colors ${
+              className={`flex w-[68px] shrink-0 flex-col items-center gap-0.5 rounded-lg border px-2 py-2 transition-colors ${
                 isMatch
                   ? "border-amber-400/60 bg-amber-500/10 ring-1 ring-amber-400/40"
                   : isActive
@@ -228,5 +251,58 @@ function CosmicBackground({ zodiac }: { zodiac: Zodiac }) {
         ))}
       </g>
     </svg>
+  );
+}
+
+/** Compact flavor breakdown chart — horizontal stacked segments + legend.
+ *  Shown on the matched zodiac when there's more than one flavor active,
+ *  so a Virgo split between Jazz Maven and Classical Listener reads as
+ *  the near-tie that it is rather than committing to one label only. */
+const FLAVOR_COLORS = ["#fbbf24", "#fb923c", "#a78bfa", "#60a5fa", "#34d399", "#f472b6"];
+
+function FlavorChart({
+  breakdown,
+  locale,
+}: {
+  breakdown: FlavorShare[];
+  locale: Locale;
+}) {
+  // Show up to 4 segments; collapse the rest into an "other" remainder so
+  // very fragmented signs (Aquarius with 6 sub-genres) still read cleanly.
+  const top = breakdown.slice(0, 4);
+  const restShare = breakdown.slice(4).reduce((s, f) => s + f.share, 0);
+  return (
+    <div className="mx-auto mt-5 max-w-md text-left">
+      <div className="flex h-2 overflow-hidden rounded-full bg-white/5">
+        {top.map((f, i) => (
+          <div
+            key={f.key}
+            title={`${locale === "ko" ? f.nameKo : f.nameEn} ${Math.round(f.share * 100)}%`}
+            style={{
+              width: `${f.share * 100}%`,
+              background: FLAVOR_COLORS[i % FLAVOR_COLORS.length],
+            }}
+          />
+        ))}
+        {restShare > 0 && (
+          <div
+            style={{ width: `${restShare * 100}%`, background: "#52525b" }}
+            title={`+${Math.round(restShare * 100)}%`}
+          />
+        )}
+      </div>
+      <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[10px] text-white/65">
+        {top.map((f, i) => (
+          <span key={f.key} className="inline-flex items-center gap-1">
+            <span
+              className="inline-block h-2 w-2 rounded-sm"
+              style={{ background: FLAVOR_COLORS[i % FLAVOR_COLORS.length] }}
+            />
+            {locale === "ko" ? f.nameKo : f.nameEn}{" "}
+            <span className="text-white/40">{Math.round(f.share * 100)}%</span>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }

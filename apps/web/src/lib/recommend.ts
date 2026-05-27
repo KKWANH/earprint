@@ -1,6 +1,7 @@
 import { getSql } from "./db";
 import { getJson } from "./http";
 import { searchDeezer } from "./deezer";
+import { captureError } from "./sentry";
 
 /** Recommendation flavour the user can choose. */
 export type RecMode = "song" | "genre" | "unheard" | "indie" | "mix";
@@ -156,25 +157,34 @@ export async function generateRecommendations(
   const sql = getSql();
 
   const [seeds, likedRows, existingRows, dislikedRows, genreRows] = await Promise.all([
-    // One random track per artist, then 6 — affinity-weighted but artist-
-    // diverse, so recommendations don't all stem from a single song/artist.
+    // One random track per *canonical* artist, then 6 — affinity-weighted
+    // and artist-diverse. Recency weighting got removed here on purpose:
+    // when seeds skewed to the user's most recent likes, those tended to
+    // be niche K-pop / Korean indie that Last.fm has thin similar-artist
+    // data on, so songPool kept returning []. Seed diversity matters
+    // more than recency for discovery; recency stays in topArtists /
+    // topTags where it's directly user-visible.
     sql`
       SELECT artist, title
       FROM (
-        SELECT DISTINCT ON (t.artist)
+        SELECT DISTINCT ON (artist_canon(t.artist, t.deezer_artist_id))
                t.artist AS artist, t.title AS title,
                COALESCE(aff.weight, 1) AS w
         FROM user_tracks ut
         JOIN tracks t ON t.id = ut.track_id
         LEFT JOIN artist_affinity aff
-          ON aff.user_id = ut.user_id AND lower(aff.artist) = lower(t.artist)
+          ON aff.user_id = ut.user_id
+          AND lower(artist_canon(aff.artist, NULL))
+            = lower(artist_canon(t.artist, t.deezer_artist_id))
         WHERE ut.user_id = ${userId}
-        ORDER BY t.artist, random()
+        ORDER BY artist_canon(t.artist, t.deezer_artist_id), random()
       ) s
       ORDER BY random() / s.w
       LIMIT 6`,
+    // Blocklist of liked artists — canonicalized so a user who likes "BTS"
+    // doesn't get "방탄소년단" recommended back as if it were a new find.
     sql`
-      SELECT DISTINCT lower(t.artist) AS a
+      SELECT DISTINCT lower(artist_canon(t.artist, t.deezer_artist_id)) AS a
       FROM user_tracks ut JOIN tracks t ON t.id = ut.track_id
       WHERE ut.user_id = ${userId}`,
     sql`
@@ -248,13 +258,64 @@ export async function generateRecommendations(
     );
   };
 
+  // Embedding-similarity pool — only fires when the user has a taste
+  // centroid (populated after the MIR phase runs) AND there are enough
+  // candidate embeddings in the DB to draw from. Until MIR ships this
+  // returns []; the rest of the function then degrades cleanly to the
+  // text-tag matching that's been live the whole time.
+  const embeddingPool = async (): Promise<Cand[]> => {
+    try {
+      const rows = await sql`
+        WITH centroid AS (
+          SELECT centroid FROM taste_profiles
+          WHERE user_id = ${userId} AND centroid IS NOT NULL
+        )
+        SELECT t.artist, t.title,
+               (e.vector <=> (SELECT centroid FROM centroid)) AS distance
+        FROM embeddings e
+        JOIN tracks t ON t.id = e.track_id
+        WHERE EXISTS (SELECT 1 FROM centroid)
+          AND NOT EXISTS (
+            SELECT 1 FROM user_tracks ut
+            WHERE ut.user_id = ${userId} AND ut.track_id = e.track_id
+          )
+        ORDER BY distance ASC
+        LIMIT 30`;
+      return rows.map((r) => ({
+        artist: r.artist as string,
+        title: r.title as string,
+        // distance is 0..2 for cosine; flip to a 0..1 similarity for the
+        // `score` field downstream consumers expect.
+        match: Math.max(0, 1 - (r.distance as number) / 2),
+        seedTrack: "your taste",
+        recType: "song" as const,
+      }));
+    } catch (e) {
+      // Most users legitimately have no centroid yet (MIR hasn't run for
+      // them), and that path normally returns [] without throwing. If
+      // we're in the catch block something else broke — missing pgvector
+      // extension, centroid column dropped, mis-typed query. Capture so
+      // a real regression doesn't silently degrade recommend quality.
+      captureError(e, { tag: "recommend.embedding-pool" });
+      return [];
+    }
+  };
+
   let pool: Cand[];
   if (mode === "song" || mode === "indie") pool = await songPool();
   else if (mode === "genre") pool = await genrePool();
   else if (mode === "unheard") pool = await unheardPool();
   else {
-    const [a, b] = await Promise.all([songPool(), unheardPool()]);
-    pool = interleave([a, b]);
+    // Mix mode: prefer embeddings when available (much more accurate
+    // than Last.fm tag similarity) and interleave with the unheard pool
+    // for discovery breadth. Falls back to the original song+unheard
+    // mix when the embedding pool is empty.
+    const [emb, a, b] = await Promise.all([
+      embeddingPool(),
+      songPool(),
+      unheardPool(),
+    ]);
+    pool = emb.length > 0 ? interleave([emb, b, a]) : interleave([a, b]);
   }
 
   // ── dedup + exclude ──

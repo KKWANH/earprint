@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/dna", key: "dna" },
   { href: "/map", key: "map" },
   { href: "/recommend", key: "recommend" },
+  { href: "/worldcup", key: "worldcup" },
   { href: "/profile", key: "profile" },
   { href: "/connect", key: "connect" },
   { href: "/account", key: "account" },

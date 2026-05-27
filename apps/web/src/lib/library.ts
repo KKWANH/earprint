@@ -28,6 +28,11 @@ export interface LibraryStats {
   missingGenres: number;
   distinctArtists: number;
   topArtists: Count[];
+  /** Top artists drawn ONLY from the most-recent third of the library
+   *  (lowest list_position values). Useful to show what the user is
+   *  *currently* into vs. the all-time-weighted topArtists. Empty when
+   *  the user hasn't synced since list_position rolled out. */
+  recentArtists: Count[];
   topGenres: Count[];
   topMoods: Count[];
   topInstruments: Count[];
@@ -47,6 +52,12 @@ export async function getExcludedArtists(userId: string): Promise<string[]> {
 }
 
 /** Frequency of genres/moods jsonb keys, with excluded artists removed. */
+// Top tags (genres or moods), recency-weighted in the ORDER BY only.
+// Same pattern as topArtists above: literal track count stays in the
+// returned `count` column so the UI doesn't show "12.7 tracks", but
+// sorting uses sum(recency_weight(...)) so a tag that's mostly in recent
+// likes wins over a tag that's mostly old. Without this, someone whose
+// taste shifted from rock to ambient still saw "rock" as their #1 tag.
 async function topTags(
   sql: ReturnType<typeof getSql>,
   userId: string,
@@ -56,23 +67,35 @@ async function topTags(
   const rows =
     column === "genres"
       ? await sql`
+          WITH lib_size AS (
+            SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
+          )
           SELECT k.key AS name, count(*)::int AS count
           FROM analysis a
           JOIN user_tracks ut ON ut.track_id = a.track_id
           JOIN tracks t ON t.id = a.track_id
+          CROSS JOIN lib_size
           CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
           WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
             AND t.artist <> ALL(${excluded}::text[])
-          GROUP BY k.key ORDER BY count DESC LIMIT 14`
+          GROUP BY k.key
+          ORDER BY sum(recency_weight(ut.list_position, lib_size.n)) DESC
+          LIMIT 14`
       : await sql`
+          WITH lib_size AS (
+            SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
+          )
           SELECT k.key AS name, count(*)::int AS count
           FROM analysis a
           JOIN user_tracks ut ON ut.track_id = a.track_id
           JOIN tracks t ON t.id = a.track_id
+          CROSS JOIN lib_size
           CROSS JOIN LATERAL jsonb_object_keys(a.moods) AS k(key)
           WHERE ut.user_id = ${userId} AND a.moods IS NOT NULL
             AND t.artist <> ALL(${excluded}::text[])
-          GROUP BY k.key ORDER BY count DESC LIMIT 14`;
+          GROUP BY k.key
+          ORDER BY sum(recency_weight(ut.list_position, lib_size.n)) DESC
+          LIMIT 14`;
   return rows.map((r) => ({ name: r.name as string, count: r.count as number }));
 }
 
@@ -81,23 +104,60 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
   const sql = getSql();
   const excluded = await getExcludedArtists(userId);
 
-  const [base, artists, topGenres, topMoods, instruments, albums, depth, feel, tracks] =
+  const [base, artists, recentArtists, topGenres, topMoods, instruments, albums, depth, feel, tracks] =
     await Promise.all([
+      // artist_canon(...) collapses KO↔EN variants and Deezer-ID twins so the
+      // distinct-artists count matches what the user sees on the artist map.
       sql`
-        SELECT count(*)::int                 AS total,
-               count(a.id)::int              AS enriched,
+        SELECT count(*)::int                                                    AS total,
+               count(a.id)::int                                                 AS enriched,
                count(*) FILTER (WHERE a.id IS NOT NULL AND a.genres IS NULL)::int AS missing_genres,
-               count(DISTINCT t.artist)::int AS artists
+               count(DISTINCT artist_canon(t.artist, t.deezer_artist_id))::int  AS artists
         FROM user_tracks ut
         JOIN tracks t ON t.id = ut.track_id
         LEFT JOIN analysis a ON a.track_id = ut.track_id AND a.analysis_version = 1
         WHERE ut.user_id = ${userId} AND t.artist <> ALL(${excluded}::text[])`,
+      // Top artists, recency-weighted: literal track count stays in the
+      // returned column (UI says "N tracks"), but ORDER BY uses a
+      // recency-boosted sum so an artist with 6 fresh likes outranks an
+      // artist with 8 likes from 2019. Boost is bounded (1.0–2.0×) so
+      // catalog depth still matters.
       sql`
-        SELECT t.artist AS name, count(*)::int AS count
+        WITH lib_size AS (
+          SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
+        )
+        SELECT artist_canon(t.artist, t.deezer_artist_id) AS name,
+               count(*)::int AS count
         FROM user_tracks ut
         JOIN tracks t ON t.id = ut.track_id
+        CROSS JOIN lib_size
         WHERE ut.user_id = ${userId} AND t.artist <> ALL(${excluded}::text[])
-        GROUP BY t.artist ORDER BY count DESC LIMIT 14`,
+        GROUP BY artist_canon(t.artist, t.deezer_artist_id)
+        ORDER BY sum(recency_weight(ut.list_position, lib_size.n)) DESC
+        LIMIT 14`,
+      // "Recent picks": top artists drawn ONLY from the most recently
+      // liked quarter (or 50 songs, whichever's bigger). Lets the user
+      // see "what I'm into NOW" separately from the all-time top. Empty
+      // when list_position hasn't been populated yet (legacy sync).
+      sql`
+        WITH lib_size AS (
+          SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
+        ),
+        window_size AS (
+          SELECT greatest(50, n / 4)::int AS cutoff FROM lib_size
+        )
+        SELECT artist_canon(t.artist, t.deezer_artist_id) AS name,
+               count(*)::int AS count
+        FROM user_tracks ut
+        JOIN tracks t ON t.id = ut.track_id
+        CROSS JOIN window_size
+        WHERE ut.user_id = ${userId}
+          AND t.artist <> ALL(${excluded}::text[])
+          AND ut.list_position IS NOT NULL
+          AND ut.list_position < window_size.cutoff
+        GROUP BY artist_canon(t.artist, t.deezer_artist_id)
+        ORDER BY count DESC
+        LIMIT 10`,
       topTags(sql, userId, excluded, "genres"),
       topTags(sql, userId, excluded, "moods"),
       sql`
@@ -157,6 +217,9 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
     missingGenres: base[0].missing_genres as number,
     distinctArtists: base[0].artists as number,
     topArtists: artists.map((r) => ({ name: r.name as string, count: r.count as number })),
+    recentArtists: recentArtists.map((r) => ({
+      name: r.name as string, count: r.count as number,
+    })),
     topGenres,
     topMoods,
     topInstruments: instruments.map((r) => ({

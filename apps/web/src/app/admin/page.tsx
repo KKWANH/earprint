@@ -1,12 +1,12 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
+import { isAdminEmail } from "@/lib/constants";
 import { getSql } from "@/lib/db";
-
-const ADMIN_EMAIL = "kwanho0096@gmail.com";
+import { AlphaTuner } from "./AlphaTuner";
 
 async function requireAdmin() {
   const session = await auth();
-  if (session?.user?.email !== ADMIN_EMAIL) throw new Error("forbidden");
+  if (!isAdminEmail(session?.user?.email)) throw new Error("forbidden");
 }
 
 /** Adds an email to the Gemini-cap whitelist. */
@@ -31,7 +31,7 @@ async function removeWhitelist(formData: FormData) {
 
 export default async function AdminPage() {
   const session = await auth();
-  if (session?.user?.email !== ADMIN_EMAIL) {
+  if (!isAdminEmail(session?.user?.email)) {
     return (
       <main className="mx-auto max-w-2xl px-6 py-20 text-neutral-400">
         접근 권한이 없습니다.
@@ -40,6 +40,13 @@ export default async function AdminPage() {
   }
 
   const sql = getSql();
+  const settingsRows = await sql`
+    SELECT recency_alpha, updated_at FROM app_settings WHERE id = 1`;
+  const alpha = (settingsRows[0]?.recency_alpha as number) ?? 1.0;
+  const alphaUpdatedAt =
+    settingsRows[0]?.updated_at instanceof Date
+      ? (settingsRows[0].updated_at as Date).toISOString()
+      : String(settingsRows[0]?.updated_at ?? "");
   const stat = await sql`
     SELECT
       (SELECT count(*) FROM users)::int                                          AS users,
@@ -75,6 +82,21 @@ export default async function AdminPage() {
         <Stat label="장르 보유" value={s.with_genre} />
         <Stat label="생성된 추천" value={s.recs} />
         <Stat label="평가된 추천" value={s.rated} />
+      </section>
+
+      <section className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+        <div>
+          <h2 className="font-semibold">Recency α (취향 가중치 곡선)</h2>
+          <p className="mt-1 text-sm text-neutral-400">
+            최근 좋아요에 얼마나 가중치를 줄지. 0 = 비활성 (전 트랙 동일),
+            1 = 기본 (newest=2×, oldest=1×), 2 = 더 강함 (newest=3×). 3 이상은
+            오래된 좋아요를 거의 무시합니다.
+          </p>
+          <p className="mt-1 text-xs text-neutral-500">
+            마지막 변경: {alphaUpdatedAt || "—"}
+          </p>
+        </div>
+        <AlphaTuner initial={alpha} />
       </section>
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-5 text-sm text-neutral-400">

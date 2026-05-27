@@ -14,6 +14,13 @@ export const SAMPLE_STATS: LibraryStats = {
   enriched: 463,
   missingGenres: 24,
   distinctArtists: 142,
+  recentArtists: [
+    { name: "Phoebe Bridgers", count: 12 },
+    { name: "Mitski", count: 9 },
+    { name: "Beabadoobee", count: 7 },
+    { name: "Faye Webster", count: 6 },
+    { name: "Big Thief", count: 5 },
+  ],
   topArtists: [
     { name: "Mac DeMarco", count: 28 },
     { name: "Beach House", count: 24 },

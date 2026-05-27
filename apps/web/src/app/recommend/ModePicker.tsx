@@ -43,11 +43,24 @@ export function ModePicker({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode }),
       });
-      const d = (await res.json()) as { added?: number };
-      if (d.added && d.added > 0) router.refresh();
-      else setNote(t.modeNoNew);
-    } catch {
-      /* ignore */
+      // Distinguish 5xx errors from a legitimate zero-result. The previous
+      // version conflated them, so a backend throw (missing SQL function
+      // during a half-deployed schema, e.g.) silently looked like "no new
+      // picks" and the user reported "추천 고장남" without us realising
+      // there was an actual exception.
+      const d = (await res.json().catch(() => ({}))) as {
+        added?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        setNote(`Error: ${d.error ?? res.status}`);
+      } else if (d.added && d.added > 0) {
+        router.refresh();
+      } else {
+        setNote(t.modeNoNew);
+      }
+    } catch (e) {
+      setNote(`Error: ${String(e)}`);
     }
     setBusy(null);
   }

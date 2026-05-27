@@ -11,6 +11,7 @@ import { AiConsentToggle } from "./AiConsentToggle";
 import { DeleteAccountButton } from "./DeleteAccountButton";
 import { DisconnectYtButton } from "./DisconnectYtButton";
 import { RotateSyncTokenButton } from "./RotateSyncTokenButton";
+import { WorldcupHistorySection } from "./WorldcupHistorySection";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = accountDict(await getLocale());
@@ -174,6 +175,8 @@ export default async function AccountPage() {
           {t.openLibrary}
         </Link>
       </Section>
+
+      <WorldcupHistorySection userId={userId} locale={locale} />
 
       <Section title={t.connectionsTitle}>
         <div className="flex flex-col gap-2">

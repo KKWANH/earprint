@@ -36,31 +36,49 @@ export async function POST() {
   try {
     const locale = await getLocale();
     const bypassCap = await isWhitelisted(userId);
-    // Generate the profile natively in each language (same Gemini-call count as
-    // generate-then-translate, but the Korean reads as written Korean rather
-    // than a machine translation).
-    const [en, ko] = await Promise.all([
-      generateProfile(userId, "en", bypassCap),
-      generateProfile(userId, "ko", bypassCap),
-    ]);
-    const profile = locale === "ko" ? ko : en;
+    // Generate the profile natively in ONLY the user's locale. The other
+    // locale's column stays null and is lazily translated by
+    // /api/profile/translate when someone (the user themselves, or a
+    // share-link viewer) actually needs it. Cost dropped from 2× to 1×
+    // gemini-2.5-pro per analysis (~$0.014 vs ~$0.028), and adding a 3rd
+    // or 4th UI locale later doesn't multiply that cost — translation
+    // through flash-lite is ~40× cheaper than a native re-generation.
+    const profile = await generateProfile(userId, locale, bypassCap);
     const sql = getSql();
     // share_id is set once and kept stable so a shared link never breaks.
-    await sql`
-      INSERT INTO taste_profiles
-        (user_id, ai_profile, ai_profile_en, ai_profile_ko,
-         ai_generated_at, ai_locale, share_id)
-      VALUES (
-        ${userId}, ${JSON.stringify(profile)}::jsonb,
-        ${JSON.stringify(en)}::jsonb, ${JSON.stringify(ko)}::jsonb,
-        now(), ${locale}, ${newShareId()})
-      ON CONFLICT (user_id) DO UPDATE
-        SET ai_profile = EXCLUDED.ai_profile,
-            ai_profile_en = EXCLUDED.ai_profile_en,
-            ai_profile_ko = EXCLUDED.ai_profile_ko,
-            ai_generated_at = now(),
-            ai_locale = EXCLUDED.ai_locale,
-            share_id = COALESCE(taste_profiles.share_id, EXCLUDED.share_id)`;
+    // Only the matching locale column gets written this round; the other
+    // is left NULL and filled in by the translate route on demand.
+    if (locale === "ko") {
+      await sql`
+        INSERT INTO taste_profiles
+          (user_id, ai_profile, ai_profile_ko, ai_generated_at, ai_locale, share_id)
+        VALUES (
+          ${userId}, ${JSON.stringify(profile)}::jsonb,
+          ${JSON.stringify(profile)}::jsonb,
+          now(), ${locale}, ${newShareId()})
+        ON CONFLICT (user_id) DO UPDATE
+          SET ai_profile = EXCLUDED.ai_profile,
+              ai_profile_ko = EXCLUDED.ai_profile_ko,
+              ai_profile_en = NULL,
+              ai_generated_at = now(),
+              ai_locale = EXCLUDED.ai_locale,
+              share_id = COALESCE(taste_profiles.share_id, EXCLUDED.share_id)`;
+    } else {
+      await sql`
+        INSERT INTO taste_profiles
+          (user_id, ai_profile, ai_profile_en, ai_generated_at, ai_locale, share_id)
+        VALUES (
+          ${userId}, ${JSON.stringify(profile)}::jsonb,
+          ${JSON.stringify(profile)}::jsonb,
+          now(), ${locale}, ${newShareId()})
+        ON CONFLICT (user_id) DO UPDATE
+          SET ai_profile = EXCLUDED.ai_profile,
+              ai_profile_en = EXCLUDED.ai_profile_en,
+              ai_profile_ko = NULL,
+              ai_generated_at = now(),
+              ai_locale = EXCLUDED.ai_locale,
+              share_id = COALESCE(taste_profiles.share_id, EXCLUDED.share_id)`;
+    }
     return json({ ok: true }, 200);
   } catch (e) {
     if (String(e).includes(GEMINI_CAP_ERROR)) {

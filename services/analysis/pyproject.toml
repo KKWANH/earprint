@@ -1,21 +1,26 @@
 [project]
 name = "playlist-analyzer-analysis"
-version = "0.0.0"
-description = "Playlist Analyzer 분석 서비스 — 트랙 정규화 · API 보강 · MIR"
-requires-python = ">=3.11"
+version = "0.1.0"
+description = "Earprint analysis service — runs the Deezer+Gemini analyze pipeline outside Cloudflare Workers' 50-subreq cap"
+requires-python = ">=3.12"
+# Core deps — kept lean. Phase 1 (current) only needs FastAPI + Postgres.
+# Redis/RQ get re-added in Phase 4+ if we ever fan out to multiple workers,
+# but Postgres SKIP LOCKED gives us per-job locking without an extra service.
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
+    "asyncpg>=0.30",
     "httpx>=0.27",
-    "redis>=5.2",
-    "rq>=2.0",
+    # Error tracking — no-op without SENTRY_DSN env, so the dep is cheap
+    # to carry even before we wire up a Sentry project.
+    "sentry-sdk[fastapi]>=2.18",
 ]
 
 [project.optional-dependencies]
-# MIR(오디오 분석) 의존성 — 무겁고 플랫폼 의존적이라 분리.
-# Phase 3 에서 사용. essentia-tensorflow 는 Linux/x86 환경 권장.
+# Audio analysis dependencies — heavy + platform-specific, reserved for the
+# future MIR phase (Essentia/Discogs-EffNet for BPM/key/embeddings).
 mir = [
     "numpy>=1.26",
     "librosa>=0.10",

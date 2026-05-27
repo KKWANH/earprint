@@ -7,6 +7,7 @@ import type { ArtistMapData, GhostArtist } from "@/lib/artistMap";
 import { genreHue, stepPhysics, type Sim } from "@/lib/forceGraph";
 import type { Locale } from "@/lib/i18n";
 import { mapDict } from "@/lib/i18n/map";
+import { ShareMenu } from "./ShareMenu";
 
 /** A unified map node — a liked artist, or an unheard "ghost" recommendation. */
 interface MapNode {
@@ -132,22 +133,61 @@ export function ArtistMap({
     setBusy(false);
   }
 
-  // ── Edges: genre similarity between liked artists + ghost→library links ──
+  // ── Edges: prefer embedding similarity when available, else genre cosine ──
+  // Ghost→library links are always added the same way (Last.fm similar-artist
+  // suggestions don't need an embedding to make sense).
   const { edges, neighbors } = useMemo(() => {
-    const gm = nodes.map((n) => new Map(n.genres));
     const raw: Edge[] = [];
-    for (let i = 0; i < libCount; i++) {
-      const cand: { b: number; sim: number }[] = [];
-      for (let j = 0; j < libCount; j++) {
-        if (i === j) continue;
-        const s = cosineSim(gm[i], gm[j]);
-        if (s > 0.2) cand.push({ b: j, sim: s });
+
+    if (data.embeddingEdges.length > 0) {
+      // Build a name→index lookup matching the keys the server emitted
+      // (canonArtist + lowercase). Embeddings cluster on arrangement /
+      // production style, which is a stronger taste signal than tag
+      // co-occurrence — we trust them when they're available.
+      const idx = new Map<string, number>();
+      for (let i = 0; i < libCount; i++) {
+        idx.set(nodes[i].name.toLowerCase(), i);
       }
-      cand.sort((x, y) => y.sim - x.sim);
-      for (const c of cand.slice(0, 5)) {
-        raw.push({ a: Math.min(i, c.b), b: Math.max(i, c.b), sim: c.sim, ghost: false });
+      const perNode = new Map<number, { b: number; sim: number }[]>();
+      for (const [a, b, sim] of data.embeddingEdges) {
+        const ai = idx.get(a);
+        const bi = idx.get(b);
+        if (ai === undefined || bi === undefined || ai === bi) continue;
+        const lo = Math.min(ai, bi);
+        const hi = Math.max(ai, bi);
+        const arr = perNode.get(lo) ?? [];
+        arr.push({ b: hi, sim });
+        perNode.set(lo, arr);
+      }
+      // Same per-node cap as the genre-cosine path — keeps the canvas
+      // readable on big libraries where every artist links to many others.
+      for (const [a, arr] of perNode) {
+        arr.sort((x, y) => y.sim - x.sim);
+        for (const c of arr.slice(0, 5)) {
+          raw.push({ a, b: c.b, sim: c.sim, ghost: false });
+        }
+      }
+    } else {
+      // No embeddings yet — fall back to genre-tag cosine. Matches the
+      // pre-MIR behaviour exactly, so the map stays useful from day one.
+      const gm = nodes.map((n) => new Map(n.genres));
+      for (let i = 0; i < libCount; i++) {
+        const cand: { b: number; sim: number }[] = [];
+        for (let j = 0; j < libCount; j++) {
+          if (i === j) continue;
+          const s = cosineSim(gm[i], gm[j]);
+          if (s > 0.2) cand.push({ b: j, sim: s });
+        }
+        cand.sort((x, y) => y.sim - x.sim);
+        for (const c of cand.slice(0, 5)) {
+          raw.push({
+            a: Math.min(i, c.b), b: Math.max(i, c.b),
+            sim: c.sim, ghost: false,
+          });
+        }
       }
     }
+
     const seen = new Set<string>();
     const edges = raw.filter((e) => {
       const k = `${e.a}-${e.b}`;
@@ -167,7 +207,7 @@ export function ArtistMap({
       neighbors[e.b].add(e.a);
     }
     return { edges, neighbors };
-  }, [nodes, N, libCount]);
+  }, [nodes, N, libCount, data.embeddingEdges]);
 
   // ── Physics state ───────────────────────────────────────────────────
   const simRef = useRef<Sim[]>([]);
@@ -580,11 +620,14 @@ export function ArtistMap({
         </div>
       </div>
 
-      {data.analyzed < data.artists.length * 0.5 && (
-        <div className="absolute right-3 top-3 max-w-[13rem] rounded-lg border border-amber-500/30 bg-amber-950/70 px-3 py-2 text-[11px] text-amber-200 backdrop-blur sm:right-4 sm:top-4">
-          {t.fewAnalyzedWarning}
-        </div>
-      )}
+      <div className="absolute right-3 top-3 flex flex-col items-end gap-2 sm:right-4 sm:top-4">
+        <ShareMenu canvasRef={canvasRef} locale={locale} />
+        {data.analyzed < data.artists.length * 0.5 && (
+          <div className="max-w-[13rem] rounded-lg border border-amber-500/30 bg-amber-950/70 px-3 py-2 text-[11px] text-amber-200 backdrop-blur">
+            {t.fewAnalyzedWarning}
+          </div>
+        )}
+      </div>
 
       {/* zoom + view controls */}
       <div className="absolute bottom-3 right-3 flex flex-col items-end gap-2 sm:bottom-4 sm:right-4">
