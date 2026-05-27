@@ -9,7 +9,6 @@ import { accountDict } from "@/lib/i18n/account";
 import { getPlanState } from "@/lib/plan";
 import { AiConsentToggle } from "./AiConsentToggle";
 import { DeleteAccountButton } from "./DeleteAccountButton";
-import { DisconnectYtButton } from "./DisconnectYtButton";
 import { RotateSyncTokenButton } from "./RotateSyncTokenButton";
 import { WorldcupHistorySection } from "./WorldcupHistorySection";
 
@@ -21,19 +20,19 @@ export async function generateMetadata(): Promise<Metadata> {
 interface AccountRow {
   display_name: string | null;
   created_at: string;
-  yt_access_token: string | null;
-  yt_token_expires_at: string | null;
   synced_count: number;
   last_synced_at: string | null;
 }
 
 async function loadAccount(userId: string): Promise<AccountRow> {
   const sql = getSql();
+  // yt_access_token / yt_refresh_token / yt_token_expires_at columns
+  // still exist in the schema for backward compat (older rows still
+  // carry tokens from when the Data API path was live) but we no
+  // longer read or use them — the YouTube Data API sync was removed.
   const rows = await sql`
     SELECT u.display_name,
            u.created_at,
-           u.yt_access_token,
-           u.yt_token_expires_at,
            (SELECT count(*)::int FROM user_tracks ut WHERE ut.user_id = u.id) AS synced_count,
            (SELECT max(ut.captured_at) FROM user_tracks ut WHERE ut.user_id = u.id) AS last_synced_at
     FROM users u WHERE u.id = ${userId}`;
@@ -41,8 +40,6 @@ async function loadAccount(userId: string): Promise<AccountRow> {
   return {
     display_name: (r?.display_name as string) ?? null,
     created_at: r?.created_at as string,
-    yt_access_token: (r?.yt_access_token as string) ?? null,
-    yt_token_expires_at: (r?.yt_token_expires_at as string) ?? null,
     synced_count: (r?.synced_count as number) ?? 0,
     last_synced_at: (r?.last_synced_at as string) ?? null,
   };
@@ -78,7 +75,6 @@ export default async function AccountPage() {
   const conn = await ensureConnection();
   const userId = conn.userId;
   const data = await loadAccount(userId);
-  const ytConnected = !!data.yt_access_token;
   const planState = await getPlanState(userId);
   const aiConsent = conn.aiConsent;
   const lang = locale === "ko" ? "ko-KR" : "en-US";
@@ -186,25 +182,7 @@ export default async function AccountPage() {
             statusGood
             statusText="✓"
           />
-          <ConnectionRow
-            label={t.connectionYt}
-            desc={
-              ytConnected ? t.connectionYtConnected : t.connectionYtNotConnected
-            }
-            statusGood={ytConnected}
-            statusText={ytConnected ? "✓" : "—"}
-          />
-          {ytConnected ? (
-            <DisconnectYtButton locale={locale} />
-          ) : (
-            <Link
-              href="/api/yt-oauth/start"
-              className="self-start rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-black hover:bg-emerald-400"
-            >
-              {t.connectYtButton}
-            </Link>
-          )}
-          <p className="text-[11px] text-neutral-600">
+          <p className="text-[11px] leading-relaxed text-neutral-600">
             {t.revokeNote}{" "}
             <a
               href={t.revokeUrl}

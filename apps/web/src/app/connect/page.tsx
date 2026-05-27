@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
+import { CHROME_WEB_STORE_URL } from "@/lib/constants";
 import { getLastSyncStatus, getLibrarySummary } from "@/lib/connection";
 import { requireOnboarded } from "@/lib/onboarding";
 import { getLocale } from "@/lib/i18n-server";
 import type { Locale } from "@/lib/i18n";
 import { connectDict } from "@/lib/i18n/connect";
-import { ApiSyncButton } from "./ApiSyncButton";
 import { TokenBox } from "./TokenBox";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,6 +14,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t.pageTitle} — Earprint` };
 }
 
+/**
+ * /connect — single-mode flow now that the YouTube Data API path was
+ * removed. The Data API only ships the user's YouTube "Liked Videos"
+ * playlist, but YouTube Music's "Liked Music" is a separate list the
+ * API doesn't expose — testers consistently saw 20-30% of their actual
+ * library, missing the 70%+ that lives as album tracks without a
+ * dedicated video. The Chrome extension reads the real Liked Music
+ * page in the user's own logged-in tab, so it's the only path that
+ * actually covers a YT Music library.
+ */
 export default async function ConnectPage() {
   const session = await auth();
   const locale = await getLocale();
@@ -43,81 +53,54 @@ export default async function ConnectPage() {
   ]);
 
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-8 px-6 py-12 sm:py-16">
+    <main className="mx-auto flex max-w-2xl flex-col gap-8 px-6 py-12 sm:py-16">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
         <p className="text-sm text-neutral-400">{session.user.email}</p>
       </header>
 
       {/* Machine-readable token — the extension's content script reads this
-          so the user never has to copy-paste it. */}
+          on /connect so the user never has to copy-paste it. */}
       <span id="pa-sync-token" data-token={token} hidden />
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-xl font-bold">{t.modesHeader}</h2>
-        <p className="text-sm text-neutral-400">{t.modesSubhead}</p>
+      <section className="flex flex-col gap-5 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 text-2xl" aria-hidden>
+            🧩
+          </span>
+          <div className="flex flex-1 flex-col gap-1">
+            <h2 className="text-lg font-bold">{t.installTitle}</h2>
+            <p className="text-sm leading-relaxed text-neutral-400">
+              {t.installBody}
+            </p>
+          </div>
+        </div>
+
+        <a
+          href={CHROME_WEB_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="self-start rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-black hover:bg-emerald-400"
+        >
+          {t.installCta} ↗
+        </a>
+
+        <ol className="ml-5 list-decimal text-sm leading-relaxed text-neutral-300 marker:text-emerald-400">
+          {t.installSteps.map((s) => (
+            <li key={s}>{s}</li>
+          ))}
+        </ol>
+
+        <div className="flex flex-col gap-2 rounded-md border border-white/5 bg-black/20 p-3">
+          <p className="text-xs font-semibold text-neutral-300">{t.syncTokenTitle}</p>
+          <p className="text-[11px] text-neutral-500">{t.syncTokenDesc}</p>
+          <TokenBox token={token} locale={locale} />
+        </div>
+
+        <p className="rounded-md border border-white/5 bg-black/30 px-3 py-2 text-[11px] leading-relaxed text-neutral-400">
+          🔐 {t.privacyNote}
+        </p>
       </section>
-
-      {/* Two side-by-side mode cards. Fast (API) takes the left slot
-          because it's the lower-friction default for first-time visitors
-          and the only option on mobile. Exact (extension) gets the
-          right slot with the deeper-coverage pitch. Stacked vertically
-          on mobile. */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {/* Fast Import — API */}
-        <section className="flex flex-col gap-4 rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-5">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-              {t.fastModeBadge}
-            </span>
-            <span aria-hidden>📱</span>
-            <h3 className="font-semibold text-emerald-200">{t.fastModeTitle}</h3>
-          </div>
-          <ModeList
-            label={t.fastModeProTitle}
-            items={t.fastModePros}
-            tone="good"
-          />
-          <ModeList
-            label={t.fastModeConTitle}
-            items={t.fastModeCons}
-            tone="bad"
-          />
-          <ApiSyncButton locale={locale} />
-          <p className="rounded-md bg-amber-950/40 px-3 py-2 text-[11px] leading-relaxed text-amber-200/80">
-            ⚠ {t.apiSyncNote}
-          </p>
-        </section>
-
-        {/* Exact Import — extension */}
-        <section className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
-              {t.exactModeBadge}
-            </span>
-            <span aria-hidden>🧩</span>
-            <h3 className="font-semibold">{t.exactModeTitle}</h3>
-          </div>
-          <ModeList
-            label={t.exactModeProTitle}
-            items={t.exactModePros}
-            tone="good"
-          />
-          <ModeList
-            label={t.exactModeConTitle}
-            items={t.exactModeCons}
-            tone="bad"
-          />
-          <div className="flex flex-col gap-2 rounded-md border border-white/5 bg-black/20 p-3">
-            <p className="text-xs font-semibold text-neutral-300">{t.syncTokenTitle}</p>
-            <p className="text-[11px] text-neutral-500">{t.syncTokenDesc}</p>
-            <TokenBox token={token} locale={locale} />
-          </div>
-          <p className="rounded-md border border-white/5 bg-black/30 px-3 py-2 text-[11px] leading-relaxed text-neutral-400">
-            🔐 {t.exactModePrivacyNote}
-          </p>
-        </section>
-      </div>
 
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <div className="flex items-center justify-between gap-4">
@@ -147,46 +130,10 @@ export default async function ConnectPage() {
   );
 }
 
-/** Bullet list with a tone-coloured marker. Used inside each mode card
- *  to render the pros / cons. Kept inline because both cards need the
- *  exact same shape and pulling it into a shared component would just
- *  add an import without saving any code. */
-function ModeList({
-  label,
-  items,
-  tone,
-}: {
-  label: string;
-  items: readonly string[];
-  tone: "good" | "bad";
-}) {
-  const marker = tone === "good" ? "✓" : "·";
-  const markerColor =
-    tone === "good" ? "text-emerald-400" : "text-neutral-500";
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
-        {label}
-      </p>
-      <ul className="flex flex-col gap-1 text-xs leading-relaxed text-neutral-300">
-        {items.map((it) => (
-          <li key={it} className="flex items-start gap-2">
-            <span className={`shrink-0 font-bold ${markerColor}`}>{marker}</span>
-            <span>{it}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 /**
  * Compact one-liner under the library count summarising the user's last
- * extension sync. Sync is append-only now, so there's no
- * complete/partial/append-only branching to display — every successful
- * sync just adds. When the captured count came in short of the playlist
- * header it's surfaced as a hint to re-run, but never as a warning,
- * because nothing got destroyed either way.
+ * extension sync. Sync is append-only so there's no complete/partial
+ * branching to display — every successful sync just adds.
  */
 function LastSyncBadge({
   status,

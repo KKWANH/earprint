@@ -614,7 +614,7 @@ function BracketCard({
   locale: Locale;
 }) {
   const t = recommendDict(locale);
-  const { playing, toggle } = useAudioPlayer(rec.deezerId);
+  const { playing, error: audioError, toggle } = useAudioPlayer(rec.deezerId);
   const [hover, setHover] = useState(false);
   // YouTube videoId — fetched lazily on mount via /api/recommend/yt-search.
   // Null until the request resolves; null forever if Google's quota is
@@ -712,7 +712,7 @@ function BracketCard({
             ▶ YT{videoId ? "" : " ↗"}
           </button>
         )}
-        {!showVideo && rec.deezerId && (
+        {!showVideo && rec.deezerId && !audioError && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -724,6 +724,17 @@ function BracketCard({
           >
             {playing ? "⏸" : "▶"}
           </button>
+        )}
+        {/* Preview URL went 404 or wrong format. Hide the preview button
+            so the user doesn't keep clicking a dead control; the ▶ YT
+            button on the other side still works for full playback. */}
+        {!showVideo && rec.deezerId && audioError && (
+          <span
+            className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-[10px] text-neutral-400 backdrop-blur"
+            title="Preview unavailable for this track"
+          >
+            no preview
+          </span>
         )}
       </div>
       <div className="min-h-[3.5em]">

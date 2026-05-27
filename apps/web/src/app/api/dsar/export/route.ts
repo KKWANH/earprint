@@ -10,8 +10,6 @@ import { getSql } from "@/lib/db";
  * artists, affinity, share id. Deliberately excludes:
  *
  *   • password (we don't have one — Google OAuth)
- *   • Google access/refresh tokens (security risk to ship; they're per-
- *     session anyway and can be re-granted via /api/yt-oauth/start)
  *   • Lemon Squeezy raw webhook payloads (not user data, vendor traffic)
  *
  * The result is streamed as `application/json` with a Content-Disposition

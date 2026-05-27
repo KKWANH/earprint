@@ -57,7 +57,7 @@ const en = {
       body: [
         "The Extension is a user-initiated tool that runs inside your own browser tab. When you click sync, it reads the same list of liked songs that is already visible to you on your own YouTube Music \"Liked music\" page in your own logged-in session, and uploads only that list (title, artist, album, the order you liked them) to your Earprint Account. It does not interact with any other YouTube data, does not bypass any access control, and does not download audio, video, or other users' content.",
         "Earprint accesses only your own data, from your own session. The Service does not, and is not designed to, access data belonging to any other person. As with any third-party browser tool you choose to install, you remain responsible for ensuring that your usage is consistent with the terms of service of YouTube and Google.",
-        "An optional, separate mechanism uses the official YouTube Data API (scope: youtube.readonly) for users who explicitly grant it. This is described in the Privacy Policy and on the /connect page; it can be disconnected at any time from /account.",
+        "An earlier release exposed an optional alternative sync mechanism that called the official YouTube Data API (scope: youtube.readonly) on the user's behalf. That path was removed because it only exposes YouTube's \"Liked Videos\" playlist, not YouTube Music's \"Liked Music\" — coverage was ~25% for typical YT Music libraries. If you granted the youtube.readonly scope during the deprecated flow, you can revoke it from your Google account at any time (https://myaccount.google.com/permissions).",
       ],
     },
     {
@@ -218,7 +218,7 @@ const ko: typeof en = {
       body: [
         "확장프로그램은 이용자의 브라우저 탭 내부에서 실행되는 이용자 주도(user-initiated) 도구입니다. 이용자가 동기화를 클릭하면, 이용자 본인이 로그인한 YouTube Music \"좋아요 한 음악\" 페이지에 이미 표시되어 있는 좋아요 곡 목록과 동일한 목록을 읽어, 해당 목록만(곡명·아티스트·앨범·좋아요 순서) Earprint 계정에 업로드합니다. 그 밖의 YouTube 데이터와 상호작용하지 않고, 어떤 접근 통제도 우회하지 않으며, 오디오·영상·타 이용자의 콘텐츠를 다운로드하지 않습니다.",
         "Earprint 는 이용자 본인의 세션에서 본인의 데이터에만 접근하며, 타인의 데이터에 접근하지 않고 그러한 목적으로 설계되지도 않았습니다. 어떤 제3자 브라우저 도구든 마찬가지로, 이용자의 사용 행위가 YouTube 및 Google 의 이용약관에 부합하도록 할 책임은 이용자 본인에게 있습니다.",
-        "선택적이고 별도의 메커니즘으로, 명시적으로 권한을 부여한 이용자에 한해 공식 YouTube Data API (범위: youtube.readonly) 가 사용됩니다. 이는 개인정보처리방침과 /connect 페이지에 설명되어 있으며, /account 에서 언제든 연결을 해제할 수 있습니다.",
+        "이전 버전에는 선택적으로 공식 YouTube Data API (범위: youtube.readonly) 를 호출하는 대체 동기화 메커니즘이 있었으나, 해당 경로는 제거되었습니다. YouTube Data API 는 YouTube 의 \"좋아요 한 영상\" 만 노출하고 YouTube Music 의 \"좋아요 한 음악\" 은 노출하지 않아, 일반적인 YT Music 라이브러리에서 ~25% 만 커버되는 구조적 한계가 있었기 때문입니다. 구버전 흐름에서 youtube.readonly 권한을 부여하셨다면 https://myaccount.google.com/permissions 에서 언제든 회수할 수 있습니다.",
       ],
     },
     {

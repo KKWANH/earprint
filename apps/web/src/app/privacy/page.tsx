@@ -41,7 +41,7 @@ const en = {
         "Deezer (metadata + 30-second previews) — for each track being matched we send the artist name, track title, and (when known) album, against Deezer's public catalogue search API. We do not send any account-identifying field. Deezer returns canonical artist/track metadata and a preview URL.",
         "Last.fm (artist similarity + tag enrichment) — we send only the artist name. Last.fm returns similar artists and crowdsourced tags. No account identifier is sent.",
         "MusicBrainz (release-year lookup) — we send only the artist + title pair as an anonymous query. No account identifier is sent.",
-        "YouTube Data API v3 (optional, opt-in only) — when you explicitly grant the youtube.readonly scope at /connect, your OAuth access token is used to read your own Liked Videos list. No other YouTube data is read.",
+        "YouTube Data API v3 — no longer used. An earlier release offered an optional youtube.readonly path; it was removed because the Data API only exposes YouTube's \"Liked Videos\" playlist, not YT Music's \"Liked Music\" (it covered ~25% of typical YT Music libraries). If you granted that scope during the deprecated flow, you can revoke it at https://myaccount.google.com/permissions.",
         "We no longer use any transactional email provider. The previous analysis-summary email path (Resend) has been removed; analysis results now stay in-app and are shared via the user's own OS share sheet (no third-party delivery in the loop).",
       ],
     },
@@ -65,7 +65,7 @@ const en = {
         "We do not sell or rent personal information. We use the following service providers to operate the Service, and only to the extent necessary:",
         "Cloudflare, Inc. (US) — application hosting + edge delivery. Transfer mechanism: EU-US Data Privacy Framework certification.",
         "Neon, Inc. (US) — managed PostgreSQL database. Transfer mechanism: EU-US Data Privacy Framework + Standard Contractual Clauses.",
-        "Google LLC (US) — Google Sign-In + Gemini AI analysis + (with explicit opt-in) YouTube Data API. Transfer mechanism: EU-US Data Privacy Framework.",
+        "Google LLC (US) — Google Sign-In + Gemini AI analysis. The deprecated YouTube Data API opt-in is no longer offered. Transfer mechanism: EU-US Data Privacy Framework.",
         "Lemon Squeezy (US, a Stripe subsidiary) — Merchant of Record for payment processing. Transfer mechanism: EU-US Data Privacy Framework.",
         "Deezer SA (France, EU) — track metadata + 30-second previews. No restricted transfer.",
         "Last.fm / Audioscrobbler Ltd (UK) — artist similarity + tag enrichment. UK adequacy decision applies.",
@@ -134,7 +134,7 @@ const en = {
       heading: "Google API Services User Data Policy — Limited Use",
       body: [
         "Earprint's use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy (https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.",
-        "Specifically: data accessed via Google APIs (notably the YouTube Data API v3, scope youtube.readonly) is used solely to provide and improve the user-facing music-taste analytics shown on the user's own Earprint dashboard. We do not transfer this data to others except to provide or improve user-facing features, comply with applicable law, or as part of a merger / acquisition / sale of assets with the user's explicit consent. We do not use this data for advertising. We do not allow humans to read this data unless we have your affirmative consent, it is necessary for security purposes (e.g. investigating abuse), to comply with applicable law, or the data is aggregated and used for internal operations in line with our Privacy Policy.",
+        "Specifically: the only Google API data Earprint accesses today is the standard Google Sign-In profile (openid / email / profile). The previously-deprecated YouTube Data API path is no longer in use. Any Google-API-sourced data we hold is used solely to provide and improve the user-facing music-taste analytics shown on the user's own Earprint dashboard. We do not transfer this data to others except to provide or improve user-facing features, comply with applicable law, or as part of a merger / acquisition / sale of assets with the user's explicit consent. We do not use this data for advertising. We do not allow humans to read this data unless we have your affirmative consent, it is necessary for security purposes (e.g. investigating abuse), to comply with applicable law, or the data is aggregated and used for internal operations in line with our Privacy Policy.",
       ],
     },
     {
@@ -183,7 +183,7 @@ const ko: typeof en = {
         "Deezer (메타데이터 + 30초 미리듣기) — 매칭 대상 곡 1건당 아티스트명·곡명·(있을 경우) 앨범만 Deezer 공개 카탈로그 검색 API 로 전송. 계정 식별 정보는 전송하지 않음. Deezer 가 표준화된 아티스트/곡 메타데이터와 미리듣기 URL 을 반환.",
         "Last.fm (아티스트 유사도 + 태그) — 아티스트명만 전송. Last.fm 이 유사 아티스트와 크라우드소싱 태그를 반환. 계정 식별 정보 미전송.",
         "MusicBrainz (발매연도 조회) — 아티스트 + 곡명 쌍만 익명 쿼리로 전송. 계정 식별 정보 미전송.",
-        "YouTube Data API v3 (선택, 명시적 옵트인) — /connect 에서 명시적으로 youtube.readonly 권한을 부여한 경우에만, 이용자 본인의 OAuth 액세스 토큰으로 본인의 Liked Videos 목록을 읽음. 그 외 YouTube 데이터는 읽지 않음.",
+        "YouTube Data API v3 — 더 이상 사용하지 않음. 이전 버전에는 선택적 youtube.readonly 경로가 있었으나, Data API 가 YouTube 의 \"좋아요 한 영상\" 만 노출하고 YT Music 의 \"좋아요 한 음악\" 은 노출하지 않아 일반적인 YT Music 라이브러리에서 ~25% 만 커버되는 구조적 한계로 제거되었습니다. 구버전에서 권한을 부여하셨다면 https://myaccount.google.com/permissions 에서 회수 가능합니다.",
         "트랜잭션 이메일 제공자를 더 이상 사용하지 않습니다. 기존의 분석 요약 메일 경로(Resend)는 제거되었으며, 분석 결과는 앱 내에서만 표시되고 사용자 본인 기기의 OS 공유 시트를 통해 공유됩니다 (제3자 발송 경유 없음).",
       ],
     },
@@ -207,7 +207,7 @@ const ko: typeof en = {
         "운영자는 개인정보를 판매하거나 임대하지 않습니다. 서비스 운영에 필요한 범위 내에서 다음 서비스 제공자만 사용합니다:",
         "Cloudflare, Inc. (미국) — 애플리케이션 호스팅 + 엣지 전송. 이전 메커니즘: EU-US Data Privacy Framework 인증.",
         "Neon, Inc. (미국) — 관리형 PostgreSQL. 이전 메커니즘: DPF + 표준계약조항 (SCC).",
-        "Google LLC (미국) — Google Sign-In + Gemini AI 분석 + (명시적 옵트인 시) YouTube Data API. 이전 메커니즘: DPF.",
+        "Google LLC (미국) — Google Sign-In + Gemini AI 분석. 이전 버전의 YouTube Data API 옵트인은 더 이상 제공되지 않습니다. 이전 메커니즘: DPF.",
         "Lemon Squeezy (미국, Stripe 자회사) — 결제대행사 (Merchant of Record). 이전 메커니즘: DPF.",
         "Deezer SA (프랑스, EU) — 곡 메타데이터 + 30초 미리듣기. 제한적 이전 해당 없음.",
         "Last.fm / Audioscrobbler Ltd (영국) — 아티스트 유사도 + 태그. 영국 적합성 결정 적용.",
@@ -276,7 +276,7 @@ const ko: typeof en = {
       heading: "Google API 사용자 데이터 정책 — Limited Use",
       body: [
         "Earprint 가 Google API 로부터 받은 정보를 사용 또는 타 앱에 전송하는 행위는 Google API Services User Data Policy (https://developers.google.com/terms/api-services-user-data-policy) 의 Limited Use 요구사항을 준수합니다.",
-        "구체적으로: Google API (특히 youtube.readonly 범위로 호출되는 YouTube Data API v3) 를 통해 접근한 데이터는 오직 이용자 본인의 Earprint 대시보드에 표시되는 음악 취향 분석 기능을 제공·개선할 목적으로만 사용됩니다. 이용자 본인을 대상으로 한 기능 제공·개선, 관계 법령 준수, 이용자의 명시적 동의가 있는 합병·인수·자산매각의 경우를 제외하고 본 데이터는 타 주체에 이전되지 않습니다. 광고 목적으로 사용하지 않으며, 보안 목적의 조사·법령 준수·이용자의 명시적 동의·내부 운영을 위한 집계된 형태가 아닌 한 사람이 본 데이터를 직접 열람하지 않습니다.",
+        "구체적으로: Earprint 가 현재 접근하는 Google API 데이터는 표준 Google Sign-In 프로필 (openid / email / profile) 뿐입니다. 이전에 제공되던 YouTube Data API 경로는 더 이상 사용되지 않습니다. Google API 에서 가져온 데이터는 오직 이용자 본인의 Earprint 대시보드에 표시되는 음악 취향 분석 기능을 제공·개선할 목적으로만 사용됩니다. 이용자 본인을 대상으로 한 기능 제공·개선, 관계 법령 준수, 이용자의 명시적 동의가 있는 합병·인수·자산매각의 경우를 제외하고 본 데이터는 타 주체에 이전되지 않습니다. 광고 목적으로 사용하지 않으며, 보안 목적의 조사·법령 준수·이용자의 명시적 동의·내부 운영을 위한 집계된 형태가 아닌 한 사람이 본 데이터를 직접 열람하지 않습니다.",
       ],
     },
     {

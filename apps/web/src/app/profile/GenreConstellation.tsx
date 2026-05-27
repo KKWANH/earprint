@@ -102,6 +102,11 @@ export function GenreConstellation({
     ro.observe(wrap);
     const sim = simRef.current;
 
+    // Per-node twinkle phase so each "star" pulses independently. Seeded
+    // from its index so the pattern is stable across re-renders (not
+    // randomised every frame, which would look noisy).
+    const twinkleSeed = (i: number) => (i * 137.5) % (Math.PI * 2);
+
     const step = () => {
       const a = alpha.current;
       if (a > 0.015) {
@@ -115,39 +120,93 @@ export function GenreConstellation({
       }
 
       const { scale, x: ox, y: oy } = cam.current;
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#0a0a0b";
+      const t = performance.now() / 1000;
+
+      // Deep-space gradient background — radial from a slightly off-centre
+      // origin so the eye doesn't sit on a perfectly centred vignette.
+      // Differentiates the constellation from the artist map (which is a
+      // flat-bg force layout) at a single glance.
+      const bg = ctx.createRadialGradient(
+        w * 0.4,
+        h * 0.55,
+        Math.min(w, h) * 0.1,
+        w / 2,
+        h / 2,
+        Math.max(w, h) * 0.75,
+      );
+      bg.addColorStop(0, "#0e1024");
+      bg.addColorStop(0.55, "#06070f");
+      bg.addColorStop(1, "#000000");
+      ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
       const focus = selRef.current ?? hover.current;
       const nbr = focus != null ? neighbors.current[focus] : null;
 
+      // Edges = constellation lines. Default to faint hairlines so the
+      // stars carry the visual weight, not the graph mesh. Only edges
+      // above ~40% relative weight are visible at rest; everything else
+      // appears on focus. Width stays 0.6 px so the lines read as
+      // pencil-thin against the bright stars.
+      ctx.lineCap = "round";
       for (const e of edges) {
         const lit = focus != null && (e.a === focus || e.b === focus);
-        ctx.lineWidth = lit ? 1.6 : 1;
+        const wRatio = e.weight / maxW;
+        // Skip rendering super-weak edges when not focused — keeps the
+        // background airy. When focused on a node we draw every neighbour
+        // edge regardless so the constellation pattern reads clearly.
+        if (!lit && focus != null) continue;
+        if (!lit && wRatio < 0.35) continue;
+        ctx.lineWidth = lit ? 1.2 : 0.6;
         ctx.strokeStyle = lit
-          ? "rgba(199,210,254,0.6)"
-          : focus != null
-            ? "rgba(255,255,255,0.04)"
-            : `rgba(148,163,184,${0.05 + (e.weight / maxW) * 0.16})`;
+          ? "rgba(220,230,255,0.65)"
+          : `rgba(180,195,235,${0.08 + wRatio * 0.18})`;
         ctx.beginPath();
         ctx.moveTo(sim[e.a]!.x * scale + ox, sim[e.a]!.y * scale + oy);
         ctx.lineTo(sim[e.b]!.x * scale + ox, sim[e.b]!.y * scale + oy);
         ctx.stroke();
       }
 
+      // Stars — three concentric layers (outer halo, mid glow, white
+      // core) plus a slow twinkle in the halo opacity. Radius from the
+      // physics sim acts as magnitude (count-weighted): bigger genres
+      // get a bigger, brighter star, faint genres get a pinprick.
       for (let i = 0; i < N; i++) {
         const s = sim[i]!;
         const px = s.x * scale + ox;
         const py = s.y * scale + oy;
         const dim = focus != null && i !== focus && !(nbr && nbr.has(i));
-        ctx.globalAlpha = dim ? 0.22 : 1;
+        const r = s.r * scale;
+        // Twinkle: 0.85 ↔ 1.15 multiplier on halo opacity, period ~3-5s.
+        const twink = 0.85 + 0.3 * (0.5 + 0.5 * Math.sin(t + twinkleSeed(i)));
+        const baseAlpha = dim ? 0.18 : 1;
+
+        // Halo (outer glow)
+        ctx.globalAlpha = baseAlpha * 0.45 * twink;
         ctx.beginPath();
-        ctx.arc(px, py, s.r * scale, 0, Math.PI * 2);
-        ctx.fillStyle = `hsl(${s.hue} 62% 60%)`;
+        ctx.arc(px, py, r * 3.4, 0, Math.PI * 2);
+        ctx.fillStyle = `hsl(${s.hue} 70% 55%)`;
         ctx.fill();
+
+        // Mid glow
+        ctx.globalAlpha = baseAlpha * 0.7;
+        ctx.beginPath();
+        ctx.arc(px, py, r * 1.6, 0, Math.PI * 2);
+        ctx.fillStyle = `hsl(${s.hue} 75% 65%)`;
+        ctx.fill();
+
+        // Bright core — white-hot at the centre of every star.
+        ctx.globalAlpha = baseAlpha;
+        ctx.beginPath();
+        ctx.arc(px, py, Math.max(1.5, r * 0.55), 0, Math.PI * 2);
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+
         if (i === focus) {
-          ctx.lineWidth = 2.5;
-          ctx.strokeStyle = "#fff";
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = "rgba(255,255,255,0.95)";
+          ctx.beginPath();
+          ctx.arc(px, py, r * 1.9, 0, Math.PI * 2);
           ctx.stroke();
         }
         ctx.globalAlpha = 1;

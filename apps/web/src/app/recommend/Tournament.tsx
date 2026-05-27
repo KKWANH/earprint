@@ -80,8 +80,13 @@ export function Tournament({
   const prefetch = useRef<Promise<unknown> | null>(null);
 
   const current = initial[idx];
-  const { playing, loading: loadingAudio, toggle: togglePlay, stop: stopAudio } =
-    useAudioPlayer(current?.deezerId ?? null);
+  const {
+    playing,
+    loading: loadingAudio,
+    error: audioError,
+    toggle: togglePlay,
+    stop: stopAudio,
+  } = useAudioPlayer(current?.deezerId ?? null);
 
   // Generate the next batch a few cards early — by the time the user reaches
   // the end it is ready, so there is no ~10s wait.

@@ -63,6 +63,16 @@ Then reload the unpacked extension. The first time you visit `http://localhost:3
 - **Forgotten worldcup**: on a library without `list_position` data, opening `/worldcup/forgotten/16` should NOT show an empty card — it should fall back to a uniform-random sample and the bracket should populate.
 - **Credit refund**: deliberately trigger a Gemini error (e.g., disable your API key briefly) and verify the analysis credit is refunded — the `credits` column on the user row should be unchanged after the failed call.
 
+## Removing Google permission after local dev
+
+If you signed in to a local Earprint instance and later want to clean up the OAuth grant from your Google Account (including any leftover `youtube.readonly` scope from earlier preview builds):
+
+1. https://myaccount.google.com/permissions
+2. Find the OAuth client name you registered (likely "Earprint" or your local-dev name)
+3. Click → **Remove access**
+
+That invalidates the tokens immediately. The web app's own user row is separate — delete it from `/account` if you also want to drop the synced library.
+
 ## Troubleshooting
 
 - **"This extension may have been corrupted"** — clear the unpacked extension and run `pnpm run build` from a clean state (`rm -rf dist && pnpm run build`).

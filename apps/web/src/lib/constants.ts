@@ -12,7 +12,7 @@ export const CHROME_WEB_STORE_URL =
  * legal docs change in a way that requires re-consent — the onboarding
  * middleware re-prompts users whose stored tos_version doesn't match.
  */
-export const CURRENT_TOS_VERSION = "2026-05-27";
+export const CURRENT_TOS_VERSION = "2026-05-28";
 
 /**
  * Minimum age for unaided sign-up in our biggest regulated market (EU,

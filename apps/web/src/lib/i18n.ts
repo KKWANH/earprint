@@ -51,14 +51,14 @@ const en = {
       "Your liked-songs library matches to one of twelve zodiac archetypes — with a sub-flavor that pins down which corner of that world you live in. Real characters, not horoscope vague.",
     galleryTitle: "Sample outputs",
     gallerySubtitle: "Three example personas from an Earprint analysis.",
-    installTitle: "Add the Chrome extension",
+    installTitle: "Install the Chrome extension to start",
     installSubtitle:
-      "Earprint needs a tiny browser extension to read your YouTube Music likes — it runs locally and never sees your password.",
+      "The extension is the only way Earprint can read your YouTube Music likes — the official YouTube Data API only exposes a small subset (typically ~25% of a YT Music library). The extension runs in your own logged-in tab, never sees your password, and never sends your YouTube cookies to our server.",
     installCta: "Add to Chrome",
     installNote: "Free · No account required to install",
     installGuide: "Read the setup guide →",
     installMobile:
-      "Desktop Chrome required for sync. Results view on any device — including your phone.",
+      "Desktop Chrome required for sync. Once your library is synced, the results — Library, Taste DNA, Artist Map, Music Zodiac, Worldcup, share page — view from any device including your phone.",
   },
   footer: {
     privacy: "Privacy",
@@ -126,14 +126,14 @@ const ko: Dict = {
       "좋아요 라이브러리가 12 별자리 중 하나로 매칭되고, 그 안에서 더 구체적인 sub-flavor 까지 짚어줍니다. 별점 운세처럼 두루뭉술하지 않은, 진짜 캐릭터.",
     galleryTitle: "결과 예시",
     gallerySubtitle: "Earprint 분석 결과 예시 3가지.",
-    installTitle: "크롬 확장 설치",
+    installTitle: "Chrome 확장 설치로 시작",
     installSubtitle:
-      "유튜브 뮤직 좋아요 곡을 읽기 위해 작은 브라우저 확장이 필요합니다. 로컬에서만 동작하고 비밀번호는 보지 않습니다.",
+      "Earprint 가 YouTube Music 좋아요를 읽을 수 있는 유일한 경로입니다 — 공식 YouTube Data API 는 일부만 노출하여 일반 YT Music 라이브러리에서 ~25% 만 잡힙니다. 확장은 본인의 로그인된 탭 안에서만 동작하며, 비밀번호를 보지 않고 YouTube 쿠키도 서버로 전송하지 않습니다.",
     installCta: "Chrome 에 추가",
     installNote: "무료 · 설치만 하면 됨",
     installGuide: "설치·사용 가이드 →",
     installMobile:
-      "동기화는 데스크탑 Chrome 에서만. 분석 결과는 모바일 포함 어디서나 볼 수 있습니다.",
+      "동기화는 데스크탑 Chrome 에서만. 한 번 동기화하면 — Library · Taste DNA · Artist Map · Music Zodiac · Worldcup · 공유 페이지 — 모두 모바일 포함 어디서나 볼 수 있습니다.",
   },
   footer: {
     privacy: "개인정보처리방침",

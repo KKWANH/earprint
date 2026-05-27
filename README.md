@@ -27,14 +27,15 @@ Earprint reads the songs you've **liked on YouTube Music**, analyzes them with G
 
 ---
 
-## Two ways to import your library
+## Importing your library
 
-| Mode | Path | Coverage | Best for |
-|---|---|---|---|
-| 📱 **Fast Import** | OAuth + YouTube Data API + music filter | Partial (LL ⊊ YT Music) | Mobile / no-install / quick check |
-| 🧩 **Exact Import** | Chrome extension on `music.youtube.com` | Full Liked Music | Desktop / accurate / power users |
+| Path | Coverage | How |
+|---|---|---|
+| 🧩 **Chrome extension** | Full Liked Music | Reads `music.youtube.com/playlist?list=LM` in your own logged-in tab. Periodic partial uploads survive a tab crash; manual Stop button lets you end early. |
 
-Both are append-only — once a song lands in your Earprint library, un-liking it on YouTube Music does **not** remove it. Earprint is your permanent "everything I've ever liked" history.
+The YouTube Data API was tried as a "Fast / mobile-friendly" alternative and removed — it only exposes YouTube's "Liked Videos" playlist, not YT Music's "Liked Music", and testers consistently saw 20-30% of their actual library. The extension is now the only import path.
+
+Sync is **append-only** — once a song lands in your Earprint library, un-liking it on YouTube Music does **not** remove it. Earprint is your permanent "everything I've ever liked" history. Use the per-artist Hide controls on `/library` to drop something from stats without deleting it.
 
 ---
 
@@ -42,8 +43,7 @@ Both are append-only — once a song lands in your Earprint library, un-liking i
 
 | Area | Feature |
 |---|---|
-| **Collect (Exact)** | Chrome MV3 extension scrolls the YouTube Music Liked Music list with periodic partial uploads (so a tab crash doesn't lose progress) and a manual **Stop now** button |
-| **Collect (Fast)** | OAuth + Data API `playlistItems.list` with a multi-signal music filter (`categoryId` · `topicDetails` · duration · channel suffix · title patterns) — skips vlogs / podcasts / reactions before they reach the library |
+| **Collect** | Chrome MV3 extension scrolls the YouTube Music Liked Music list with periodic partial uploads (so a tab crash doesn't lose progress) and a manual **Stop now** button |
 | **Analyse** | Deezer enrichment (album · preview · release year · popularity) + Gemini per-track AI (genre · mood · energy / tempo / acousticness · instruments) |
 | **Library** | Top artists / genres / moods / instruments, album-depth, audio-feel chart, data-confidence rollup, artist hide/restore |
 | **Taste DNA** | Reminiscence-bump *imprint core* + a familiarity↔novelty index from genre entropy and mainstream-distance |
@@ -118,7 +118,7 @@ Margin at ₩2,500: Lemon Squeezy ~$0.59 fee + Gemini ~$0.014 cost = ~$1.25 net 
 - **MIR** (`services/analysis`): FastAPI + Essentia, Python, Dockerised on Fly
 - **Hosting**: Cloudflare Workers (OpenNext adapter)
 - **DB**: Neon Postgres + pgvector
-- **External**: Deezer · Last.fm · MusicBrainz · Google Gemini · YouTube Data API v3 · Lemon Squeezy
+- **External**: Deezer · Last.fm · MusicBrainz · Google Gemini · Lemon Squeezy
 - **Monorepo**: pnpm workspaces + Turborepo
 
 ## Repo layout
@@ -148,6 +148,19 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for design rationale and [DEPLOY.md](./
 - **Metadata coverage** — release year / popularity come from Deezer, which doesn't match every track (esp. obscure / non-Western releases). The Deezer match has a per-row confidence; below 0.65 we suppress year / rank / preview to avoid showing wrong-artist data as ground truth.
 - **MIR not yet enabled** — `services/analysis` is scaffolded but `DRY_RUN=true` until the model cache + R2 setup land. Per-track audio characteristics are Gemini-estimated for now.
 - **Pro subscription paused** — re-introduces with analysis-history (so "did my taste change since May?" has a real answer).
+
+## Revoking Earprint's Google permission
+
+If you signed in to Earprint and later want to remove its access entirely (including the deprecated `youtube.readonly` scope that earlier dev/preview builds requested), do it from your Google Account:
+
+1. Visit https://myaccount.google.com/permissions
+2. In the list, find **Earprint** (or whichever name your local build registered with — `earprint` / `earprint-dev` / your custom OAuth client name)
+3. Click → **Remove access**
+4. Confirm. Any stored OAuth tokens on the Google side are invalidated instantly.
+
+Earprint's own copy of your library is separate from that revoke. To also delete the library, sign in to https://earprint.kwanho.dev/account and use **Delete my account & data** (type `DELETE` to confirm) — that cascades through every user-scoped row in one DB transaction.
+
+If you want to remove just the synced tracks but keep the account, use the per-artist **Hide** controls on `/library`. Sync is append-only, so re-running sync after a hide doesn't bring the artist back to the stats.
 
 ## License
 

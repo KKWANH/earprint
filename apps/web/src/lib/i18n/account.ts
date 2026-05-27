@@ -18,21 +18,18 @@ const en = {
   neverSynced: "No tracks synced yet",
   openLibrary: "Open library →",
 
-  // Connections section
+  // Connections section. Google sign-in is the only third-party
+  // permission Earprint requests — the YouTube Data API path was
+  // removed (it only covers ~25% of a typical YT Music library), so
+  // there's no "Connect YouTube" / "Disconnect YouTube" flow any
+  // more. The revoke link still helps users who granted youtube.
+  // readonly during the deprecated flow and want to clean it up.
   connectionsTitle: "Connections",
   connectionGoogle: "Google account",
-  connectionGoogleDesc: "Used to sign you in to Earprint.",
-  connectionYt: "YouTube Data API",
-  connectionYtConnected: "Connected — used for API-mode sync on mobile.",
-  connectionYtNotConnected:
-    "Not connected. Connect to use the mobile-friendly API sync. The Chrome extension does not require this.",
-  connectYtButton: "Connect YouTube",
-  disconnectYtButton: "Disconnect YouTube",
-  disconnecting: "Disconnecting…",
-  disconnectFailed: "Disconnect failed",
-  disconnectSuccess: "YouTube disconnected.",
+  connectionGoogleDesc:
+    "Used to sign you in to Earprint. The only Google scopes we request are openid / email / profile — nothing else.",
   revokeNote:
-    "You can also revoke access directly at",
+    "You can revoke Earprint's access (and clean up the deprecated youtube.readonly scope if you granted it during the old API-sync flow) at",
   revokeUrl: "https://myaccount.google.com/permissions",
 
   // Plan / billing section
@@ -118,17 +115,10 @@ const ko: typeof en = {
 
   connectionsTitle: "연결된 서비스",
   connectionGoogle: "Google 계정",
-  connectionGoogleDesc: "Earprint 로그인에 사용됩니다.",
-  connectionYt: "YouTube Data API",
-  connectionYtConnected: "연결됨 — 모바일 API 동기화에 사용됩니다.",
-  connectionYtNotConnected:
-    "미연결. 모바일용 API 동기화를 사용하려면 연결하세요. Chrome 확장 사용 시엔 불필요합니다.",
-  connectYtButton: "YouTube 연결",
-  disconnectYtButton: "YouTube 연결 해제",
-  disconnecting: "해제 중…",
-  disconnectFailed: "연결 해제 실패",
-  disconnectSuccess: "YouTube 연결을 해제했습니다.",
-  revokeNote: "직접 권한을 취소하려면",
+  connectionGoogleDesc:
+    "Earprint 로그인에만 사용됩니다. Google scope 는 openid / email / profile 뿐, 그 외 없음.",
+  revokeNote:
+    "Earprint 의 접근 권한을 직접 회수하거나 (구버전 API 동기화 시 부여했던 youtube.readonly scope 가 남아 있다면 정리 포함) 하려면",
   revokeUrl: "https://myaccount.google.com/permissions",
 
   planTitle: "플랜",
