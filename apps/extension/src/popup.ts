@@ -117,6 +117,33 @@ connectBtn.addEventListener("click", () => {
   showMsg(t("msgConnectOpened"));
 });
 
+/** Hits GET /api/sync as a pre-flight to confirm the stored token still
+ *  names a real user. Returns true iff the server says yes. False on any
+ *  network error too — we'd rather show "connection problem" than start
+ *  a multi-minute scroll that's going to 401 at upload time anyway. */
+async function precheckConnection(): Promise<boolean> {
+  try {
+    const { syncToken } = await chrome.storage.sync.get(["syncToken"]);
+    if (!syncToken) return false;
+    const res = await fetch(`${WEB_ORIGIN}/api/sync`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${String(syncToken)}` },
+      signal: AbortSignal.timeout(8_000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Formats two counts side-by-side with a delta hint when they differ.
+ *  Lives here (and not in renderSyncResult) so the same shape is used
+ *  for progress AND for the final result. */
+function fmtCount(label: string, n: number | null | undefined): string {
+  if (n == null) return `${label}: —`;
+  return `${label}: ${n.toLocaleString()}`;
+}
+
 /** Renders the sync result regardless of where it came from (sendMessage
  *  response or chrome.storage.local poll). Centralised so both code paths
  *  show identical UX.
@@ -124,8 +151,8 @@ connectBtn.addEventListener("click", () => {
  *  Sync is append-only server-side now — there's no complete / partial
  *  distinction to surface. Every successful upload adds new captures and
  *  refreshes existing positions; nothing is ever removed. The message
- *  just reports how many landed and (if relevant) how many were sliced
- *  off by the free-tier cap before save.
+ *  reports captured / YT-shown / verified counts as three numbers so the
+ *  user can see the gap explicitly.
  */
 function renderSyncResult(res: {
   ok?: boolean;
@@ -134,10 +161,12 @@ function renderSyncResult(res: {
   total?: number;
   captured?: number;
   expected?: number | null;
+  verified?: number | null;
   new_likes?: number;
   new_tracks?: number;
   plan_dropped?: number;
   plan_cap?: number;
+  manualStop?: boolean;
 }) {
   syncBtn.disabled = false;
   hideStopButton();
@@ -145,17 +174,21 @@ function renderSyncResult(res: {
     const cap = res.captured ?? 0;
     const newLikes = res.new_likes ?? 0;
     const expected = res.expected ?? null;
+    const verified = res.verified ?? null;
 
-    // "Sent 1,417 songs (12 new this run)" — communicates both that
-    // the data landed and how much of it was new since last sync.
-    // append-only is the only mode now, so no warning about partial vs
-    // complete needed.
-    const headerHint =
-      expected != null && cap < expected
-        ? ` · header showed ${expected.toLocaleString()}`
-        : "";
-    let msg = `✓ Sent ${cap.toLocaleString()} songs${headerHint}`;
-    if (newLikes > 0) msg += ` · ${newLikes.toLocaleString()} new`;
+    // Three-number readout — collected · verified · YT label. Lays the
+    // gap bare. Use the disclaimer card for the "why they differ"
+    // explanation; this line stays terse.
+    const parts = [`✓ ${fmtCount("Collected", cap)}`];
+    if (verified != null && Math.abs(verified - cap) > 0) {
+      parts.push(fmtCount("Verified", verified));
+    }
+    if (expected != null) {
+      parts.push(fmtCount("YT shows", expected));
+    }
+    let msg = parts.join(" · ");
+    if (newLikes > 0) msg += `\n${newLikes.toLocaleString()} new this run`;
+    if (res.manualStop) msg += "\n■ Stopped early by you.";
     if (res.plan_dropped && res.plan_dropped > 0) {
       msg += `\n📦 Free-tier cap: ${res.plan_dropped.toLocaleString()} extra tracks were dropped before save (limit ${(res.plan_cap ?? 0).toLocaleString()}).`;
     }
@@ -172,9 +205,9 @@ function renderSyncResult(res: {
     void chrome.storage.sync.remove("syncToken").then(() => {
       setStep("connect", false);
       syncBtn.disabled = true;
-      syncHint.textContent = t("step2HintNotConnected");
+      syncHint.textContent = t("step2HintConnectionLost");
     });
-    showMsg(t("msgSyncFailed", [res.error ?? "401"]), "error");
+    showMsg(t("msgTokenExpired"), "error");
     return;
   }
 
@@ -223,6 +256,25 @@ syncBtn.addEventListener("click", async () => {
   }
   const tabId = tab.id;
   syncBtn.disabled = true;
+
+  // Pre-flight: confirm the stored token still names a real user before
+  // spending 2-5 minutes scrolling. The user is much happier with a
+  // "your connection expired, click Re-pair" 2 seconds in than with a
+  // 4-minute scroll that fails at upload.
+  showMsg(t("msgCheckingToken"));
+  const tokenOk = await precheckConnection();
+  if (!tokenOk) {
+    syncBtn.disabled = false;
+    // Storage clear + funnel reset, same as the 401 fallback after
+    // upload — keeps the UX consistent regardless of when we discover
+    // the bad token.
+    await chrome.storage.sync.remove("syncToken").catch(() => {});
+    setStep("connect", false);
+    syncHint.textContent = t("step2HintConnectionLost");
+    showMsg(t("msgTokenExpired"), "error");
+    return;
+  }
+
   showStopButton();
   showMsg(t("msgSyncing"));
 
@@ -248,6 +300,8 @@ syncBtn.addEventListener("click", async () => {
         state?: string;
         phase?: string;
         captured?: number;
+        expected?: number | null;
+        verified?: number | null;
         updatedAt?: number;
         result?: Record<string, unknown>;
         error?: string;
@@ -272,6 +326,8 @@ syncBtn.addEventListener("click", async () => {
           state?: string;
           phase?: string;
           captured?: number;
+          expected?: number | null;
+          verified?: number | null;
           updatedAt?: number;
           result?: Record<string, unknown>;
           error?: string;
@@ -283,12 +339,18 @@ syncBtn.addEventListener("click", async () => {
       // Translate phase + freshness into a single line so the user can
       // tell "still working" from "wedged" without thinking.
       const cap = (s.captured ?? 0).toLocaleString();
+      const expectedSuffix =
+        s.expected != null
+          ? ` / YT shows ${s.expected.toLocaleString()}`
+          : "";
       const phaseLabel =
         s.phase === "uploading"
           ? "Uploading"
-          : s.phase === "settling"
-            ? "Settling"
-            : "Scrolling";
+          : s.phase === "verifying"
+            ? "Verifying"
+            : s.phase === "settling"
+              ? "Settling"
+              : "Scrolling";
       const ageMs = s.updatedAt ? Date.now() - s.updatedAt : 0;
       const ageLabel =
         ageMs < 3_000
@@ -298,7 +360,7 @@ syncBtn.addEventListener("click", async () => {
             : `${Math.round(ageMs / 60_000)}m ago`;
       const stalled = ageMs > 20_000;
       const msg =
-        `${phaseLabel} · ${cap} songs · updated ${ageLabel}` +
+        `${phaseLabel} · ${cap}${expectedSuffix} · updated ${ageLabel}` +
         (stalled ? "\n⚠ No update in 20s — try Reset if it doesn't recover." : "");
       showMsg(msg, stalled ? "error" : "info");
     } else if (s.state === "uploading") {

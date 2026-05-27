@@ -28,6 +28,9 @@
   "step2HintNotConnected": {
     "message": "Connect first (step 1) so the popup can authenticate."
   },
+  "step2HintConnectionLost": {
+    "message": "Connection expired. Click \"Open earprint.kwanho.dev\" above and re-sign in."
+  },
   "step2HintOnYt": {
     "message": "Click sync — Earprint will scroll the page and collect your liked songs."
   },
@@ -38,19 +41,31 @@
     "message": "Sync liked songs"
   },
   "step2StopButton": {
-    "message": "Stop now (save what we've got)"
+    "message": "■ Stop now (save what we've got)"
   },
   "msgStopRequested": {
-    "message": "Stopping… current capture will be uploaded."
+    "message": "Stopping… current capture will be uploaded after a quick verify pass."
   },
   "step2OpenLm": {
     "message": "Open Liked Music ↗"
   },
   "step2TipDontTouch": {
-    "message": "While syncing: don't scroll the page, switch tabs, or close the window. Earprint controls the scroll for you."
+    "message": "While syncing: don't switch tabs, scroll the page, or close this window. Earprint scrolls the page for you."
   },
-  "step2TipCountMayDiffer": {
-    "message": "The collected count can be lower than what YouTube Music shows — YT silently stops serving rows past a point on very large libraries. The number you see in your library is the truth."
+  "disclaimerTitle": {
+    "message": "Counts may differ."
+  },
+  "disclaimerBody": {
+    "message": "The number YouTube Music shows under your Liked Music (\"1,234곡\") and the number Earprint actually collects can differ — YT silently drops some rows on large libraries and counts items we can't render. Earprint shows both so you can see the gap."
+  },
+  "msgCheckingToken": {
+    "message": "Checking your connection…"
+  },
+  "msgTokenExpired": {
+    "message": "Connection expired — re-sign in on earprint.kwanho.dev and click Sync again."
+  },
+  "msgVerifying": {
+    "message": "Verifying… scrolling top to bottom to double-check the count."
   },
   "step3Label": {
     "message": "View your analysis"

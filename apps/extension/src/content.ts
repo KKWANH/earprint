@@ -11,13 +11,15 @@ import { extractTracks } from "./parser";
 
 const tracks = new Map<string, CapturedTrack>();
 let onScrapeDone: (() => void) | null = null;
+let onVerifyDone: ((count: number) => void) | null = null;
 let lastProgress = 0;
 const diag: {
   domPeak: number;
   spinnerSeen: boolean;
   endedClean: boolean;
   lastTitle: string;
-} = { domPeak: 0, spinnerSeen: false, endedClean: false, lastTitle: "" };
+  verifiedCount: number | null;
+} = { domPeak: 0, spinnerSeen: false, endedClean: false, lastTitle: "", verifiedCount: null };
 
 window.addEventListener("message", (e: MessageEvent) => {
   const msg = e.data as
@@ -27,6 +29,7 @@ window.addEventListener("message", (e: MessageEvent) => {
         data?: unknown;
         track?: CapturedTrack;
         count?: number;
+        verifiedCount?: number;
         domPeak?: number;
         spinnerSeen?: boolean;
         endedClean?: boolean;
@@ -47,7 +50,7 @@ window.addEventListener("message", (e: MessageEvent) => {
     typeof (msg as { phase?: unknown }).phase === "string"
   ) {
     const p = (msg as { phase: string }).phase;
-    if (p === "scrolling" || p === "settling" || p === "uploading") {
+    if (p === "scrolling" || p === "settling" || p === "uploading" || p === "verifying") {
       currentPhase = p;
     }
   } else if (msg.kind === "scrapeDone") {
@@ -57,6 +60,11 @@ window.addEventListener("message", (e: MessageEvent) => {
     diag.lastTitle = msg.lastTitle ?? "";
     onScrapeDone?.();
     onScrapeDone = null;
+  } else if (msg.kind === "verifyDone") {
+    const v = typeof msg.verifiedCount === "number" ? msg.verifiedCount : 0;
+    diag.verifiedCount = v;
+    onVerifyDone?.(v);
+    onVerifyDone = null;
   }
 });
 
@@ -105,7 +113,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
  *  Each writeStatus call stamps `updatedAt` — the popup compares it to
  *  Date.now() so it can show "Updated 3s ago" and warn the user when no
  *  update has arrived for a long time (likely stall). */
-type SyncPhase = "scrolling" | "settling" | "uploading";
+type SyncPhase = "scrolling" | "settling" | "verifying" | "uploading";
 
 type SyncStatus =
   | {
@@ -115,6 +123,7 @@ type SyncStatus =
       updatedAt: number;
       captured: number;
       expected: number | null;
+      verified?: number | null;
     }
   | { state: "done"; updatedAt: number; result: Record<string, unknown> }
   | { state: "failed"; updatedAt: number; error: string };
@@ -143,6 +152,7 @@ async function runSync(): Promise<unknown> {
   diag.spinnerSeen = false;
   diag.endedClean = false;
   diag.lastTitle = "";
+  diag.verifiedCount = null;
   manuallyStopped = false;
 
   runStartedAt = Date.now();
@@ -224,6 +234,38 @@ async function runSync(): Promise<unknown> {
     // Let any in-flight intercepted responses settle.
     await sleep(600);
 
+    // Verification pass — top→bottom walk one more time, fast, to catch
+    // rows the main pass missed and to give the user a second count to
+    // compare against. Even on manualStop we still verify, so the user
+    // gets a definitive number rather than wondering "did I stop too
+    // early?". Time-capped inside inject.ts at 25s so a wedge doesn't
+    // extend the run.
+    currentPhase = "verifying";
+    await writeStatus({
+      state: "running",
+      phase: "verifying",
+      startedAt: runStartedAt,
+      updatedAt: Date.now(),
+      captured: tracks.size,
+      expected: expectedCount(),
+    });
+    diag.verifiedCount = null;
+    await new Promise<void>((resolve) => {
+      onVerifyDone = (n) => {
+        diag.verifiedCount = n;
+        resolve();
+      };
+      window.postMessage({ __pa: true, kind: "verify" }, "*");
+      // Hard ceiling on the wait too — inject's own cap is 25s, ours
+      // is the safety net if the message never comes back.
+      setTimeout(() => {
+        if (onVerifyDone) {
+          onVerifyDone = null;
+          resolve();
+        }
+      }, 30_000);
+    });
+
     const list = [...tracks.values()];
     if (list.length === 0) {
       const r = { ok: false, error: "No songs collected — refresh the page and try again" };
@@ -239,6 +281,7 @@ async function runSync(): Promise<unknown> {
       updatedAt: Date.now(),
       captured: list.length,
       expected: expectedCount(),
+      verified: diag.verifiedCount,
     });
     const expected = expectedCount();
     const result = await uploadDirect(list, { manualStop: manuallyStopped });
@@ -246,6 +289,7 @@ async function runSync(): Promise<unknown> {
       ...result,
       captured: list.length,
       expected,
+      verified: diag.verifiedCount,
       domPeak: diag.domPeak,
       spinnerSeen: diag.spinnerSeen,
       endedClean: diag.endedClean,

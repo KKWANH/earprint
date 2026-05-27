@@ -4,7 +4,7 @@ import type { AiProfile } from "./profile";
 /**
  * Hand-crafted sample library + AI profile for the public /demo page. The
  * numbers are realistic for a 25-year-old indie/dream-pop listener — chosen
- * to land on Cancer (Memory Diver) so the zodiac card shows a strong match
+ * to land on Cancer (Indie Afterglow) so the zodiac card shows a strong match
  * rather than scattering across signs.
  *
  * NOT a real user — the page banner makes that clear.

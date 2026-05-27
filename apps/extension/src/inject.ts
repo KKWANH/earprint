@@ -139,6 +139,71 @@
     }
   });
 
+  // Verify pass — fired by content.ts AFTER the main scrape ends (whether
+  // naturally or via manual Stop). Walks the list top→bottom one more
+  // time, FAST, reading every renderer that's currently in the DOM. The
+  // purpose is two-fold:
+  //   1. catch rows the main pass missed because of timing (DOM updates
+  //      slower than our adaptive cadence on some libraries),
+  //   2. give the user a second number to compare against — both
+  //      collected count AND verified count are surfaced in the result UI.
+  // Verify is intentionally NOT supposed to trigger new pagination; it
+  // only reads what's already on the page from the main pass.
+  window.addEventListener("message", (e: MessageEvent) => {
+    const m = e.data as { __pa?: boolean; kind?: string } | undefined;
+    if (e.source !== window || !m?.__pa || m.kind !== "verify") return;
+
+    void (async () => {
+      const verifiedIds = new Set<string>();
+
+      const readDom = () => {
+        const rows = Array.from(
+          document.querySelectorAll("ytmusic-responsive-list-item-renderer"),
+        );
+        for (const row of rows) {
+          const data = rendererOf(row);
+          const id = data ? pickVideoId(data) : (fromDomText(row)?.videoId ?? null);
+          if (id) verifiedIds.add(id);
+        }
+      };
+
+      // Snap to top, give YT a beat to recycle its virtualiser before we
+      // start reading. The 800 ms is generous enough that big libraries
+      // don't catch the page mid-render.
+      const sc = findScroller();
+      sc.scrollTop = 0;
+      window.scrollTo(0, 0);
+      await sleep(800);
+      readDom();
+
+      // Walk down in viewport-sized steps. Each step is shorter than
+      // the main pass's step (no need to trigger pagination here — the
+      // list is already fully loaded). Hard ceiling at 25 s so a wedge
+      // doesn't extend the run forever.
+      const VERIFY_MAX_MS = 25_000;
+      const t0 = Date.now();
+      let lastTopAt = 0;
+      while (Date.now() - t0 < VERIFY_MAX_MS) {
+        const before = verifiedIds.size;
+        const step = Math.max(220, sc.clientHeight * 0.85);
+        sc.scrollTop += step;
+        window.scrollBy(0, step);
+        await sleep(220);
+        readDom();
+        // Hit the bottom (or didn't move) twice in a row → done.
+        const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 30;
+        if (atBottom && verifiedIds.size === before) {
+          if (lastTopAt > 0) break;
+          lastTopAt = 1;
+        } else {
+          lastTopAt = 0;
+        }
+      }
+
+      post({ kind: "verifyDone", verifiedCount: verifiedIds.size });
+    })();
+  });
+
   window.addEventListener("message", (e: MessageEvent) => {
     const d = e.data as { __pa?: boolean; kind?: string } | undefined;
     if (e.source !== window || !d?.__pa || d.kind !== "scrape") return;

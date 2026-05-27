@@ -1,14 +1,19 @@
 import type { LibraryStats } from "./library";
 
 /**
- * Music zodiac — twelve signs, each mapping to a distinct musical tribe.
- * The user's top genres and moods are matched against each sign's keyword
- * list. To avoid double-counting (e.g. "indie rock" matching both "indie
- * rock" and a generic "rock"), each user genre is attributed to a single
- * sign — the one with the most specific matching keyword.
+ * Music zodiac — twelve listener archetypes derived from the user's top
+ * genres and moods. The label set was tuned with the user (May 2026) so
+ * each sign reads as a recognisable *role* rather than a personality
+ * description: "Rap Circuit", "Reverb Field", etc. Genre lists carry
+ * the matching signal; the archetype + blurb carry the framing.
  *
- * The result also includes a per-sign breakdown so the UI can show "how
- * much of you" lands on every sign, not just the winning one.
+ * Genre attribution is single-winner — each user genre is attributed
+ * to the one sign with the most specific matching keyword, so e.g.
+ * "indie rock" doesn't double-count into both `indie` (Cancer) and
+ * `rock` (Capricorn).
+ *
+ * Per-sign breakdown is computed too so the UI can show "how much of
+ * you" lands on every sign, not just the winner.
  */
 export interface Star {
   x: number;
@@ -19,7 +24,7 @@ export interface Constellation {
   edges: [number, number][];
 }
 
-/** Sub-genre cluster within one zodiac. Most signs contain several
+/** Sub-flavor cluster within one zodiac. Most signs contain several
  *  recognisably different musical worlds (Virgo's jazz vs. classical,
  *  Aquarius's house vs. dnb, etc.) and the user usually sits firmly in
  *  one of them. Surfacing that gives a more honest read than the umbrella
@@ -80,9 +85,9 @@ export interface MusicZodiac {
   flavor: FlavorShare | null;
   /** Every flavor with a non-zero share inside the winning sign, sorted
    *  desc. Used by the UI to draw a breakdown chart so a Virgo split
-   *  between Jazz Maven (55%) and Classical Listener (45%) reads as the
-   *  near-tie that it is, not a clean win. Empty when the sign has no
-   *  flavors defined or no matches landed in any flavor. */
+   *  between Jazz (55%) and Classical (45%) reads as the near-tie that
+   *  it is, not a clean win. Empty when the sign has no flavors defined
+   *  or no matches landed in any flavor. */
   flavorBreakdown: FlavorShare[];
 }
 
@@ -92,10 +97,10 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♈",
     nameKo: "양자리",
     nameEn: "Aries",
-    archetypeKo: "프론트라인 MC",
-    archetypeEn: "Frontline MC",
-    blurbKo: "에너지 그대로, 비트 위에 정면돌파하는 라임.",
-    blurbEn: "Pure energy — rhymes that charge the beat head-on.",
+    archetypeKo: "비트 드라이브",
+    archetypeEn: "Rap Circuit",
+    blurbKo: "랩과 비트의 타격감으로 움직이는 청취.",
+    blurbEn: "Rap and beats — built around the hit of the kick.",
     genres: [
       "hip-hop", "hip hop", "rap", "trap", "conscious rap",
       "alternative hip hop", "alt-hip-hop", "boom bap", "drill", "mumble rap",
@@ -117,10 +122,10 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♉",
     nameKo: "황소자리",
     nameEn: "Taurus",
-    archetypeKo: "벨벳 컬렉터",
-    archetypeEn: "Velvet Collector",
-    blurbKo: "따뜻한 음색을 닳도록 반복해서 듣는 컬렉터.",
-    blurbEn: "Warm voices, played until they wear in.",
+    archetypeKo: "어쿠스틱 라인",
+    archetypeEn: "Acoustic Room",
+    blurbKo: "통기타와 한 목소리 — 가사가 들리는 청취.",
+    blurbEn: "One guitar, one voice — songs where the words land.",
     genres: [
       "folk", "acoustic", "country", "alt-country", "country pop",
       "outlaw country", "singer-songwriter", "ballad", "americana",
@@ -139,10 +144,10 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♊",
     nameKo: "쌍둥이자리",
     nameEn: "Gemini",
-    archetypeKo: "스위치보드 리스너",
-    archetypeEn: "Switchboard Listener",
-    blurbKo: "장르 채널을 자유롭게 옮겨 다니는 호기심.",
-    blurbEn: "Channel-flipping curiosity across genres.",
+    archetypeKo: "팝 스위치",
+    archetypeEn: "Pop Switch",
+    blurbKo: "장르를 자유로이 옮겨 다니는 후크 중심의 팝.",
+    blurbEn: "Hook-driven pop, channel-flipped across genres.",
     genres: [
       "k-pop", "j-pop", "c-pop", "mandopop", "v-pop", "t-pop", "latin pop",
       "dance-pop", "electropop", "art pop", "synth-pop", "synthpop",
@@ -164,10 +169,10 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♋",
     nameKo: "게자리",
     nameEn: "Cancer",
-    archetypeKo: "메모리 다이버",
-    archetypeEn: "Memory Diver",
-    blurbKo: "조용한 방, 향수와 감정선 위로 곱씹는 곡들.",
-    blurbEn: "Quiet rooms, nostalgia, songs that stay with you.",
+    archetypeKo: "인디 무드",
+    archetypeEn: "Indie Afterglow",
+    blurbKo: "조용한 인디, 감정선이 길게 남는 청취.",
+    blurbEn: "Bedroom-quiet indie that lingers.",
     genres: [
       "indie", "indie pop", "indie rock", "bedroom pop", "lo-fi",
       "slowcore", "sadcore", "emo", "emo revival", "midwest emo",
@@ -188,10 +193,10 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♌",
     nameKo: "사자자리",
     nameEn: "Leo",
-    archetypeKo: "앤섬 시커",
-    archetypeEn: "Anthem Seeker",
-    blurbKo: "큰 후렴과 무대감 있는, 누구나 따라 부를 사운드.",
-    blurbEn: "Big choruses, stage-sized sound — songs that fill a room.",
+    archetypeKo: "그루브 라인",
+    archetypeEn: "Groove Line",
+    blurbKo: "그루브와 보컬 중심 — 소울·펑크·R&B.",
+    blurbEn: "Groove first, voice front — soul, funk, R&B in motion.",
     genres: [
       "disco", "funk", "soul", "r&b", "neo-soul", "motown", "nu-disco",
       "post-disco", "future funk", "electro-funk", "jazz funk", "funk rock",
@@ -214,10 +219,10 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♍",
     nameKo: "처녀자리",
     nameEn: "Virgo",
-    archetypeKo: "디테일 큐레이터",
-    archetypeEn: "Detail Curator",
-    blurbKo: "편곡과 연주력에 까다로운 귀, 복잡함을 우아하게.",
-    blurbEn: "Arrangement and chops matter more than hooks — complexity, tuned.",
+    archetypeKo: "디테일 스코어",
+    archetypeEn: "Detail Lab",
+    blurbKo: "연주력·편곡·구조에 까다로운 귀.",
+    blurbEn: "Where playing and arrangement matter — jazz, classical, prog.",
     genres: [
       "jazz", "bebop", "swing", "vocal jazz", "cool jazz", "hard bop",
       "acid jazz", "nu-jazz", "modal jazz", "spiritual jazz", "latin jazz",
@@ -226,6 +231,8 @@ export const ALL_ZODIACS: Zodiac[] = [
       "modern classical", "big band", "fusion jazz", "jazz fusion",
       "post-bop", "free jazz", "chamber music", "minimalism",
       "modern composition", "orchestral", "impressionism", "romanticism",
+      "progressive rock", "prog rock", "art rock", "math rock",
+      "progressive metal", "krautrock",
     ],
     moods: ["sophisticated", "refined", "complex", "elegant", "intricate", "cerebral"],
     constellation: {
@@ -238,10 +245,10 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♎",
     nameKo: "천칭자리",
     nameEn: "Libra",
-    archetypeKo: "무드 밸런서",
-    archetypeEn: "Mood Balancer",
-    blurbKo: "한쪽으로 기울지 않는 세련된 흐름.",
-    blurbEn: "Smooth, balanced, never tilting too far.",
+    archetypeKo: "소프트 밸런스",
+    archetypeEn: "Soft Focus",
+    blurbKo: "세련되고 부드러운 결 — 시티팝·소프트락.",
+    blurbEn: "Smooth, refined — city pop, soft rock, lounge.",
     genres: [
       "city pop", "soft rock", "smooth jazz", "lounge", "bossa nova",
       "yacht rock", "easy listening", "japanese city pop", "soft pop",
@@ -256,26 +263,27 @@ export const ALL_ZODIACS: Zodiac[] = [
     },
   },
   {
+    // Scorpio NO LONGER metal — restructured (May 2026) to the dark-but-
+    // not-heavy quadrant: post-punk, darkwave, industrial, trip-hop.
+    // Metal in all its forms moved to Capricorn (Guitar Axis) since the
+    // user's taste model groups guitar-band genres together.
     sign: "scorpio",
     symbol: "♏",
     nameKo: "전갈자리",
     nameEn: "Scorpio",
-    archetypeKo: "딥컷 헌터",
-    archetypeEn: "Deep Cut Hunter",
-    blurbKo: "어두운 구석의 숨은 명곡에 깊게 몰입하는 청자.",
-    blurbEn: "Dark corners, deep immersion, hidden gems over hits.",
+    archetypeKo: "다크 텍스처",
+    archetypeEn: "Night Current",
+    blurbKo: "어둡고 밀도 있는 텍스처 — 포스트펑크·다크웨이브·인더스트리얼.",
+    blurbEn: "Dark current — post-punk, darkwave, industrial, trip-hop.",
     genres: [
-      "metal", "heavy metal", "death metal", "black metal", "thrash",
-      "thrash metal", "speed metal", "power metal", "doom", "doom metal",
-      "sludge", "sludge metal", "stoner metal", "post-metal", "metalcore",
-      "deathcore", "hardcore", "hardcore punk", "screamo", "grindcore",
-      "djent", "symphonic metal", "progressive metal", "melodic death metal",
-      "technical death metal", "blackened death metal", "atmospheric black metal",
-      "depressive black metal", "post-black metal", "viking metal",
-      "pagan metal", "folk metal", "gothic metal", "funeral doom",
-      "drone metal", "mathcore", "glam metal", "nu-metal", "nu metal",
+      "post-punk", "gothic rock", "deathrock", "coldwave", "no-wave",
+      "no wave", "darkwave", "ethereal wave", "dark cabaret",
+      "industrial", "industrial rock", "ebm",
+      "trip-hop", "trip hop", "downtempo",
+      "witch house", "hauntology", "minimal wave", "post-industrial",
+      "neofolk", "neo-folk-dark", "dark folk", "dark ambient",
     ],
-    moods: ["aggressive", "dark", "intense", "brooding", "heavy", "menacing"],
+    moods: ["dark", "brooding", "intense", "moody", "menacing", "hypnotic"],
     constellation: {
       stars: [
         { x: 18, y: 18 }, { x: 28, y: 32 }, { x: 38, y: 44 },
@@ -290,10 +298,10 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♐",
     nameKo: "사수자리",
     nameEn: "Sagittarius",
-    archetypeKo: "보더 크로서",
-    archetypeEn: "Border Crosser",
-    blurbKo: "국경과 장르를 가로지르는 탐험가의 귀.",
-    blurbEn: "Sounds without borders — an explorer's ear.",
+    archetypeKo: "보더 믹스",
+    archetypeEn: "Border Radio",
+    blurbKo: "경계 너머의 라디오 — 월드·라틴·아프로·사이키.",
+    blurbEn: "Crossing borders — world, latin, afro, with psychedelic edges.",
     genres: [
       "world", "latin", "afrobeat", "reggae", "dancehall", "ska", "gypsy",
       "world music", "salsa", "samba", "bossa", "bachata", "merengue",
@@ -301,6 +309,7 @@ export const ALL_ZODIACS: Zodiac[] = [
       "calypso", "soca", "ethiopian", "balkan", "celtic", "global pop",
       "highlife", "arabic pop", "persian pop", "indian pop", "bhangra",
       "qawwali", "j-folk", "asian folk", "andean", "moroccan",
+      "psychedelic rock", "psych-folk", "psychedelic pop", "neo-psychedelia",
     ],
     moods: ["adventurous", "free", "expansive", "exotic", "festive"],
     constellation: {
@@ -312,25 +321,40 @@ export const ALL_ZODIACS: Zodiac[] = [
     },
   },
   {
+    // Capricorn restructured (May 2026): now absorbs all metal subgenres
+    // that used to live in Scorpio. The unifying signal is "guitar-led
+    // band sound" — rock, alt-rock, punk, classic rock, metal in every
+    // form. Post-punk moved OUT to Scorpio (it's the dark-texture
+    // sibling, not the riff-architecture one).
     sign: "capricorn",
     symbol: "♑",
     nameKo: "염소자리",
     nameEn: "Capricorn",
-    archetypeKo: "리프 아키텍트",
-    archetypeEn: "Riff Architect",
-    blurbKo: "기타와 드럼이 쌓아 올린, 구조감 있는 록의 무게.",
-    blurbEn: "Guitar, drum, the weight of structure.",
+    archetypeKo: "기타 드라이브",
+    archetypeEn: "Guitar Axis",
+    blurbKo: "기타 중심의 밴드 사운드 — 록·올터·펑크·메탈.",
+    blurbEn: "Guitar-led, band-shaped — rock, alt-rock, punk, metal.",
     genres: [
-      "hard rock", "classic rock", "alternative rock", "modern rock",
+      // Rock cluster
+      "rock", "hard rock", "classic rock", "alternative rock", "modern rock",
       "punk rock", "punk", "pop-punk", "pop punk", "skate punk",
-      "post-hardcore", "grunge", "post-grunge", "garage rock", "post-punk",
-      "new wave", "psychedelic rock", "blues rock", "blues",
-      "progressive rock", "prog rock", "art rock", "krautrock", "pop rock",
-      "southern rock", "stoner rock", "roots rock", "britpop", "alt-rock",
-      "korean rock", "rock and roll", "rockabilly", "surf rock", "glam rock",
-      "indie rock revival", "post-rock-ish",
+      "post-hardcore", "grunge", "post-grunge", "garage rock",
+      "new wave", "blues rock", "blues",
+      "pop rock", "southern rock", "stoner rock", "roots rock", "britpop",
+      "alt-rock", "korean rock", "rock and roll", "rockabilly", "surf rock",
+      "glam rock", "indie rock revival",
+      // Metal cluster (moved from Scorpio)
+      "metal", "heavy metal", "death metal", "black metal", "thrash",
+      "thrash metal", "speed metal", "power metal", "doom", "doom metal",
+      "sludge", "sludge metal", "stoner metal", "post-metal", "metalcore",
+      "deathcore", "hardcore", "hardcore punk", "screamo", "grindcore",
+      "djent", "symphonic metal", "melodic death metal",
+      "technical death metal", "blackened death metal", "atmospheric black metal",
+      "depressive black metal", "post-black metal", "viking metal",
+      "pagan metal", "folk metal", "gothic metal", "funeral doom",
+      "drone metal", "mathcore", "glam metal", "nu-metal", "nu metal",
     ],
-    moods: ["energetic", "raw", "powerful", "dramatic", "passionate", "anthemic"],
+    moods: ["energetic", "raw", "powerful", "dramatic", "passionate", "anthemic", "aggressive", "heavy"],
     constellation: {
       stars: [{ x: 22, y: 70 }, { x: 50, y: 22 }, { x: 78, y: 70 }],
       edges: [[0, 1], [1, 2], [2, 0]],
@@ -341,18 +365,18 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♒",
     nameKo: "물병자리",
     nameEn: "Aquarius",
-    archetypeKo: "시그널 시프터",
-    archetypeEn: "Signal Shifter",
-    blurbKo: "신스와 실험성, 미래적 질감으로 짜인 사운드.",
-    blurbEn: "Synths, experiments, futurist textures.",
+    archetypeKo: "시그널 비트",
+    archetypeEn: "Signal Room",
+    blurbKo: "전자음과 신스의 신호 — 일렉트로니카·하우스·테크노·DnB.",
+    blurbEn: "Synths and signals — electronic, house, techno, DnB.",
     genres: [
       "electronic", "electronica", "techno", "minimal techno", "tech house",
       "house", "deep house", "progressive house", "tropical house",
       "future house", "slap house", "bass house", "melodic house",
       "melodic techno", "organic house", "edm", "big room", "trance",
       "psy-trance", "uplifting trance", "progressive trance",
-      "industrial", "industrial techno", "darkwave", "synthwave", "ebm",
-      "electro", "electroclash", "indie dance", "italo disco", "italo house",
+      "industrial techno", "synthwave", "electro", "electroclash",
+      "indie dance", "italo house",
       "dnb", "drum and bass", "liquid drum and bass", "neurofunk",
       "dubstep", "future bass", "future garage", "uk garage", "2-step",
       "breakbeat", "footwork", "juke", "jungle", "hard techno",
@@ -373,18 +397,18 @@ export const ALL_ZODIACS: Zodiac[] = [
     symbol: "♓",
     nameKo: "물고기자리",
     nameEn: "Pisces",
-    archetypeKo: "드림 레이어",
-    archetypeEn: "Dream Layer",
-    blurbKo: "잔향과 공간감으로 쌓아 올린, 몽환의 레이어.",
-    blurbEn: "Reverb-soaked layers — dreamy, spacious, airy.",
+    archetypeKo: "리버브 레이어",
+    archetypeEn: "Reverb Field",
+    blurbKo: "잔향과 공간감의 레이어 — 드림팝·슈게이즈·앰비언트.",
+    blurbEn: "Reverb-soaked fields — dream pop, shoegaze, ambient.",
     genres: [
-      "shoegaze", "dream pop", "chillwave", "nu-gaze", "ethereal wave",
-      "blackgaze", "dreamgaze", "post-shoegaze", "ambient", "dark ambient",
+      "shoegaze", "dream pop", "chillwave", "nu-gaze",
+      "blackgaze", "dreamgaze", "post-shoegaze", "ambient",
       "ambient electronic", "ambient pop", "ambient techno", "drone",
       "drone ambient", "experimental", "idm", "post-rock", "minimal",
-      "vaporwave", "downtempo", "trip-hop", "chillout", "lo-fi hip hop",
-      "lo-fi beats", "lo-fi", "modular synth", "new age", "kankyo ongaku",
-      "math rock", "post-metal-atmos", "hauntology", "witch house",
+      "vaporwave", "chillout", "lo-fi hip hop",
+      "lo-fi beats", "modular synth", "new age", "kankyo ongaku",
+      "post-metal-atmos",
     ],
     moods: ["dreamy", "hazy", "romantic", "surreal", "ethereal", "abstract", "atmospheric", "spacious"],
     constellation: {
@@ -397,10 +421,10 @@ export const ALL_ZODIACS: Zodiac[] = [
 /**
  * Sub-flavor clusters per zodiac. The matcher uses these to refine the
  * winning sign into a more specific archetype — e.g. someone whose Virgo
- * signal is mostly bebop tags reads as "Virgo · Jazz Maven" rather than
- * the umbrella "Refined Jazz · Classical". A flavor sticks only when ≥2
- * supporting tracks fall in it AND it owns the dominant share within the
- * winning sign's genre matches; otherwise the UI shows just the umbrella.
+ * signal is mostly bebop tags reads as "Virgo · Jazz" rather than the
+ * umbrella "Detail Lab". A flavor sticks only when ≥2 supporting tracks
+ * fall in it AND it owns the dominant share within the winning sign's
+ * genre matches; otherwise the UI shows just the umbrella.
  *
  * Flavor keyword matching uses the same substring rules as the main
  * matcher (longest keyword wins) so we don't double-count overlaps.
@@ -418,49 +442,51 @@ const FLAVORS: Record<string, ZodiacFlavor[]> = {
       genres: ["korean hip hop", "k-rap", "k-hiphop"] },
   ],
   taurus: [
-    { key: "kballad", nameKo: "한국 발라드 마니아", nameEn: "K-Ballad Heart",
+    { key: "kballad", nameKo: "한국 발라드", nameEn: "K-Ballad",
       genres: ["k-ballad", "ballad", "korean pop ballad", "k-pop ballad", "trot"] },
-    { key: "folk", nameKo: "포크 어쿠스틱", nameEn: "Folk Wanderer",
+    { key: "folk", nameKo: "포크 어쿠스틱", nameEn: "Folk Acoustic",
       genres: ["folk", "indie folk", "folk rock", "folk pop", "americana", "bluegrass", "neo-folk", "contemporary folk", "japanese folk", "anti-folk"] },
-    { key: "country", nameKo: "컨트리 로드", nameEn: "Country Road",
+    { key: "country", nameKo: "컨트리", nameEn: "Country",
       genres: ["country", "alt-country", "country pop", "outlaw country"] },
   ],
   gemini: [
-    { key: "kpop", nameKo: "K팝 추종자", nameEn: "K-Pop Devotee",
+    { key: "kpop", nameKo: "K팝", nameEn: "K-Pop",
       genres: ["k-pop", "korean pop ballad", "k-pop ballad"] },
-    { key: "jpop", nameKo: "J팝 여행자", nameEn: "J-Pop Voyager",
+    { key: "jpop", nameKo: "J팝", nameEn: "J-Pop",
       genres: ["j-pop", "kawaii pop"] },
-    { key: "synth", nameKo: "신스팝 마니아", nameEn: "Synth-Pop Maven",
+    { key: "synth", nameKo: "신스팝", nameEn: "Synth-Pop",
       genres: ["synth-pop", "synthpop", "electropop", "hyperpop", "future pop"] },
-    { key: "chamber", nameKo: "챔버팝 청자", nameEn: "Chamber-Pop Lover",
+    { key: "chamber", nameKo: "챔버팝", nameEn: "Chamber Pop",
       genres: ["art pop", "chamber pop", "twee pop", "alt-pop"] },
   ],
   cancer: [
-    { key: "bedroom", nameKo: "베드룸 시인", nameEn: "Bedroom Poet",
+    { key: "bedroom", nameKo: "베드룸 팝", nameEn: "Bedroom Pop",
       genres: ["bedroom pop", "lo-fi"] },
-    { key: "emo", nameKo: "이모 키드", nameEn: "Emo Kid",
+    { key: "emo", nameKo: "이모", nameEn: "Emo",
       genres: ["emo", "emo revival", "midwest emo"] },
     { key: "indie", nameKo: "감성 인디", nameEn: "Tender Indie",
       genres: ["indie", "indie pop", "indie rock", "indie folk pop", "korean indie", "japanese indie", "jangle pop", "slowcore", "sadcore", "indie sleaze", "indie ballad", "indie soul"] },
   ],
   leo: [
-    { key: "funk", nameKo: "펑크 마스터", nameEn: "Funk Master",
+    { key: "funk", nameKo: "펑크", nameEn: "Funk",
       genres: ["funk", "funk rock", "g-funk", "electro-funk", "jazz funk", "future funk"] },
-    { key: "soul", nameKo: "소울 가수", nameEn: "Soul Singer",
+    { key: "soul", nameKo: "소울", nameEn: "Soul",
       genres: ["soul", "neo-soul", "modern soul", "deep soul", "southern soul", "philly soul", "blue-eyed soul", "hip-hop soul", "korean soul", "rare groove"] },
-    { key: "disco", nameKo: "디스코 댄서", nameEn: "Disco Dancer",
+    { key: "disco", nameKo: "디스코", nameEn: "Disco",
       genres: ["disco", "nu-disco", "post-disco", "italo disco", "boogie"] },
-    { key: "rnb", nameKo: "R&B 컬렉터", nameEn: "R&B Collector",
+    { key: "rnb", nameKo: "R&B", nameEn: "R&B",
       genres: ["r&b", "alternative r&b", "contemporary r&b", "k-r&b"] },
   ],
   virgo: [
-    { key: "jazz", nameKo: "재즈 마니아", nameEn: "Jazz Maven",
+    { key: "jazz", nameKo: "재즈", nameEn: "Jazz",
       genres: ["jazz", "bebop", "swing", "vocal jazz", "cool jazz", "hard bop", "acid jazz", "nu-jazz", "modal jazz", "spiritual jazz", "latin jazz", "gypsy jazz", "jazz piano", "jazz manouche", "big band", "fusion jazz", "jazz fusion", "post-bop", "free jazz"] },
-    { key: "classical", nameKo: "클래식 청자", nameEn: "Classical Listener",
+    { key: "classical", nameKo: "클래식", nameEn: "Classical",
       genres: ["classical", "neo-classical", "baroque", "contemporary classical", "modern classical", "chamber music", "minimalism", "modern composition", "orchestral", "impressionism", "romanticism"] },
+    { key: "prog", nameKo: "프로그/매스", nameEn: "Prog & Math",
+      genres: ["progressive rock", "prog rock", "art rock", "math rock", "progressive metal", "krautrock"] },
   ],
   libra: [
-    { key: "citypop", nameKo: "시티팝 로맨틱", nameEn: "City-Pop Romantic",
+    { key: "citypop", nameKo: "시티팝", nameEn: "City Pop",
       genres: ["city pop", "japanese city pop", "kayokyoku"] },
     { key: "smooth", nameKo: "스무스 재즈", nameEn: "Smooth Jazz",
       genres: ["smooth jazz", "lounge", "bossa nova", "japanese smooth jazz", "soft jazz", "chillhop", "lo-fi soul"] },
@@ -468,60 +494,64 @@ const FLAVORS: Record<string, ZodiacFlavor[]> = {
       genres: ["soft rock", "yacht rock", "aor", "sophisti-pop", "easy listening", "adult contemporary"] },
   ],
   scorpio: [
-    { key: "death", nameKo: "데스 메탈헤드", nameEn: "Death Metalhead",
-      genres: ["death metal", "melodic death metal", "technical death metal", "blackened death metal", "deathcore"] },
-    { key: "black", nameKo: "블랙 메탈헤드", nameEn: "Black Metalhead",
-      genres: ["black metal", "atmospheric black metal", "depressive black metal", "post-black metal"] },
-    { key: "core", nameKo: "하드코어 키드", nameEn: "Hardcore Kid",
-      genres: ["metalcore", "hardcore", "hardcore punk", "screamo", "mathcore", "djent"] },
-    { key: "doom", nameKo: "둠 메탈러", nameEn: "Doom Metaller",
-      genres: ["doom", "doom metal", "sludge", "sludge metal", "stoner metal", "funeral doom", "drone metal"] },
-    { key: "classic", nameKo: "클래식 메탈헤드", nameEn: "Classic Metalhead",
-      genres: ["metal", "heavy metal", "thrash", "thrash metal", "speed metal", "power metal", "progressive metal", "symphonic metal"] },
+    { key: "postpunk", nameKo: "포스트펑크", nameEn: "Post-Punk",
+      genres: ["post-punk", "gothic rock", "deathrock", "coldwave", "no-wave", "no wave", "minimal wave"] },
+    { key: "darkwave", nameKo: "다크웨이브", nameEn: "Darkwave",
+      genres: ["darkwave", "ethereal wave", "dark cabaret", "witch house"] },
+    { key: "industrial", nameKo: "인더스트리얼", nameEn: "Industrial",
+      genres: ["industrial", "industrial rock", "ebm", "post-industrial"] },
+    { key: "triphop", nameKo: "트립합", nameEn: "Trip-Hop",
+      genres: ["trip-hop", "trip hop", "downtempo"] },
   ],
   sagittarius: [
-    { key: "latin", nameKo: "라틴 댄서", nameEn: "Latin Dancer",
+    { key: "latin", nameKo: "라틴", nameEn: "Latin",
       genres: ["latin", "salsa", "samba", "bossa", "bachata", "merengue", "cumbia", "flamenco", "tango", "calypso", "soca"] },
-    { key: "afro", nameKo: "아프로 그루버", nameEn: "Afro Groover",
+    { key: "afro", nameKo: "아프로", nameEn: "Afro",
       genres: ["afrobeat", "highlife", "kuduro", "ethiopian"] },
     { key: "asia", nameKo: "아시아 전통", nameEn: "Asian Traditional",
       genres: ["k-traditional", "k-folk", "j-folk", "asian folk", "bhangra", "qawwali", "indian pop"] },
-    { key: "carib", nameKo: "캐리비안 사운드", nameEn: "Caribbean Sound",
+    { key: "carib", nameKo: "캐리비안", nameEn: "Caribbean",
       genres: ["reggae", "dancehall", "ska"] },
+    { key: "psych", nameKo: "사이키델릭", nameEn: "Psychedelic",
+      genres: ["psychedelic rock", "psych-folk", "psychedelic pop", "neo-psychedelia"] },
   ],
   capricorn: [
-    { key: "punk", nameKo: "펑크 록커", nameEn: "Punk Rocker",
-      genres: ["punk", "punk rock", "pop-punk", "skate punk", "post-hardcore"] },
-    { key: "prog", nameKo: "프로그 록커", nameEn: "Prog Rocker",
-      genres: ["progressive rock", "prog rock", "art rock", "psychedelic rock", "krautrock"] },
-    { key: "blues", nameKo: "블루스 록커", nameEn: "Blues Rocker",
+    { key: "classic", nameKo: "클래식 록", nameEn: "Classic Rock",
+      genres: ["rock", "classic rock", "hard rock", "rock and roll", "rockabilly", "surf rock", "glam rock", "british invasion"] },
+    { key: "alt", nameKo: "얼터너티브", nameEn: "Alternative",
+      genres: ["alternative rock", "alt-rock", "modern rock", "grunge", "post-grunge", "indie rock revival", "britpop"] },
+    { key: "punk", nameKo: "펑크", nameEn: "Punk",
+      genres: ["punk", "punk rock", "pop-punk", "skate punk", "post-hardcore", "hardcore punk"] },
+    { key: "metal", nameKo: "메탈", nameEn: "Metal",
+      genres: ["metal", "heavy metal", "thrash", "thrash metal", "speed metal", "power metal", "death metal", "black metal", "doom", "doom metal", "sludge", "sludge metal", "stoner metal", "post-metal", "metalcore", "deathcore", "screamo", "grindcore", "djent", "symphonic metal", "melodic death metal", "technical death metal", "blackened death metal", "atmospheric black metal", "depressive black metal", "post-black metal", "viking metal", "pagan metal", "folk metal", "gothic metal", "funeral doom", "drone metal", "mathcore", "glam metal", "nu-metal", "nu metal"] },
+    { key: "blues", nameKo: "블루스 록", nameEn: "Blues Rock",
       genres: ["blues rock", "blues", "southern rock", "stoner rock"] },
-    { key: "alt", nameKo: "얼터너티브 록커", nameEn: "Alt Rocker",
-      genres: ["alternative rock", "alt-rock", "modern rock", "grunge", "post-grunge", "indie rock revival"] },
   ],
   aquarius: [
-    { key: "techno", nameKo: "테크노 헤드", nameEn: "Techno Head",
+    { key: "techno", nameKo: "테크노", nameEn: "Techno",
       genres: ["techno", "minimal techno", "industrial techno", "melodic techno", "hard techno"] },
-    { key: "house", nameKo: "하우스 댄서", nameEn: "House Dancer",
+    { key: "house", nameKo: "하우스", nameEn: "House",
       genres: ["house", "deep house", "progressive house", "tropical house", "future house", "slap house", "bass house", "melodic house", "organic house", "tech house", "italo house", "acid house", "afro-house"] },
-    { key: "dnb", nameKo: "D&B 마니아", nameEn: "D&B Maven",
+    { key: "dnb", nameKo: "DnB", nameEn: "DnB",
       genres: ["dnb", "drum and bass", "liquid drum and bass", "neurofunk", "jungle"] },
-    { key: "trance", nameKo: "트랜스 마니아", nameEn: "Trance Lover",
+    { key: "trance", nameKo: "트랜스", nameEn: "Trance",
       genres: ["trance", "psy-trance", "uplifting trance", "progressive trance"] },
-    { key: "bass", nameKo: "베이스 마니아", nameEn: "Bass Head",
+    { key: "bass", nameKo: "베이스", nameEn: "Bass",
       genres: ["dubstep", "future bass", "future garage", "uk garage", "2-step", "breakbeat", "footwork", "juke"] },
-    { key: "synthwave", nameKo: "신스웨이브", nameEn: "Synthwave Dreamer",
-      genres: ["synthwave", "darkwave", "ebm", "electro", "electroclash", "indie dance"] },
+    { key: "synthwave", nameKo: "신스웨이브", nameEn: "Synthwave",
+      genres: ["synthwave", "electro", "electroclash", "indie dance"] },
   ],
   pisces: [
-    { key: "shoegaze", nameKo: "슈게이즈 마니아", nameEn: "Shoegaze Romantic",
-      genres: ["shoegaze", "dream pop", "nu-gaze", "ethereal wave", "blackgaze", "dreamgaze", "post-shoegaze"] },
-    { key: "ambient", nameKo: "앰비언트 청자", nameEn: "Ambient Listener",
-      genres: ["ambient", "dark ambient", "ambient electronic", "ambient pop", "ambient techno", "drone", "drone ambient", "new age", "kankyo ongaku"] },
-    { key: "vapor", nameKo: "베이퍼웨이브", nameEn: "Vaporwave Dreamer",
-      genres: ["vaporwave", "chillwave", "hauntology", "witch house"] },
-    { key: "lofi", nameKo: "로파이 청자", nameEn: "Lo-Fi Listener",
-      genres: ["lo-fi hip hop", "lo-fi beats", "lo-fi", "trip-hop", "downtempo", "chillout"] },
+    { key: "shoegaze", nameKo: "슈게이즈", nameEn: "Shoegaze",
+      genres: ["shoegaze", "dream pop", "nu-gaze", "blackgaze", "dreamgaze", "post-shoegaze"] },
+    { key: "ambient", nameKo: "앰비언트", nameEn: "Ambient",
+      genres: ["ambient", "ambient electronic", "ambient pop", "ambient techno", "drone", "drone ambient", "new age", "kankyo ongaku"] },
+    { key: "vapor", nameKo: "베이퍼웨이브", nameEn: "Vaporwave",
+      genres: ["vaporwave", "chillwave"] },
+    { key: "lofi", nameKo: "로파이", nameEn: "Lo-Fi",
+      genres: ["lo-fi hip hop", "lo-fi beats", "chillout"] },
+    { key: "postrock", nameKo: "포스트록", nameEn: "Post-Rock",
+      genres: ["post-rock", "post-metal-atmos"] },
   ],
 };
 

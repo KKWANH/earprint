@@ -75,12 +75,33 @@ const SyncBodyZ = z.object({
  */
 const CORS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "Authorization, Content-Type",
 };
 
 export function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS });
+}
+
+/**
+ * Token-check probe used by the extension popup BEFORE it kicks off a
+ * scrape. No sync work, no rate-limit charge — just resolves whether the
+ * stored Bearer token still names a real user. Lets the popup surface
+ * "your connection expired, re-pair" up-front instead of asking the
+ * user to wait 5 minutes for a scroll only to fail at upload with a
+ * 401. Same auth shape as POST so the extension can reuse its existing
+ * Bearer plumbing.
+ */
+export async function GET(req: NextRequest) {
+  const header = req.headers.get("authorization") ?? "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!token) return json({ ok: false, error: "missing token" }, 401, CORS);
+  const sql = getSql();
+  const users = await sql`SELECT id FROM users WHERE sync_token = ${token}`;
+  if (users.length === 0) {
+    return json({ ok: false, error: "invalid token" }, 401, CORS);
+  }
+  return json({ ok: true }, 200, CORS);
 }
 
 export async function POST(req: NextRequest) {

@@ -7,24 +7,26 @@
       :root { color-scheme: dark; }
       * { box-sizing: border-box; }
       body {
-        font: 13px/1.5 system-ui, -apple-system, sans-serif;
-        width: 320px;
+        /* Bumped from 13px → 14px after testers reported the popup felt
+           cramped on hi-DPI monitors. Same line-height keeps the rhythm. */
+        font: 14px/1.5 system-ui, -apple-system, sans-serif;
+        width: 340px;
         margin: 0;
-        padding: 12px 14px 12px;
+        padding: 14px 16px 14px;
         background: #0a0a0b;
-        color: #e5e5e5;
+        color: #ededed;
       }
 
       /* ── Brand ─────────────────────────────────────────── */
       .brand {
         display: flex;
         align-items: center;
-        gap: 7px;
-        margin-bottom: 10px;
+        gap: 8px;
+        margin-bottom: 12px;
       }
       .brand h3 {
         margin: 0;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 800;
         letter-spacing: -0.01em;
       }
@@ -36,29 +38,29 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 8px;
-        padding: 7px 10px;
-        margin-bottom: 4px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.02);
-        font-size: 12px;
+        gap: 9px;
+        padding: 9px 11px;
+        margin-bottom: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.025);
+        font-size: 13px;
         transition: background-color 0.15s, border-color 0.15s;
       }
       .step .badge {
         flex-shrink: 0;
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.08);
-        color: #a3a3a3;
-        font-size: 10px;
+        color: #b3b3b3;
+        font-size: 11px;
         font-weight: 700;
         display: flex;
         align-items: center;
         justify-content: center;
       }
-      .step .label { flex: 1; font-weight: 500; color: #e5e5e5; }
+      .step .label { flex: 1; font-weight: 500; color: #ededed; }
       .step.done .badge { background: rgba(52, 211, 153, 0.25); color: #34d399; }
       .step.done .label { color: #888; }
       /* Hidden by default — only shows under .step.active. */
@@ -66,34 +68,34 @@
 
       /* Active step: brighter chrome + expanded body. */
       .step.active {
-        padding: 9px 11px;
-        border-color: rgba(52, 211, 153, 0.4);
-        background: rgba(52, 211, 153, 0.06);
+        padding: 11px 13px;
+        border-color: rgba(52, 211, 153, 0.45);
+        background: rgba(52, 211, 153, 0.07);
       }
       .step.active .badge { background: #34d399; color: #06281d; }
       .step.active .label { font-weight: 600; }
       .step.active .body {
         display: flex;
         flex-direction: column;
-        gap: 5px;
-        margin-top: 4px;
+        gap: 6px;
+        margin-top: 5px;
       }
       .step.active .hint {
-        font-size: 11px;
-        line-height: 1.4;
-        color: #9a9a9a;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #b8b8b8;
       }
 
       /* ── Buttons + links ──────────────────────────────── */
       button {
         width: 100%;
-        padding: 7px 10px;
-        margin-top: 2px;
+        padding: 9px 12px;
+        margin-top: 3px;
         border: 1px solid transparent;
-        border-radius: 7px;
+        border-radius: 8px;
         cursor: pointer;
         font-weight: 600;
-        font-size: 12px;
+        font-size: 13px;
         transition: filter 0.12s, opacity 0.12s;
       }
       button:hover:not(:disabled) { filter: brightness(1.12); }
@@ -102,58 +104,82 @@
       .btn-secondary {
         background: rgba(255, 255, 255, 0.06);
         border-color: rgba(255, 255, 255, 0.1);
-        color: #e5e5e5;
+        color: #ededed;
+      }
+      /* Stop now: visually distinct (warmer hue) so the user understands
+         it's a cancellation, not just another secondary action. Kept the
+         same height so layout doesn't pop when it shows mid-sync. */
+      .btn-warn {
+        background: rgba(251, 146, 60, 0.18);
+        border-color: rgba(251, 146, 60, 0.45);
+        color: #fdba74;
       }
       .lm-link {
         display: block;
-        margin-top: 2px;
-        font-size: 10.5px;
+        margin-top: 3px;
+        font-size: 11.5px;
         color: #6ee7b7;
         text-decoration: none;
       }
       .lm-link:hover { color: #a7f3d0; text-decoration: underline; }
       .note {
-        margin: 4px 0 0;
-        font-size: 10px;
-        line-height: 1.45;
-        color: #707070;
+        margin: 5px 0 0;
+        font-size: 11px;
+        line-height: 1.5;
+        color: #909090;
       }
+
+      /* ── Disclaimer card — always visible. Tells the user up-front
+         that counts can differ from YT's header (the YT footer "1,234곡"
+         is best-effort, not the truth). Kept low-contrast so it doesn't
+         compete with the active step. ───────────────────────────────── */
+      .disclaimer {
+        margin: 8px 0 0;
+        padding: 7px 10px;
+        font-size: 11px;
+        line-height: 1.45;
+        color: #c2c2c2;
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+        border-radius: 7px;
+      }
+      .disclaimer strong { color: #fbbf24; font-weight: 600; }
 
       /* ── Status message ───────────────────────────────── */
       #msg {
-        margin: 8px 0 0;
-        padding: 6px 9px;
-        font-size: 11px;
-        line-height: 1.4;
-        color: #a3a3a3;
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 6px;
-        min-height: 16px;
+        margin: 9px 0 0;
+        padding: 8px 11px;
+        font-size: 12.5px;
+        line-height: 1.45;
+        color: #c2c2c2;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 7px;
+        min-height: 18px;
         white-space: pre-line;
         display: none;
       }
       #msg.show { display: block; }
-      #msg.error { color: #fca5a5; background: rgba(220, 38, 38, 0.08); }
-      #msg.success { color: #6ee7b7; background: rgba(5, 150, 105, 0.1); }
+      #msg.error { color: #fca5a5; background: rgba(220, 38, 38, 0.1); }
+      #msg.success { color: #6ee7b7; background: rgba(5, 150, 105, 0.12); }
 
       /* ── Footer ───────────────────────────────────────── */
       .footer {
-        margin-top: 10px;
-        padding-top: 8px;
-        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 10.5px;
-        color: #6a6a6a;
+        font-size: 11px;
+        color: #707070;
       }
-      .footer a { color: #8a8a8a; text-decoration: none; }
-      .footer a:hover { color: #e5e5e5; }
+      .footer a { color: #909090; text-decoration: none; }
+      .footer a:hover { color: #ededed; }
     </style>
   </head>
   <body>
     <div class="brand">
-      <svg viewBox="0 0 512 512" width="20" height="20" aria-hidden="true">
+      <svg viewBox="0 0 512 512" width="22" height="22" aria-hidden="true">
         <circle cx="256" cy="256" r="248" fill="#0a0a0b" />
         <g fill="none" stroke="#34d399" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
           <path d="M214 392 C 172 366 156 306 164 248 C 174 168 230 122 300 132 C 364 141 384 210 366 272 C 357 312 330 344 292 350" />
@@ -182,20 +208,30 @@
              waiting for YT Music's stall/timeout machinery. Uploads
              whatever's been captured so far + marks manualStop in the
              diagnostics so the server can distinguish "user said done"
-             from "extension crashed". -->
-        <button id="stop-sync" class="btn-secondary" hidden data-i18n="step2StopButton"></button>
+             from "extension crashed". Warm orange chrome so the user
+             reads it as a cancellation, not "another button to click". -->
+        <button id="stop-sync" class="btn-warn" hidden data-i18n="step2StopButton"></button>
         <a id="open-lm" class="lm-link" target="_blank" rel="noopener noreferrer" data-i18n="step2OpenLm"></a>
         <a id="dashboard-link" class="lm-link" target="_blank" rel="noopener noreferrer">Open Earprint dashboard ↗</a>
         <p class="note" data-i18n="step2TipDontTouch"></p>
       </div>
     </div>
 
+    <!-- Always-visible disclaimer. YT Music's "N곡" footer is a best-effort
+         estimate (excludes some videos, includes others we can't render);
+         the user needs to know counts can drift before they see the
+         finished number, not after. -->
+    <p class="disclaimer">
+      <strong data-i18n="disclaimerTitle"></strong>
+      <span data-i18n="disclaimerBody"></span>
+    </p>
+
     <p id="msg"></p>
 
     <div class="footer">
       <a id="guide-link" href="#" target="_blank" data-i18n="footerGuide"></a>
       <a id="reset-link" href="#">Reset</a>
-      <span>v<span id="version">0.11.2</span></span>
+      <span>v<span id="version">0.11.3</span></span>
     </div>
 
     <script type="module" src="./popup.ts"></script>
