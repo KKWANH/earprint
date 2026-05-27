@@ -12,7 +12,7 @@ export const CHROME_WEB_STORE_URL =
  * legal docs change in a way that requires re-consent — the onboarding
  * middleware re-prompts users whose stored tos_version doesn't match.
  */
-export const CURRENT_TOS_VERSION = "2026-05-25";
+export const CURRENT_TOS_VERSION = "2026-05-27";
 
 /**
  * Minimum age for unaided sign-up in our biggest regulated market (EU,
@@ -47,3 +47,13 @@ export const PLAN_PRICES = {
   monthly: { amount: 5, currency: "USD", label: "$5 / month" },
   analysis: { amount: 2, currency: "USD", label: "$2 per analysis" },
 } as const;
+
+/** Email allowlist for `/admin` and any operator-only API. Keep this
+ *  short — these accounts can change tuning knobs that affect every
+ *  user's results. */
+export const ADMIN_EMAILS = ["kwanho0096@gmail.com"] as const;
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.toLowerCase() as (typeof ADMIN_EMAILS)[number]);
+}

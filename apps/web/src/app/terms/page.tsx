@@ -13,7 +13,7 @@ const CONTACT = "kwanho0096@gmail.com";
 
 const en = {
   title: "Terms of Service",
-  updated: "Last updated: May 22, 2026",
+  updated: "Last updated: May 27, 2026",
   sections: [
     {
       heading: "Introduction and acceptance",
@@ -34,7 +34,7 @@ const en = {
     {
       heading: "Eligibility",
       body: [
-        "You must be at least 14 years of age, or the minimum age of digital consent in your jurisdiction, whichever is higher, to use the Service. By using the Service you represent and warrant that you meet this requirement and that you have the legal capacity to enter into these Terms.",
+        "You must be at least 16 years of age to use the Service. This single age gate applies uniformly to all users in every jurisdiction — it is the strictest GDPR Article 8 baseline and sits above the minimum digital-consent age of other applicable laws (including Korea's PIPA, which sets 14). By using the Service you represent and warrant that you meet this requirement and that you have the legal capacity to enter into these Terms.",
         "If you use the Service on behalf of an organization, you represent that you are authorized to bind that organization to these Terms.",
       ],
     },
@@ -55,8 +55,9 @@ const en = {
     {
       heading: "The Extension and YouTube Music data",
       body: [
-        "The Extension reads the list of songs you have marked as “liked” within your own, logged-in YouTube Music session and uploads that list to your Account. You are solely responsible for ensuring that your use of the Extension complies with the terms of service of YouTube and Google.",
-        "Earprint accesses only your own data, from your own session. The Service does not, and is not designed to, access data belonging to any other person.",
+        "The Extension is a user-initiated tool that runs inside your own browser tab. When you click sync, it reads the same list of liked songs that is already visible to you on your own YouTube Music \"Liked music\" page in your own logged-in session, and uploads only that list (title, artist, album, the order you liked them) to your Earprint Account. It does not interact with any other YouTube data, does not bypass any access control, and does not download audio, video, or other users' content.",
+        "Earprint accesses only your own data, from your own session. The Service does not, and is not designed to, access data belonging to any other person. As with any third-party browser tool you choose to install, you remain responsible for ensuring that your usage is consistent with the terms of service of YouTube and Google.",
+        "An optional, separate mechanism uses the official YouTube Data API (scope: youtube.readonly) for users who explicitly grant it. This is described in the Privacy Policy and on the /connect page; it can be disconnected at any time from /account.",
       ],
     },
     {
@@ -173,7 +174,7 @@ const en = {
 
 const ko: typeof en = {
   title: "이용약관",
-  updated: "최종 수정일: 2026년 5월 22일",
+  updated: "최종 수정일: 2026년 5월 27일",
   sections: [
     {
       heading: "총칙 및 동의",
@@ -194,7 +195,7 @@ const ko: typeof en = {
     {
       heading: "이용 자격",
       body: [
-        "이용자는 만 14세 이상이어야 하며, 거주 국가의 디지털 동의 최소연령이 그보다 높은 경우 그 연령 이상이어야 합니다. 서비스를 이용함으로써 이용자는 위 요건을 충족하고 본 약관을 체결할 법적 능력이 있음을 진술·보증합니다.",
+        "이용자는 만 16세 이상이어야 합니다. 단일한 16세 기준이 모든 국가의 이용자에게 일괄 적용됩니다 — GDPR 제8조의 가장 엄격한 기준이자 대한민국 PIPA(14세) 등 그 밖의 관계 법령상 디지털 동의 최소연령보다 높은 수준입니다. 서비스를 이용함으로써 이용자는 위 요건을 충족하고 본 약관을 체결할 법적 능력이 있음을 진술·보증합니다.",
         "이용자가 단체를 대표하여 서비스를 이용하는 경우, 해당 단체를 본 약관에 구속시킬 권한이 있음을 진술·보증합니다.",
       ],
     },
@@ -215,8 +216,9 @@ const ko: typeof en = {
     {
       heading: "확장프로그램 및 YouTube Music 데이터",
       body: [
-        "확장프로그램은 이용자 본인이 로그인한 YouTube Music 세션에서 “좋아요”한 곡 목록을 읽어 이용자의 계정에 업로드합니다. 확장프로그램 이용이 YouTube 및 Google 의 이용약관에 부합하도록 할 책임은 전적으로 이용자에게 있습니다.",
-        "Earprint 는 이용자 본인의 세션에서 본인의 데이터에만 접근하며, 타인의 데이터에 접근하지 않고 그러한 목적으로 설계되지도 않았습니다.",
+        "확장프로그램은 이용자의 브라우저 탭 내부에서 실행되는 이용자 주도(user-initiated) 도구입니다. 이용자가 동기화를 클릭하면, 이용자 본인이 로그인한 YouTube Music \"좋아요 한 음악\" 페이지에 이미 표시되어 있는 좋아요 곡 목록과 동일한 목록을 읽어, 해당 목록만(곡명·아티스트·앨범·좋아요 순서) Earprint 계정에 업로드합니다. 그 밖의 YouTube 데이터와 상호작용하지 않고, 어떤 접근 통제도 우회하지 않으며, 오디오·영상·타 이용자의 콘텐츠를 다운로드하지 않습니다.",
+        "Earprint 는 이용자 본인의 세션에서 본인의 데이터에만 접근하며, 타인의 데이터에 접근하지 않고 그러한 목적으로 설계되지도 않았습니다. 어떤 제3자 브라우저 도구든 마찬가지로, 이용자의 사용 행위가 YouTube 및 Google 의 이용약관에 부합하도록 할 책임은 이용자 본인에게 있습니다.",
+        "선택적이고 별도의 메커니즘으로, 명시적으로 권한을 부여한 이용자에 한해 공식 YouTube Data API (범위: youtube.readonly) 가 사용됩니다. 이는 개인정보처리방침과 /connect 페이지에 설명되어 있으며, /account 에서 언제든 연결을 해제할 수 있습니다.",
       ],
     },
     {

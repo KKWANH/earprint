@@ -7,6 +7,8 @@ import { profileDict } from "@/lib/i18n/profile";
 import type { AiProfile } from "@/lib/profile";
 import { getMusicZodiac } from "@/lib/musicZodiac";
 import { MusicZodiacCard } from "@/components/MusicZodiacCard";
+import { AutoTranslateBanner } from "../../profile/AutoTranslateBanner";
+import { AiPsychologyDisclaimer } from "@/components/AiPsychologyDisclaimer";
 
 interface SharedRow {
   user_id: string;
@@ -51,10 +53,20 @@ export default async function SharePage({
   const locale = await getLocale();
   const t = profileDict(locale);
   const row = await loadShared(shareId);
+  // Is the viewer's locale column populated? If not we fall back to
+  // whatever's available, but flag it so the AutoTranslateBanner can
+  // kick a lazy translate. We don't auto-translate server-side
+  // because that'd add ~500 ms of Gemini latency to every first
+  // view — better to render the fallback fast, then refresh once
+  // the translation lands.
+  const perLocale = (locale === "ko" ? row?.ai_profile_ko : row?.ai_profile_en) as
+    | AiProfile
+    | null
+    | undefined;
   const profile = row
-    ? (((locale === "ko" ? row.ai_profile_ko : row.ai_profile_en) ??
-        row.ai_profile) as AiProfile | null)
+    ? (perLocale ?? row.ai_profile_en ?? row.ai_profile_ko ?? row.ai_profile) as AiProfile | null
     : null;
+  const staleLocale = !!profile && !perLocale;
 
   if (!row || !profile) {
     return (
@@ -76,6 +88,14 @@ export default async function SharePage({
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 py-8 sm:px-6 sm:py-12">
+      {staleLocale && (
+        <AutoTranslateBanner
+          target={locale}
+          shareId={shareId}
+          t={{ localeMismatch: t.localeMismatch }}
+        />
+      )}
+      <AiPsychologyDisclaimer locale={locale} />
       {zodiac && <MusicZodiacCard data={zodiac} locale={locale} />}
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">

@@ -13,7 +13,7 @@ const CONTACT = "kwanho0096@gmail.com";
 
 const en = {
   title: "Privacy Policy",
-  updated: "Last updated: May 25, 2026",
+  updated: "Last updated: May 27, 2026",
   sections: [
     {
       heading: "Introduction",
@@ -26,10 +26,23 @@ const en = {
       heading: "Information we collect",
       body: [
         "(a) Account information — when you sign in, Google provides us with your email address, your display name, and a Google account identifier.",
-        "(b) Music data — the songs you have marked as “liked” on YouTube Music, including title, artist, and album. This list is collected from your own logged-in session by the Earprint browser extension and uploaded to your account.",
-        "(c) Activity data — the ratings and optional notes you create within the Service, and records of analyses and recommendations generated for you.",
-        "(d) Payment information — if and when paid features are offered, payments are processed by a third-party payment processor. We do not collect or store your full card number, card security code, or bank credentials. We receive only limited transaction records, such as the plan purchased, amount, currency, date, payment status, and a masked payment-method reference.",
-        "(e) Technical and log data — when you access the Service, our hosting and content-delivery providers automatically process technical information such as IP address, browser type, device information, and access timestamps, for security and reliability purposes.",
+        "(b) Music metadata — the songs you have marked as \"liked\" on YouTube Music. For each liked track we store: title, artist, album (when present), YouTube Music videoId, thumbnail URL, the position of the track in your liked-music list at capture time, and the time you liked it (when YouTube exposes it). This list is collected from your own logged-in session by the Earprint browser extension and uploaded to your account. We do not collect, store, or process: your YouTube password, your Google password, your YouTube watch history, your YouTube play history, your YouTube search history, your YouTube comments, your subscriptions, or any video content itself.",
+        "(c) Derived analysis data — values produced by analysing the music metadata in (b): inferred genres, moods, instruments, audio characteristics (energy / tempo / acousticness), AI-generated persona / Music Zodiac archetype, Digging Score, Taste DNA indices, and recommendation candidates with any ratings you give them.",
+        "(d) Activity data — the ratings and optional notes you create within the Service (e.g. recommendation thumbs-up/down with optional comment, World Cup tournament picks), records of analyses run, and share-page identifiers / themes you configure.",
+        "(e) Payment information — if and when paid features are offered, payments are processed by a third-party payment processor (Lemon Squeezy as Merchant of Record). We do not collect or store your full card number, card security code, or bank credentials. We receive only limited transaction records: plan purchased, amount, currency, date, payment status, and a masked payment-method reference.",
+        "(f) Technical and log data — when you access the Service, our hosting and content-delivery providers automatically process technical information such as IP address, browser type, device information, and access timestamps, for security and reliability purposes.",
+      ],
+    },
+    {
+      heading: "What we send to third-party providers",
+      body: [
+        "Music-taste analysis necessarily involves sending limited fields to specialist providers. The complete map of what leaves our database, for which purpose, is:",
+        "Google Gemini (AI analysis) — for each track being enriched we send only the track title and artist name. Gemini returns inferred genres, moods, instruments, and audio characteristics. We do not send your email, account identifier, payment data, or any other personal field. For the AI music-psychology profile, we send aggregated library statistics (counts per genre, mood, instrument, decade) — never individual song titles tied to your name.",
+        "Deezer (metadata + 30-second previews) — for each track being matched we send the artist name, track title, and (when known) album, against Deezer's public catalogue search API. We do not send any account-identifying field. Deezer returns canonical artist/track metadata and a preview URL.",
+        "Last.fm (artist similarity + tag enrichment) — we send only the artist name. Last.fm returns similar artists and crowdsourced tags. No account identifier is sent.",
+        "MusicBrainz (release-year lookup) — we send only the artist + title pair as an anonymous query. No account identifier is sent.",
+        "YouTube Data API v3 (optional, opt-in only) — when you explicitly grant the youtube.readonly scope at /connect, your OAuth access token is used to read your own Liked Videos list. No other YouTube data is read.",
+        "Resend (transactional email, opt-in) — when you opt into the analysis-summary email, we send your email address, your display name, and the summary text to Resend for delivery.",
       ],
     },
     {
@@ -72,14 +85,15 @@ const en = {
     {
       heading: "International transfers",
       body: [
-        "Most of our sub-processors are based in the United States. Personal data transferred from the EU/UK/Korea to the US relies on the EU-US Data Privacy Framework (DPF) and corresponding UK + Swiss extensions, which the European Commission deemed adequate in July 2023. Where DPF coverage does not apply, we additionally rely on the EU Standard Contractual Clauses (Module 2).",
-        "We do not transfer personal data to providers in jurisdictions without an adequacy decision or equivalent safeguard. Notably, we have removed the previously-tested Moonshot (Kimi) AI provider for this reason: it is China-based and the Schrems II Transfer Impact Assessment cannot be satisfied for that destination at this time.",
+        "Most of our sub-processors are based in the United States. Personal data transferred from the EU/UK/Korea to the US currently relies on the EU-US Data Privacy Framework (DPF) and the corresponding UK + Swiss extensions, which the European Commission deemed adequate in July 2023. Where DPF coverage does not apply, we additionally rely on the EU Standard Contractual Clauses (Module 2).",
+        "Our current policy is to only engage sub-processors located in jurisdictions covered by an adequacy decision, the DPF, or backed by Standard Contractual Clauses with a successful Transfer Impact Assessment. For example, we previously tested and then removed the Moonshot (Kimi) AI provider on this basis: it is China-based and the Schrems II Transfer Impact Assessment cannot be satisfied for that destination at this time. If this list ever changes, the sub-processor table above and this section will be updated before the change takes effect.",
       ],
     },
     {
       heading: "Data retention",
       body: [
-        "We retain account, music, and activity data for as long as your account exists. When you delete your account via /account, every user-scoped row (synced tracks, AI analyses, ratings, profile, share IDs, payment state) is removed within 24 hours by a daily cleanup task.",
+        "We retain account, music, and activity data for as long as your account exists. When you delete your account via /account, the user row is removed immediately and every user-scoped row (synced tracks, AI analyses, ratings, profile, share IDs, payment state) is cascade-deleted in the same transaction. Inactivity-triggered cleanups (see below) run daily and complete within 24 hours.",
+        "Database backups: our managed database provider (Neon) maintains automated point-in-time-recovery snapshots for operational resilience. Deleted rows may persist inside these encrypted backups for up to 7 days after deletion before being overwritten in the natural backup-rotation cycle. Backups are not accessed for any purpose other than disaster recovery.",
         "Automated retention sweeps run daily and delete: per-user usage counters older than 90 days, anonymous AI cost-tracking older than 90 days, and finished background jobs older than 30 days.",
         "Accounts with no sign-in activity for 3 consecutive years are automatically removed in their entirety. We recommend exporting your data first via /account → Download my data.",
         "Where paid features are used, records relating to payments, contracts, and subscription withdrawals are retained for the periods required by applicable law — for the Republic of Korea, the retention periods prescribed by the Act on the Consumer Protection in Electronic Commerce (records of contracts and payment for five years, records of consumer complaints or dispute resolution for three years).",
@@ -113,9 +127,8 @@ const en = {
     {
       heading: "Children's privacy",
       body: [
-        "Earprint is not directed to children. We require all users to confirm they are at least 16 years old during onboarding — this is the strictest GDPR Article 8 baseline. Some EU member states permit lower ages (Belgium 13, Spain 14, etc.); we apply 16 uniformly for safety.",
-        "For the Republic of Korea, the PIPA threshold is 14; users between 14 and 16 may use the Service but parents who become aware of an under-14 account should contact us for immediate removal.",
-        "If we become aware that we have collected information from a child below the applicable age without appropriate consent, we will delete it promptly.",
+        "Earprint is not directed to children. The onboarding flow requires every user to confirm they are at least 16 years old before any data is collected. We apply this single 16+ gate uniformly across all jurisdictions — it is the strictest GDPR Article 8 baseline, sits above Korea's PIPA threshold of 14, and removes the operational ambiguity of per-country age tiers.",
+        "If we become aware that we have collected information from a person below 16 without verifiable parental consent, we will delete it promptly. Parents or guardians who believe a minor has used the Service may contact us at the address below for removal.",
       ],
     },
     {
@@ -143,7 +156,7 @@ const en = {
 
 const ko: typeof en = {
   title: "개인정보처리방침",
-  updated: "최종 수정일: 2026년 5월 25일",
+  updated: "최종 수정일: 2026년 5월 27일",
   sections: [
     {
       heading: "총칙",
@@ -156,10 +169,23 @@ const ko: typeof en = {
       heading: "수집하는 개인정보",
       body: [
         "(가) 계정 정보 — 로그인 시 Google 이 제공하는 이메일 주소, 표시 이름, Google 계정 식별자.",
-        "(나) 음악 데이터 — YouTube Music 에서 “좋아요”한 곡의 제목·아티스트·앨범. 이 목록은 Earprint 확장프로그램이 이용자 본인의 로그인 세션에서 수집하여 계정에 업로드합니다.",
-        "(다) 활동 데이터 — 이용자가 서비스 내에서 생성한 평가·메모, 그리고 이용자를 위해 생성된 분석·추천 기록.",
-        "(라) 결제 정보 — 유료 기능이 제공되는 경우 결제는 외부 결제대행사를 통해 처리됩니다. 운영자는 카드 전체 번호·카드 보안코드·계좌 인증정보를 수집·저장하지 않으며, 구매한 플랜·금액·통화·일시·결제 상태·마스킹된 결제수단 참조정보 등 제한된 거래 기록만을 제공받습니다.",
-        "(마) 기술·로그 정보 — 이용자가 서비스에 접속할 때, 호스팅 및 콘텐츠 전송 제공자가 보안·안정성 목적으로 IP 주소·브라우저 종류·기기 정보·접속 일시 등 기술 정보를 자동으로 처리합니다.",
+        "(나) 음악 메타데이터 — YouTube Music 에서 \"좋아요\"한 곡 정보. 각 곡당 저장 항목: 제목, 아티스트, 앨범(있을 경우), YouTube Music videoId, 썸네일 URL, 좋아요 목록 내 위치, 좋아요 시간(YouTube 가 노출하는 경우). 이 목록은 Earprint 확장프로그램이 이용자 본인의 로그인 세션에서 수집하여 계정에 업로드합니다. 운영자는 다음을 수집·저장·처리하지 않습니다: YouTube 비밀번호, Google 비밀번호, YouTube 재생 기록, YouTube 시청 기록, YouTube 검색 기록, YouTube 댓글, 구독 목록, 동영상 콘텐츠 자체.",
+        "(다) 파생 분석 데이터 — (나) 의 음악 메타데이터를 분석하여 생성되는 값: 추정 장르·무드·악기, 오디오 특성(에너지/템포/어쿠스틱), AI 생성 페르소나/Music Zodiac 별자리, 디깅 점수, Taste DNA 지수, 추천 후보와 이용자의 평가.",
+        "(라) 활동 데이터 — 서비스 내 생성 평가·메모(추천 좋아요/싫어요 및 선택적 코멘트, 월드컵 선택), 분석 실행 기록, 공유 페이지 식별자/테마 설정.",
+        "(마) 결제 정보 — 유료 기능이 제공되는 경우 결제는 외부 결제대행사 (Lemon Squeezy, Merchant of Record) 를 통해 처리됩니다. 운영자는 카드 전체 번호·카드 보안코드·계좌 인증정보를 수집·저장하지 않으며, 구매한 플랜·금액·통화·일시·결제 상태·마스킹된 결제수단 참조정보 등 제한된 거래 기록만을 제공받습니다.",
+        "(바) 기술·로그 정보 — 이용자가 서비스에 접속할 때, 호스팅 및 콘텐츠 전송 제공자가 보안·안정성 목적으로 IP 주소·브라우저 종류·기기 정보·접속 일시 등 기술 정보를 자동으로 처리합니다.",
+      ],
+    },
+    {
+      heading: "제3자 제공자에게 전송되는 데이터",
+      body: [
+        "음악 취향 분석은 일부 데이터를 전문 제공자에게 전송하는 것을 필연적으로 포함합니다. 운영자 DB 를 떠나는 데이터의 전체 범위와 목적은 다음과 같습니다:",
+        "Google Gemini (AI 분석) — 분석 대상 곡 1건당 곡명·아티스트명만 전송. Gemini 가 추정 장르·무드·악기·오디오 특성을 반환. 이메일·계정 식별자·결제 정보 등 다른 개인 필드는 전송하지 않음. AI 음악 심리분석 생성 시에는 집계된 라이브러리 통계(장르별·무드별·악기별·연대별 카운트) 만 전송 — 개별 곡 제목이 이용자 신원과 결합되어 전송되지 않음.",
+        "Deezer (메타데이터 + 30초 미리듣기) — 매칭 대상 곡 1건당 아티스트명·곡명·(있을 경우) 앨범만 Deezer 공개 카탈로그 검색 API 로 전송. 계정 식별 정보는 전송하지 않음. Deezer 가 표준화된 아티스트/곡 메타데이터와 미리듣기 URL 을 반환.",
+        "Last.fm (아티스트 유사도 + 태그) — 아티스트명만 전송. Last.fm 이 유사 아티스트와 크라우드소싱 태그를 반환. 계정 식별 정보 미전송.",
+        "MusicBrainz (발매연도 조회) — 아티스트 + 곡명 쌍만 익명 쿼리로 전송. 계정 식별 정보 미전송.",
+        "YouTube Data API v3 (선택, 명시적 옵트인) — /connect 에서 명시적으로 youtube.readonly 권한을 부여한 경우에만, 이용자 본인의 OAuth 액세스 토큰으로 본인의 Liked Videos 목록을 읽음. 그 외 YouTube 데이터는 읽지 않음.",
+        "Resend (트랜잭션 이메일, 옵트인) — 분석 요약 메일 옵트인 시, 이메일 주소·표시 이름·요약 본문을 Resend 로 전송하여 발송.",
       ],
     },
     {
@@ -202,14 +228,15 @@ const ko: typeof en = {
     {
       heading: "국외 이전",
       body: [
-        "수탁 처리자 대부분은 미국에 소재합니다. EU·영국·한국에서 미국으로의 개인정보 이전은 2023년 7월 EU 집행위원회가 적합성 결정을 내린 EU-US Data Privacy Framework (DPF) 와 영국·스위스 확장 메커니즘에 의존합니다. DPF 가 적용되지 않는 경우 EU 표준계약조항 (Module 2) 을 추가로 적용합니다.",
-        "적합성 결정·동등 보호장치가 없는 국가의 제공자에게는 개인정보를 이전하지 않습니다. 특히 이전에 테스트했던 Moonshot (Kimi) AI 제공자는 이 사유로 제거되었습니다 — 중국 소재이며 Schrems II 판례에 따른 Transfer Impact Assessment 를 현재 통과시킬 방법이 없습니다.",
+        "수탁 처리자 대부분은 미국에 소재합니다. EU·영국·한국에서 미국으로의 개인정보 이전은 현재 2023년 7월 EU 집행위원회가 적합성 결정을 내린 EU-US Data Privacy Framework (DPF) 와 영국·스위스 확장 메커니즘에 의존합니다. DPF 가 적용되지 않는 경우 EU 표준계약조항 (Module 2) 을 추가로 적용합니다.",
+        "현재 운영자의 원칙은 적합성 결정·DPF·또는 Transfer Impact Assessment 를 통과한 표준계약조항이 적용되는 국가의 수탁 처리자만 사용하는 것입니다. 예를 들어 이전에 테스트했던 Moonshot (Kimi) AI 제공자는 이 사유로 제거되었습니다 — 중국 소재이며 Schrems II 판례에 따른 Transfer Impact Assessment 를 현재 통과시킬 방법이 없습니다. 향후 이 목록이 변경되는 경우, 위 수탁 처리자 표 및 본 조항은 변경 효력 발생 전에 갱신됩니다.",
       ],
     },
     {
       heading: "개인정보의 보유 기간",
       body: [
-        "운영자는 계정·음악·활동 데이터를 이용자의 계정이 존재하는 동안 보유합니다. /account 에서 계정을 삭제하면 모든 사용자 단위 행 (동기화 곡·AI 분석·평가·프로필·공유 ID·결제 상태) 이 일일 정리 task 를 통해 24시간 내에 삭제됩니다.",
+        "운영자는 계정·음악·활동 데이터를 이용자의 계정이 존재하는 동안 보유합니다. /account 에서 계정을 삭제하면 users 행이 즉시 삭제되며, 모든 사용자 단위 행 (동기화 곡·AI 분석·평가·프로필·공유 ID·결제 상태) 이 동일 트랜잭션 내에서 cascade 로 함께 삭제됩니다. 비활성 계정 자동 삭제(아래 참조) 는 일일 정리 task 를 통해 24시간 내에 완료됩니다.",
+        "DB 백업: 관리형 데이터베이스 제공자 (Neon) 는 운영 복원력을 위해 자동 PITR (point-in-time-recovery) 스냅샷을 보관합니다. 삭제된 행은 자연스러운 백업 회전 주기로 덮어쓰이기 전까지 암호화된 백업 내부에 최대 7일간 잔존할 수 있습니다. 백업은 재해 복구 외 목적으로 접근되지 않습니다.",
         "자동 보존 정리는 매일 실행되며 다음을 삭제합니다: 90일 이상 된 사용자 사용량 카운터, 90일 이상 된 익명 AI 비용 추적, 30일 이상 된 완료/실패 백그라운드 작업.",
         "3년 연속 로그인 활동이 없는 계정은 전체가 자동 삭제됩니다. 사전에 /account → '내 데이터 다운로드' 로 데이터를 받아두는 것을 권장합니다.",
         "유료 기능 이용 시 결제·계약·청약철회 기록은 관계 법령이 정하는 기간 동안 보관됩니다. 대한민국의 경우 「전자상거래 등에서의 소비자보호에 관한 법률」(계약·결제 5년, 소비자 불만·분쟁처리 3년) 에 따릅니다.",
@@ -243,9 +270,8 @@ const ko: typeof en = {
     {
       heading: "아동의 개인정보",
       body: [
-        "Earprint 는 아동을 대상으로 하지 않습니다. 가입 시 모든 이용자에게 만 16세 이상 확인을 요구합니다 — GDPR 제8조의 가장 엄격한 기준입니다. 일부 EU 회원국은 더 낮은 연령을 허용하지만 (벨기에 13세, 스페인 14세 등) 안전을 위해 16세를 일괄 적용합니다.",
-        "대한민국의 경우 PIPA 기준은 14세입니다. 14~16세 이용자는 서비스 이용 가능하지만, 14세 미만 계정을 인지한 부모는 즉시 삭제를 요청해 주세요.",
-        "적법한 동의 없이 해당 연령 미만 아동의 정보가 수집된 사실을 인지한 경우 운영자는 이를 지체 없이 삭제합니다.",
+        "Earprint 는 아동을 대상으로 하지 않습니다. 가입 절차는 어떤 데이터도 수집되기 전에 모든 이용자에게 만 16세 이상임을 확인하도록 요구합니다. 거주 국가와 무관하게 단일한 16세 기준을 일괄 적용합니다 — GDPR 제8조의 가장 엄격한 기준이자 대한민국 PIPA(14세) 보다 높은 수준이며, 국가별 연령 계층의 운영상 모호함을 제거합니다.",
+        "검증 가능한 보호자 동의 없이 만 16세 미만의 정보가 수집된 사실을 인지한 경우 운영자는 이를 지체 없이 삭제합니다. 미성년자가 서비스를 이용한 사실을 인지한 보호자께서는 아래 연락처로 삭제를 요청해 주십시오.",
       ],
     },
     {

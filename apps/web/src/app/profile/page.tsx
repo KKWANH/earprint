@@ -12,10 +12,12 @@ import { profileDict } from "@/lib/i18n/profile";
 import { diggingPercentile, newShareId } from "@/lib/share";
 import { getMusicZodiac, type MusicZodiac } from "@/lib/musicZodiac";
 import { LikesDisclaimer } from "@/components/LikesDisclaimer";
+import { AiPsychologyDisclaimer } from "@/components/AiPsychologyDisclaimer";
 import { MusicZodiacCard } from "@/components/MusicZodiacCard";
 import { GenerateButton } from "./GenerateButton";
 import { GenreConstellation } from "./GenreConstellation";
 import { ShareButton } from "./ShareButton";
+import { AutoTranslateBanner } from "./AutoTranslateBanner";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = profileDict(await getLocale());
@@ -84,6 +86,7 @@ export default async function ProfilePage() {
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
       <LikesDisclaimer locale={locale} />
+      <AiPsychologyDisclaimer locale={locale} />
 
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <p className="text-sm text-neutral-400">{t.introText}</p>
@@ -94,7 +97,7 @@ export default async function ProfilePage() {
           </p>
         )}
         {staleLocale && (
-          <p className="text-xs text-amber-400">{t.localeMismatch}</p>
+          <AutoTranslateBanner target={locale} t={t} />
         )}
       </section>
 
