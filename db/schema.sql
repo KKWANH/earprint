@@ -777,6 +777,62 @@ $$ LANGUAGE plpgsql;
 -- audio_feel jsonb: { energy, tempo, acousticness (0..1), instruments[] }
 ALTER TABLE analysis ADD COLUMN IF NOT EXISTS audio_feel JSONB;
 
+-- ── Multi-label genre taxonomy (May 2026) ────────────────────────────
+-- The legacy `genres jsonb` flat map ("indie pop": 1, "dream pop": 0.8)
+-- stays as-is for backward compatibility — every existing analysis row
+-- has data there. The five new columns below carry the multi-label
+-- structure agreed with the user, populated from a new wave of Gemini
+-- analyses:
+--
+--   primary_genre — single canonical sub-genre id (matches the `id`
+--     field in lib/genreDict.ts SUB_GENRES, e.g. "indie_pop", "drill",
+--     "neo_soul"). The "headline" genre — what we'd say if forced to
+--     pick one. NULL when Gemini wasn't confident enough to commit.
+--
+--   sub_genres — additional sub-genre ids beyond the primary. Lets
+--     a NewJeans track land on ["dance_pop", "rnb", "uk_garage",
+--     "jersey_club"] rather than choosing one. Each value should
+--     also be a canonical id; aliases are normalised by genreDict
+--     at write time.
+--
+--   style_tags — free-form descriptors that aren't genres
+--     ("guitar-driven", "melodic", "nostalgic", "anthemic"). Used to
+--     improve flavor/archetype matching beyond pure genre labels.
+--
+--   region_tags — geographic / scene tags ("korean", "british",
+--     "latin", "japanese"). Lets the UI surface "X% of your
+--     library is Korean music" without inferring from genre names
+--     alone.
+--
+--   era_tags — decade or epoch tags ("2000s", "2020s", "80s",
+--     "modern"). Feeds the reminiscence-bump / imprint-core
+--     calculation more directly than parsing release year alone.
+--
+-- All TEXT[] (arrays of short strings) except primary_genre which is
+-- a single TEXT. NULL is meaningful (= Gemini didn't supply it /
+-- legacy row before this schema landed).
+ALTER TABLE analysis ADD COLUMN IF NOT EXISTS primary_genre TEXT;
+ALTER TABLE analysis ADD COLUMN IF NOT EXISTS sub_genres    TEXT[];
+ALTER TABLE analysis ADD COLUMN IF NOT EXISTS style_tags    TEXT[];
+ALTER TABLE analysis ADD COLUMN IF NOT EXISTS region_tags   TEXT[];
+ALTER TABLE analysis ADD COLUMN IF NOT EXISTS era_tags      TEXT[];
+
+-- Index the primary_genre for the common "what's the dominant genre
+-- across user X's library" query (currently does jsonb_object_keys
+-- on the legacy `genres` field — the new column lets that become a
+-- direct GROUP BY primary_genre once the migration finishes).
+CREATE INDEX IF NOT EXISTS idx_analysis_primary_genre
+  ON analysis(primary_genre)
+  WHERE primary_genre IS NOT NULL;
+-- GIN indexes on sub_genres / region_tags / era_tags for cheap
+-- containment lookups (`WHERE 'korean' = ANY(region_tags)` etc).
+CREATE INDEX IF NOT EXISTS idx_analysis_sub_genres
+  ON analysis USING GIN (sub_genres);
+CREATE INDEX IF NOT EXISTS idx_analysis_region_tags
+  ON analysis USING GIN (region_tags);
+CREATE INDEX IF NOT EXISTS idx_analysis_era_tags
+  ON analysis USING GIN (era_tags);
+
 CREATE OR REPLACE FUNCTION save_audio_feel(p_rows jsonb)
 RETURNS int AS $$
 DECLARE
@@ -795,10 +851,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ── AI analysis: merge Gemini genres/moods + store audio feel ────────
--- p_rows keys: trackId, genres, moods, audioFeel
+-- p_rows keys (legacy):  trackId, genres, moods, audioFeel
+-- p_rows keys (May 2026): + primaryGenre, subGenres, styleTags, regionTags, eraTags
 -- Gemini genres/moods are merged into existing (Last.fm) ones, not replaced.
--- (Artist re-mapping is intentionally NOT applied — it mutated too many
---  rows and corrupted artist counts; tracks.artist stays as captured.)
+-- The new multi-label columns are OVERWRITTEN per-row (no merge) — Gemini
+-- is the only writer for those, so re-analysing replaces them outright.
+-- Each new field is optional in the JSONB; missing → column stays
+-- whatever it was (NULL on first write, previous value on re-analysis).
 CREATE OR REPLACE FUNCTION save_ai_analysis(p_rows jsonb)
 RETURNS int AS $$
 DECLARE
@@ -815,6 +874,23 @@ BEGIN
                        THEN rec->'moods' ELSE '{}'::jsonb END,
       audio_feel = CASE WHEN jsonb_typeof(rec->'audioFeel') = 'object'
                         THEN rec->'audioFeel' ELSE '{}'::jsonb END,
+      -- Multi-label fields: write through when present in payload,
+      -- preserve current value otherwise. Empty-array vs NULL is
+      -- significant — caller sends `[]` for "Gemini ran but found
+      -- nothing", null/missing for "didn't ask".
+      primary_genre = COALESCE(NULLIF(rec->>'primaryGenre', ''), primary_genre),
+      sub_genres    = CASE WHEN jsonb_typeof(rec->'subGenres') = 'array'
+                           THEN ARRAY(SELECT jsonb_array_elements_text(rec->'subGenres'))
+                           ELSE sub_genres END,
+      style_tags    = CASE WHEN jsonb_typeof(rec->'styleTags') = 'array'
+                           THEN ARRAY(SELECT jsonb_array_elements_text(rec->'styleTags'))
+                           ELSE style_tags END,
+      region_tags   = CASE WHEN jsonb_typeof(rec->'regionTags') = 'array'
+                           THEN ARRAY(SELECT jsonb_array_elements_text(rec->'regionTags'))
+                           ELSE region_tags END,
+      era_tags      = CASE WHEN jsonb_typeof(rec->'eraTags') = 'array'
+                           THEN ARRAY(SELECT jsonb_array_elements_text(rec->'eraTags'))
+                           ELSE era_tags END,
       source_flags = COALESCE(source_flags, '{}'::jsonb) || '{"ai":"gemini"}'::jsonb
     WHERE track_id = (rec->>'trackId')::uuid AND analysis_version = 1;
 
