@@ -241,7 +241,7 @@ export function Tournament({
           break;
         case " ":
           e.preventDefault();
-          togglePlay();
+          void togglePlay();
           break;
         case "z":
         case "Z":
@@ -392,11 +392,12 @@ export function Tournament({
             </div>
             <button
               onPointerDown={(e) => e.stopPropagation()}
-              onClick={togglePlay}
-              disabled={!current.deezerId || loadingAudio}
+              onClick={() => { void togglePlay(); }}
+              disabled={!current.deezerId || loadingAudio || audioError}
               className="absolute right-3 top-3 h-10 w-10 rounded-full bg-black/60 text-base backdrop-blur disabled:opacity-40"
+              title={audioError ? "Preview unavailable" : undefined}
             >
-              {loadingAudio ? "…" : playing ? "⏸" : "▶"}
+              {audioError ? "✕" : loadingAudio ? "…" : playing ? "⏸" : "▶"}
             </button>
             <SwipeBadge op={likeOp} className="left-3 top-3 border-emerald-400 text-emerald-400">
               LIKE

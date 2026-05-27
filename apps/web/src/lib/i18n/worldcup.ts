@@ -11,9 +11,9 @@ const en = {
   catLibraryLabel: "Random from my library",
   catLibraryHint:
     "Uniform-random sample from your WHOLE library — every corner of your taste gets a fair shot. Reshuffles every visit.",
-  catRecentLabel: "What I'm into lately",
+  catRecentLabel: "Most-recently liked",
   catRecentHint:
-    "Top picks by recency. Best for ranking the last few months of likes against each other.",
+    "Sampled from your newest likes (by YouTube Music's save order, not play count). Best for ranking the songs you've added recently.",
   catForgottenLabel: "Forgotten gems",
   catForgottenHint:
     "Random sample from the older half of your library — rediscover songs you haven't surfaced in a while.",
@@ -53,9 +53,9 @@ const ko: typeof en = {
   catLibraryLabel: "내 라이브러리 전체에서 랜덤",
   catLibraryHint:
     "전체 라이브러리에서 균등 랜덤 추출 — 취향의 모든 구석이 공평하게 등장. 방문할 때마다 셔플됩니다.",
-  catRecentLabel: "요즘 빠진 곡",
+  catRecentLabel: "최근에 좋아요한 곡",
   catRecentHint:
-    "최근 좋아요 기준 상위 곡. 지난 몇 달의 좋아요를 서로 줄세울 때 적합.",
+    "YouTube Music에 저장한 순서 기준 최신 좋아요들 (재생 횟수 아님). 최근에 추가한 곡들 사이에서 1픽 가릴 때.",
   catForgottenLabel: "잊고 있던 명곡",
   catForgottenHint:
     "라이브러리 오래된 절반에서 랜덤 추출 — 한동안 안 떴던 곡을 다시 만납니다.",

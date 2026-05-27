@@ -8,15 +8,39 @@ import { useEffect, useRef, useState } from "react";
  * Shared by the library preview button, the recommendation card, and the
  * worldcup bracket.
  *
- * Error handling: HTMLMediaElement.play() returns a Promise that REJECTS
- * with `NotSupportedError` when the source URL is dead / wrong format /
- * blocked by the browser's autoplay policy. The previous `void a.play()`
- * pattern dropped that rejection onto the global error handler, which
- * is what showed up in production as
+ * ─────────────────────────────────────────────────────────────────────
+ * Error handling — why this is fiddly:
+ *
  *   "Uncaught (in promise) NotSupportedError: The element has no
  *    supported sources."
- * We now await + catch, set an `error` flag the UI can render as
- * "Preview unavailable" instead of leaving the play button hanging.
+ *
+ * This message shows up as an Unhandled Promise Rejection in DevTools
+ * even when callers don't think they're awaiting anything. Three
+ * sources combine to leak it; the previous fix only closed one:
+ *
+ *   1. `new Audio(url)` sets `src` synchronously inside the constructor,
+ *      so a 404 / mime mismatch can emit the native `error` event in
+ *      the SAME tick — BEFORE the line where we assign `a.onerror`.
+ *      Fix: construct an empty Audio(), attach `onerror` FIRST, then
+ *      assign `.src`.
+ *
+ *   2. The cleanup effect paused the old element but did NOT clear
+ *      its `src`, so a pending load triggered by a previous `toggle()`
+ *      could fire `error` after unmount — into a handler whose React
+ *      state is gone, surfacing as an unhandled exception. Fix: clear
+ *      `src` + call `.load()` in cleanup to cancel any pending fetch.
+ *
+ *   3. `toggle` is an async function. Even with internal try/catch on
+ *      every `await`, ANY synchronous throw above the awaits (e.g. a
+ *      browser policy error on `new Audio()`) escapes as a rejected
+ *      promise. React's `onClick={toggle}` passes that promise to the
+ *      void, which DevTools then reports as Unhandled. Fix: wrap the
+ *      entire body in one outer try/catch so toggle() can NEVER
+ *      reject.
+ *
+ * UI surface: callers should render an "Preview unavailable" affordance
+ * when `error === true` rather than a play button — there is no
+ * workable preview for that track.
  */
 export function useAudioPlayer(deezerId: number | null) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -25,76 +49,127 @@ export function useAudioPlayer(deezerId: number | null) {
   const [error, setError] = useState(false);
 
   // Track changed (or component unmounting): release the previous audio.
+  // Critically, we ALSO have to detach event handlers and clear src —
+  // otherwise a pending HTTP load can still emit `error` after this
+  // hook has gone, and the handler closure references stale React state.
   useEffect(() => {
     setPlaying(false);
     setLoading(false);
     setError(false);
     return () => {
-      audioRef.current?.pause();
+      const a = audioRef.current;
+      if (a) {
+        a.pause();
+        a.onended = null;
+        a.onerror = null;
+        // Removing src + load() actively cancels any in-flight network
+        // request the element started — prevents the late `error` event
+        // that the previous version was emitting into the void.
+        a.removeAttribute("src");
+        try {
+          a.load();
+        } catch {
+          /* load() can throw on some browsers when src is empty; we don't care */
+        }
+      }
       audioRef.current = null;
     };
   }, [deezerId]);
 
   function stop() {
-    audioRef.current?.pause();
+    const a = audioRef.current;
+    if (a) {
+      a.pause();
+      a.onended = null;
+      a.onerror = null;
+      a.removeAttribute("src");
+      try { a.load(); } catch { /* ignore */ }
+    }
     audioRef.current = null;
     setPlaying(false);
   }
 
   async function toggle() {
     if (!deezerId) return;
-    if (playing) {
-      audioRef.current?.pause();
-      setPlaying(false);
-      return;
-    }
-    // Re-use an existing element when the same track is replayed —
-    // the audio is already loaded, just resume. Still need to await the
-    // play() Promise so any AbortError / NotAllowedError surfaces here
-    // instead of bubbling out as an Unhandled Promise Rejection.
-    if (audioRef.current) {
-      try {
-        await audioRef.current.play();
-        setPlaying(true);
-      } catch {
-        setError(true);
-      }
-      return;
-    }
-    setLoading(true);
-    setError(false);
+
+    // OUTER try/catch — this is the safety net that guarantees toggle()
+    // never rejects, no matter what goes wrong inside. Without it, any
+    // sync throw above an `await` (or a thrown sync exception from
+    // `new Audio()`, `pause()`, etc.) escapes to React's onClick and
+    // shows up as "Uncaught (in promise) NotSupportedError" in DevTools.
     try {
-      const res = await fetch(`/api/preview?deezerId=${deezerId}`);
-      const d = (await res.json()) as { url?: string };
-      if (!d.url) {
-        setError(true);
+      if (playing) {
+        audioRef.current?.pause();
+        setPlaying(false);
         return;
       }
-      const a = new Audio(d.url);
+
+      // Re-use an existing element when the same track is replayed.
+      // Skip reuse if src was cleared (cleanup ran but the ref outlived) —
+      // otherwise we'd .play() an audio with no source and get the very
+      // error this hook exists to prevent.
+      if (audioRef.current && audioRef.current.src) {
+        try {
+          await audioRef.current.play();
+          setPlaying(true);
+        } catch {
+          setError(true);
+          audioRef.current = null;
+        }
+        return;
+      }
+
+      setLoading(true);
+      setError(false);
+
+      let url: string | undefined;
+      try {
+        const res = await fetch(`/api/preview?deezerId=${deezerId}`);
+        const d = (await res.json()) as { url?: string };
+        url = d.url;
+      } catch {
+        // network / 5xx — handled below at the !url check
+      }
+      if (!url) {
+        setError(true);
+        setLoading(false);
+        return;
+      }
+
+      // CRITICAL: attach error handler BEFORE assigning src. The native
+      // `error` event fires synchronously for some failure modes (bad
+      // codec, blocked CORS), and `new Audio(url)` sets the src inside
+      // the constructor — so the previous order silently lost early
+      // errors. Empty constructor + ordered attach + .src= is the only
+      // pattern where the handler is guaranteed to catch every error.
+      const a = new Audio();
+      a.preload = "auto";
       a.onended = () => setPlaying(false);
-      // onerror covers loading failures (404 / CORS / unsupported mime)
-      // that fire BEFORE play() — the element emits "error" and rejects
-      // the play() Promise. Set the flag from both spots to be safe.
       a.onerror = () => {
         setError(true);
         setPlaying(false);
       };
+      a.src = url;
       audioRef.current = a;
+
       try {
         await a.play();
         setPlaying(true);
       } catch {
-        // NotSupportedError / NotAllowedError / AbortError all funnel
-        // here. Don't surface the error class to the UI — the user
-        // doesn't need it; "Preview unavailable" is the right signal.
+        // NotSupportedError / NotAllowedError / AbortError funnel here.
+        // The class isn't useful to the UI — "Preview unavailable" is.
         setError(true);
         audioRef.current = null;
       }
+      setLoading(false);
     } catch {
-      // /api/preview fetch failed (network / 5xx) — treat as unavailable.
+      // Final guard: any unexpected sync throw lands here and we surface
+      // it as a generic error instead of letting the promise reject.
       setError(true);
+      setLoading(false);
+      setPlaying(false);
+      audioRef.current = null;
     }
-    setLoading(false);
   }
 
   return { playing, loading, error, toggle, stop };

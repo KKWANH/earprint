@@ -5,6 +5,8 @@ import { genreHue, stepPhysics, type Sim } from "@/lib/forceGraph";
 import type { GenreMapData } from "@/lib/genreMap";
 import type { Locale } from "@/lib/i18n";
 import { profileDict } from "@/lib/i18n/profile";
+import { CanvasShareMenu } from "@/components/CanvasShareMenu";
+import { canvasShareDict } from "@/lib/i18n/canvasShare";
 
 /**
  * Interactive taste constellation — genres as stars, linked when they
@@ -139,6 +141,27 @@ export function GenreConstellation({
       bg.addColorStop(1, "#000000");
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, w, h);
+
+      // Static "field stars" — a sparse scatter of pinpricks behind the
+      // genre nodes that doesn't track the camera. Sells the cosmic
+      // background without competing with the real stars. Generated
+      // deterministically from a hash of (x,y) so the scatter is stable
+      // across frames (no per-frame randomisation = no shimmer).
+      ctx.fillStyle = "rgba(220,230,255,0.35)";
+      for (let i = 0; i < 80; i++) {
+        // Mulberry-32-ish deterministic pseudo-random from i.
+        const h1 = (i * 2654435761) >>> 0;
+        const h2 = (i * 40503) >>> 0;
+        const fx = ((h1 % 10000) / 10000) * w;
+        const fy = ((h2 % 10000) / 10000) * h;
+        // Subtle independent twinkle on the field stars too — same phase
+        // function as the genre stars, just way fainter so they read as
+        // ambient noise rather than as elements you can interact with.
+        const fa = 0.25 + 0.15 * Math.sin(t * 0.7 + i * 0.9);
+        ctx.globalAlpha = Math.max(0.05, fa);
+        ctx.fillRect(fx, fy, 1, 1);
+      }
+      ctx.globalAlpha = 1;
       const focus = selRef.current ?? hover.current;
       const nbr = focus != null ? neighbors.current[focus] : null;
 
@@ -166,39 +189,94 @@ export function GenreConstellation({
         ctx.stroke();
       }
 
-      // Stars — three concentric layers (outer halo, mid glow, white
-      // core) plus a slow twinkle in the halo opacity. Radius from the
-      // physics sim acts as magnitude (count-weighted): bigger genres
-      // get a bigger, brighter star, faint genres get a pinprick.
-      for (let i = 0; i < N; i++) {
+      // Stars — three concentric layers + diffraction spikes on bright
+      // ones. Each star carries:
+      //   • A radial-gradient halo (color → transparent) instead of a
+      //     flat-fill disk, so the outer falloff reads physically.
+      //   • Mid glow tinted by genre hue (warm/cool depending on the
+      //     genre's place on the hue wheel).
+      //   • White-hot core fill so the centre always reads as "bright".
+      //   • 4-point cross flare (lens spike) on the brightest 25% of
+      //     stars — the classic CCD diffraction artefact, sells the
+      //     "really is a star" feeling at a glance.
+      // Radius from the physics sim acts as magnitude (count-weighted):
+      // bigger genres = bigger, brighter star.
+      //
+      // Sort by radius so brighter stars are drawn last — keeps their
+      // halos on top of dimmer neighbours instead of being obscured.
+      const drawOrder = [...Array(N).keys()].sort((a, b) => sim[a]!.r - sim[b]!.r);
+      // What counts as "bright enough to spike". Top quartile of radii.
+      const radii = sim.map((s) => s.r).sort((a, b) => a - b);
+      const spikeThreshold = radii[Math.floor(radii.length * 0.75)] ?? 999;
+
+      for (const i of drawOrder) {
         const s = sim[i]!;
         const px = s.x * scale + ox;
         const py = s.y * scale + oy;
         const dim = focus != null && i !== focus && !(nbr && nbr.has(i));
         const r = s.r * scale;
-        // Twinkle: 0.85 ↔ 1.15 multiplier on halo opacity, period ~3-5s.
-        const twink = 0.85 + 0.3 * (0.5 + 0.5 * Math.sin(t + twinkleSeed(i)));
+        // Twinkle: 0.7 ↔ 1.0 multiplier on halo opacity. Each star
+        // gets its own phase, plus a small radius variation so the
+        // spikes pulse subtly too.
+        const twink = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(t * 1.3 + twinkleSeed(i)));
         const baseAlpha = dim ? 0.18 : 1;
 
-        // Halo (outer glow)
-        ctx.globalAlpha = baseAlpha * 0.45 * twink;
-        ctx.beginPath();
-        ctx.arc(px, py, r * 3.4, 0, Math.PI * 2);
-        ctx.fillStyle = `hsl(${s.hue} 70% 55%)`;
-        ctx.fill();
+        // Diffraction spikes — only for the brightest stars, scaled
+        // by radius so big genres get visibly bigger flares. Drawn
+        // FIRST so the halo + core overlay them at the centre.
+        if (!dim && s.r >= spikeThreshold) {
+          const spikeLen = r * (3.2 + twink * 0.6);
+          ctx.globalAlpha = baseAlpha * 0.6 * twink;
+          ctx.strokeStyle = `hsl(${s.hue} 90% 80%)`;
+          ctx.lineCap = "round";
+          // Horizontal spike thins out toward the tip.
+          ctx.lineWidth = Math.max(0.7, r * 0.18);
+          ctx.beginPath();
+          ctx.moveTo(px - spikeLen, py);
+          ctx.lineTo(px + spikeLen, py);
+          ctx.stroke();
+          // Vertical spike, slightly shorter — looks more "lens-real".
+          ctx.beginPath();
+          ctx.moveTo(px, py - spikeLen * 0.85);
+          ctx.lineTo(px, py + spikeLen * 0.85);
+          ctx.stroke();
+        }
 
-        // Mid glow
-        ctx.globalAlpha = baseAlpha * 0.7;
-        ctx.beginPath();
-        ctx.arc(px, py, r * 1.6, 0, Math.PI * 2);
-        ctx.fillStyle = `hsl(${s.hue} 75% 65%)`;
-        ctx.fill();
-
-        // Bright core — white-hot at the centre of every star.
+        // Halo (outer glow) — radial gradient instead of solid disk so
+        // the outer edge fades naturally and the halo doesn't clip a
+        // hard circle against neighbours.
+        const haloR = r * 3.6;
+        const halo = ctx.createRadialGradient(px, py, r * 0.6, px, py, haloR);
+        halo.addColorStop(0, `hsla(${s.hue}, 80%, 70%, ${0.55 * twink})`);
+        halo.addColorStop(0.55, `hsla(${s.hue}, 70%, 55%, ${0.2 * twink})`);
+        halo.addColorStop(1, `hsla(${s.hue}, 60%, 45%, 0)`);
         ctx.globalAlpha = baseAlpha;
+        ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.arc(px, py, Math.max(1.5, r * 0.55), 0, Math.PI * 2);
-        ctx.fillStyle = "#fff";
+        ctx.arc(px, py, haloR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Mid glow — tighter, more saturated. Drives the perceived hue
+        // of the star against the dark background.
+        ctx.globalAlpha = baseAlpha * 0.85;
+        ctx.beginPath();
+        ctx.arc(px, py, r * 1.4, 0, Math.PI * 2);
+        ctx.fillStyle = `hsl(${s.hue} 80% 62%)`;
+        ctx.fill();
+
+        // Bright core — white-hot, slightly tinted toward the hue at
+        // the edge so it doesn't read as a hard cut-out. Use a tiny
+        // radial so the centre is pure white but the rim picks up
+        // the star colour. Visible on stars of any size.
+        const coreR = Math.max(1.5, r * 0.55);
+        const core = ctx.createRadialGradient(px, py, 0, px, py, coreR);
+        core.addColorStop(0, "#ffffff");
+        core.addColorStop(0.7, `hsl(${s.hue} 95% 92%)`);
+        core.addColorStop(1, `hsl(${s.hue} 90% 82%)`);
+        ctx.globalAlpha = baseAlpha;
+        ctx.fillStyle = core;
+        ctx.beginPath();
+        ctx.arc(px, py, coreR, 0, Math.PI * 2);
         ctx.fill();
 
         if (i === focus) {
@@ -388,6 +466,14 @@ export function GenreConstellation({
         className="touch-none select-none overscroll-contain"
         style={{ cursor: "grab" }}
       />
+      <div className="absolute right-2 top-2">
+        <CanvasShareMenu
+          canvasRef={canvasRef}
+          strings={canvasShareDict(locale)}
+          filename="earprint-constellation"
+          embedAlt="My taste constellation — Earprint"
+        />
+      </div>
       <p className="pointer-events-none absolute bottom-2 left-2 rounded bg-black/60 px-2 py-1 text-[11px] text-neutral-400 backdrop-blur">
         {t.constellationHint}
       </p>
