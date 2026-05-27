@@ -457,7 +457,13 @@ export function Bracket({
         </span>
       </p>
 
-      <div className={`grid gap-3 sm:grid-cols-2 ${isFinal ? "sm:gap-5" : ""}`}>
+      {/* Two cards side-by-side at every breakpoint — piku-style.
+          On mobile gap-2 keeps both cards comfortably wide (~48vw
+          each); on sm+ a bit more breathing room, final round gets
+          the most. Stacking the cards vertically on mobile would
+          force the user to scroll between options every pair, which
+          kills the snap-judgment flow this UI is built for. */}
+      <div className={`grid grid-cols-2 ${isFinal ? "gap-2 sm:gap-5" : "gap-2 sm:gap-3"}`}>
         {renderCard
           ? renderCard(left, () => pick(left, right))
           : <BracketCard rec={left} onPick={() => pick(left, right)} locale={locale} finalRound={isFinal} />}
@@ -732,6 +738,15 @@ function BracketCard({
             : "border-white/10"
       }`}
     >
+      {/* Cover region — single large play affordance instead of the
+          previous "tiny YT button + tiny Deezer button" combo. Click
+          priority:
+            1. YT iframe (full song, no 30s cap)             ← default
+            2. Deezer preview (only if YT lookup failed AND
+               the cached video_id is null)                  ← fallback
+            3. External YT search in a new tab               ← last resort
+          One thumb tap → real playback. Same affordance whether the
+          card has a cover image or just the ♪ placeholder. */}
       <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-neutral-800">
         {showVideo && videoId ? (
           <iframe
@@ -754,54 +769,47 @@ function BracketCard({
             ♪
           </div>
         )}
-        {/* When the iframe is mounted it owns the player surface; both
-            inline buttons hide so we don't end up with two audio sources
-            fighting each other. */}
+        {/* Big centred play button — only shown when the iframe isn't
+            already mounted. Sized for a thumb; tap target is the full
+            56px disc. stopPropagation so the card-pick handler doesn't
+            fire (tapping play ≠ voting). */}
         {!showVideo && (
           <button
             onClick={(e) => {
               e.stopPropagation();
-              // If we have a Data-API-resolved videoId, embed the iframe
-              // inline. If not (env key missing / quota exhausted / lookup
-              // still in flight), open YT search in a new tab — that's
-              // still useful, and beats the previous behaviour of the
-              // button just being absent. The fallback URL works without
-              // YOUTUBE_API_KEY because it's the public search page.
               if (videoId) {
                 setShowVideo(true);
-              } else {
-                window.open(ytLink, "_blank", "noopener");
+                return;
               }
+              if (rec.deezerId && !audioError) {
+                void toggle();
+                return;
+              }
+              window.open(ytLink, "_blank", "noopener");
             }}
-            className="absolute bottom-2 left-2 flex h-9 items-center gap-1 rounded-full bg-rose-600/90 px-3 text-xs font-medium text-white backdrop-blur hover:bg-rose-500"
-            aria-label="Play YouTube"
-            title={videoId ? "Play inline" : "Open YouTube search"}
+            className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/30 focus:bg-black/30 focus:outline-none"
+            aria-label="Play"
           >
-            ▶ YT{videoId ? "" : " ↗"}
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/65 text-2xl text-white shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110 sm:h-16 sm:w-16">
+              {playing ? "⏸" : "▶"}
+            </span>
           </button>
         )}
-        {!showVideo && rec.deezerId && !audioError && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              void toggle();
-            }}
-            className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur transition-colors hover:bg-black/90"
-            aria-label={playing ? "Pause" : "Play"}
-            title="Deezer 30s preview"
-          >
-            {playing ? "⏸" : "▶"}
-          </button>
-        )}
-        {/* Preview URL went 404 or wrong format. Hide the preview button
-            so the user doesn't keep clicking a dead control; the ▶ YT
-            button on the other side still works for full playback. */}
-        {!showVideo && rec.deezerId && audioError && (
+        {/* Source pill at the top-right so the user knows whether the
+            play button will fire YT, Deezer, or external search. Tiny,
+            non-clickable — informational. */}
+        {!showVideo && (
           <span
-            className="absolute bottom-2 right-2 rounded-full bg-black/60 px-2 py-1 text-[10px] text-neutral-400 backdrop-blur"
-            title="Preview unavailable for this track"
+            className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/70 backdrop-blur"
+            title={
+              videoId
+                ? "Full song via YouTube embed"
+                : rec.deezerId && !audioError
+                  ? "30-second Deezer preview"
+                  : "Open YouTube search"
+            }
           >
-            no preview
+            {videoId ? "YT" : rec.deezerId && !audioError ? "30s" : "↗"}
           </span>
         )}
       </div>
