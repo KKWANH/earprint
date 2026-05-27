@@ -1,8 +1,6 @@
 import { getSql } from "./db";
 import { enrichTrack } from "./enrich";
 import { aiAnalyzeBatch } from "./aiAnalyze";
-import { buildCompletionEmail, sendEmail } from "./email";
-import { getLibraryStats } from "./library";
 import { isWhitelisted } from "./usage";
 
 export type JobStatus = "running" | "stopped" | "done" | "idle";
@@ -184,40 +182,29 @@ export async function setJob(userId: string, status: JobStatus): Promise<void> {
 }
 
 /**
- * Marks the analyze job done and emails the completion report exactly once.
- * Idempotent — the notified_at guard means repeated calls (cron + foreground)
- * only ever send a single email.
+ * Marks the analyze job done. Idempotent — repeated calls (cron +
+ * foreground tick) all settle on the same terminal state.
+ *
+ * The completion notification used to be an email via Resend; that path
+ * was removed because:
+ *   1. Required a verified sending domain on Resend (production friction).
+ *   2. KR users in particular had a chunk of mail land in spam.
+ *   3. The /library page already shows the freshly-finished analysis on
+ *      next visit, and the share UI on the same page lets them push it
+ *      to KakaoTalk / Messages / etc. via the OS share sheet (see
+ *      apps/web/src/app/profile/ShareButton.tsx).
+ *
+ * `notified_at` still gets stamped so we have a record of when this
+ * completion fired, even though we don't send anything anymore.
  */
 export async function finishJob(userId: string): Promise<void> {
   const sql = getSql();
-  // Atomically claim the notification: only the first caller gets a row back.
-  const claimed = await sql`
+  // Atomically claim the notification slot. The unique-claim semantics
+  // are preserved (still useful if we re-introduce notifications later
+  // — push, webhook, etc.) but the side-effect block is gone.
+  await sql`
     UPDATE background_jobs
     SET status = 'done', updated_at = now(), notified_at = now()
-    WHERE user_id = ${userId} AND kind = 'analyze' AND notified_at IS NULL
-    RETURNING user_id`;
-  if (claimed.length === 0) {
-    // Already notified — just make sure status reflects completion.
-    await setJob(userId, "done");
-    return;
-  }
-  try {
-    const userRows = await sql`SELECT email FROM users WHERE id = ${userId}`;
-    const email = userRows[0]?.email as string | undefined;
-    if (!email) return;
-    const stats = await getLibraryStats(userId);
-    const { subject, html } = buildCompletionEmail(stats);
-    const result = await sendEmail({ to: email, subject, html });
-    if (result === "failed") {
-      // Transient error — release the claim so a later tick retries.
-      await sql`
-        UPDATE background_jobs SET notified_at = NULL
-        WHERE user_id = ${userId} AND kind = 'analyze'`;
-    }
-    // "skipped" (no API key) keeps the claim so we don't loop forever.
-  } catch {
-    await sql`
-      UPDATE background_jobs SET notified_at = NULL
-      WHERE user_id = ${userId} AND kind = 'analyze'`;
-  }
+    WHERE user_id = ${userId} AND kind = 'analyze' AND notified_at IS NULL`;
+  await setJob(userId, "done");
 }

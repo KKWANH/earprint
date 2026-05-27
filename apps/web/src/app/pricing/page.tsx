@@ -6,8 +6,20 @@ import { getLocale } from "@/lib/i18n-server";
 import { pricingDict } from "@/lib/i18n/pricing";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = pricingDict(await getLocale());
-  return { title: `${t.pageTitle} — Earprint` };
+  const locale = await getLocale();
+  const t = pricingDict(locale);
+  const title = `${t.pageTitle} — Earprint`;
+  const description =
+    locale === "ko"
+      ? "Earprint 요금제 — 무료 미리보기와 1회 결제 분석. 구독 없음, 한 번에 한 분석."
+      : "Earprint pricing — free preview and per-analysis credits. No subscription, pay only when you run an analysis.";
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+    alternates: { canonical: "https://earprint.kwanho.dev/pricing" },
+  };
 }
 
 /**

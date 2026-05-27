@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { requireOnboarded } from "@/lib/onboarding";
+import { getSql } from "@/lib/db";
 import {
   getLibraryStats,
   type AlbumDepth,
@@ -11,9 +12,10 @@ import {
 import { AnalyzePanel } from "./AnalyzePanel";
 import { PreviewButton } from "./PreviewButton";
 import { ExcludeButton } from "./ExcludeButton";
-import { ResendReportButton } from "./ResendReportButton";
+import { ShareButton } from "../profile/ShareButton";
 import { getLocale } from "@/lib/i18n-server";
 import { libraryDict } from "@/lib/i18n/library";
+import { profileDict } from "@/lib/i18n/profile";
 import type { Locale } from "@/lib/i18n";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -43,7 +45,17 @@ export default async function LibraryPage() {
   }
 
   const { userId } = await requireOnboarded();
-  const stats = await getLibraryStats(userId);
+  const sql = getSql();
+  // Share id is created lazily when /api/profile lands; here we only
+  // surface the share UI when one already exists, so the user doesn't
+  // see a "share my analysis" button before they've actually run an
+  // analysis. Cheap one-column SELECT.
+  const [stats, shareRow] = await Promise.all([
+    getLibraryStats(userId),
+    sql`SELECT share_id FROM taste_profiles WHERE user_id = ${userId}`,
+  ]);
+  const shareId = (shareRow[0]?.share_id as string | undefined) ?? null;
+  const pt = profileDict(locale);
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
@@ -53,7 +65,14 @@ export default async function LibraryPage() {
       </header>
 
       <AnalyzePanel locale={locale} />
-      <ResendReportButton locale={locale} />
+
+      {shareId && (
+        <section className="flex flex-col gap-3 rounded-xl border border-emerald-900/50 bg-neutral-900 p-6">
+          <h2 className="font-semibold text-emerald-300">{pt.shareHeading}</h2>
+          <p className="text-xs text-neutral-400">{pt.shareCtaLine}</p>
+          <ShareButton shareId={shareId} locale={locale} />
+        </section>
+      )}
 
       <ConfidenceRollup
         total={stats.total}

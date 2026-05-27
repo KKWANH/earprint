@@ -4,8 +4,20 @@ import { getLocale } from "@/lib/i18n-server";
 import { guideDict } from "@/lib/i18n/guide";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = guideDict(await getLocale());
-  return { title: `${t.pageTitle} — Earprint` };
+  const locale = await getLocale();
+  const t = guideDict(locale);
+  const title = `${t.pageTitle} — Earprint`;
+  const description =
+    locale === "ko"
+      ? "Earprint 설치 가이드 — Chrome 확장 설치부터 YouTube Music 좋아요 동기화, AI 음악 분석까지 5단계. 자주 묻는 질문 포함."
+      : "Earprint setup guide — install the Chrome extension, sync your YouTube Music liked songs, get your AI music analysis. Five steps plus FAQ.";
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "article" },
+    twitter: { card: "summary_large_image", title, description },
+    alternates: { canonical: "https://earprint.kwanho.dev/guide" },
+  };
 }
 
 /**
@@ -17,8 +29,25 @@ export default async function GuidePage() {
   const locale = await getLocale();
   const t = guideDict(locale);
 
+  // Structured data so Google can render the FAQs as rich results on the
+  // SERP — each accordion item becomes a Question/Answer pair. Built from
+  // the same i18n source as the visible accordion so they can never drift.
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: t.faq.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-10 sm:px-6 sm:py-16">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+      />
       <header className="flex flex-col gap-3 text-center">
         <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
           {t.pageTitle}

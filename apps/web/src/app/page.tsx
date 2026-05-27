@@ -5,6 +5,36 @@ import { getDict } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
 import { ALL_ZODIACS } from "@/lib/musicZodiac";
 
+/**
+ * Structured data for Google search results. The WebApplication schema
+ * gets us the rich-result treatment on the SERP (icon, ratings if we
+ * ever add them, install affordance hint via offers.price=0). The
+ * Organization schema sits alongside so the knowledge-panel logic can
+ * attach our name + logo to the same entity. Both are static JSON-LD
+ * blobs — no runtime cost, no JS dependency.
+ */
+const LD_WEB_APP = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Earprint",
+  url: "https://earprint.kwanho.dev",
+  description:
+    "Music-taste analytics for YouTube Music: Taste DNA, Music Zodiac archetype, interactive artist map, and personalised recommendations from your own liked songs.",
+  applicationCategory: "MusicApplication",
+  operatingSystem: "Any (web)",
+  browserRequirements: "Requires a modern desktop browser. Chrome recommended for sync.",
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  inLanguage: ["en", "ko"],
+} as const;
+
+const LD_ORG = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Earprint",
+  url: "https://earprint.kwanho.dev",
+  logo: "https://earprint.kwanho.dev/icon.svg",
+} as const;
+
 // Four zodiac signs shown on the landing as concrete examples of the
 // archetype output. Picked for genre breadth + visual variety: Aries
 // (hip-hop), Virgo (jazz/classical), Capricorn (rock), Pisces (ambient/
@@ -28,6 +58,16 @@ export default async function LandingPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-16 px-4 py-12 sm:gap-20 sm:px-6 sm:py-20">
+      <script
+        type="application/ld+json"
+        // dangerouslySetInnerHTML is required for raw JSON-LD; the
+        // content is a static constant we control end-to-end.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(LD_WEB_APP) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(LD_ORG) }}
+      />
       {/* hero */}
       <section className="flex flex-col items-center text-center">
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-400">
