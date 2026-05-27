@@ -1,4 +1,10 @@
 import { getSql } from "@/lib/db";
+import {
+  genreFamily,
+  isExcludedGenre,
+  listFamilies,
+  type FamilyDef,
+} from "./genreDict";
 
 export interface Count {
   name: string;
@@ -22,6 +28,17 @@ export interface AlbumDepth {
   deepAlbums: number; // albums with >= 3 liked tracks
   concentration: number; // fraction of liked tracks that sit in deep albums
 }
+export interface FamilyCount {
+  /** Family id (e.g. "rock", "asian_pop") — stable across i18n. */
+  id: string;
+  /** Localised label resolved from FamilyDef. */
+  label: string;
+  labelKo: string;
+  count: number;
+  /** Up to 3 top sub-genres in this family, for the "you have: indie pop,
+   *  dream pop, shoegaze" hover tooltip on the bar. */
+  sample: string[];
+}
 export interface LibraryStats {
   total: number;
   enriched: number;
@@ -37,6 +54,11 @@ export interface LibraryStats {
   topMoods: Count[];
   topInstruments: Count[];
   topAlbums: Count[];
+  /** Top family rollup — same genre signal as topGenres but bucketed
+   *  into the 18 top-level families from genreDict. Lets the UI show
+   *  "you're 38% Pop / 22% Rock / …" without the user squinting at
+   *  every sub-genre row. */
+  topFamilies: FamilyCount[];
   audioFeel: AudioFeelAgg | null;
   albumDepth: AlbumDepth;
   tracks: TrackRow[];
@@ -181,40 +203,51 @@ async function topTags(
   excluded: string[],
   column: "genres" | "moods",
 ): Promise<Count[]> {
-  const rows =
-    column === "genres"
-      ? await sql`
-          WITH lib_size AS (
-            SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
-          )
-          SELECT k.key AS name, count(*)::int AS count
-          FROM analysis a
-          JOIN user_tracks ut ON ut.track_id = a.track_id
-          JOIN tracks t ON t.id = a.track_id
-          CROSS JOIN lib_size
-          CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
-          WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
-            AND t.artist <> ALL(${excluded}::text[])
-            AND (NOT t.resolved OR t.match_confidence >= 0.65)
-          GROUP BY k.key
-          ORDER BY sum(recency_weight(ut.list_position, lib_size.n)) DESC
-          LIMIT 14`
-      : await sql`
-          WITH lib_size AS (
-            SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
-          )
-          SELECT k.key AS name, count(*)::int AS count
-          FROM analysis a
-          JOIN user_tracks ut ON ut.track_id = a.track_id
-          JOIN tracks t ON t.id = a.track_id
-          CROSS JOIN lib_size
-          CROSS JOIN LATERAL jsonb_object_keys(a.moods) AS k(key)
-          WHERE ut.user_id = ${userId} AND a.moods IS NOT NULL
-            AND t.artist <> ALL(${excluded}::text[])
-            AND (NOT t.resolved OR t.match_confidence >= 0.65)
-          GROUP BY k.key
-          ORDER BY sum(recency_weight(ut.list_position, lib_size.n)) DESC
-          LIMIT 14`;
+  // Genres need a post-SQL pass through isExcludedGenre() to drop
+  // Religious / Spoken / Children / Novelty / ASMR keys — those are
+  // pure noise in the Top Genres rollup. The exclusion map lives in
+  // genreDict (TS) so SQL can't apply it; we over-fetch (LIMIT 30 vs
+  // the 14 we eventually keep) so the filter doesn't starve the result.
+  // Moods don't need this filter — mood vocabulary is small and doesn't
+  // overlap with excluded families.
+  if (column === "genres") {
+    const rows = await sql`
+      WITH lib_size AS (
+        SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
+      )
+      SELECT k.key AS name, count(*)::int AS count
+      FROM analysis a
+      JOIN user_tracks ut ON ut.track_id = a.track_id
+      JOIN tracks t ON t.id = a.track_id
+      CROSS JOIN lib_size
+      CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
+      WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
+        AND t.artist <> ALL(${excluded}::text[])
+        AND (NOT t.resolved OR t.match_confidence >= 0.65)
+      GROUP BY k.key
+      ORDER BY sum(recency_weight(ut.list_position, lib_size.n)) DESC
+      LIMIT 30`;
+    return rows
+      .filter((r) => !isExcludedGenre(r.name as string))
+      .slice(0, 14)
+      .map((r) => ({ name: r.name as string, count: r.count as number }));
+  }
+  const rows = await sql`
+    WITH lib_size AS (
+      SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
+    )
+    SELECT k.key AS name, count(*)::int AS count
+    FROM analysis a
+    JOIN user_tracks ut ON ut.track_id = a.track_id
+    JOIN tracks t ON t.id = a.track_id
+    CROSS JOIN lib_size
+    CROSS JOIN LATERAL jsonb_object_keys(a.moods) AS k(key)
+    WHERE ut.user_id = ${userId} AND a.moods IS NOT NULL
+      AND t.artist <> ALL(${excluded}::text[])
+      AND (NOT t.resolved OR t.match_confidence >= 0.65)
+    GROUP BY k.key
+    ORDER BY sum(recency_weight(ut.list_position, lib_size.n)) DESC
+    LIMIT 14`;
   return rows.map((r) => ({ name: r.name as string, count: r.count as number }));
 }
 
@@ -229,7 +262,7 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
   const sql = getSql();
   const excluded = await getExcludedArtists(userId);
 
-  const [base, artists, recentArtists, topGenres, topMoods, instruments, albums, depth, feel, tracks] =
+  const [base, artists, recentArtists, topGenres, topMoods, instruments, albums, depth, feel, tracks, allGenreRows] =
     await Promise.all([
       // Base counts. `total` and `enriched` here are AGGREGATE PROGRESS
       // numbers so we keep them honest (no confidence filter — the user
@@ -341,7 +374,58 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
         WHERE ut.user_id = ${userId} AND t.artist <> ALL(${excluded}::text[])
         ORDER BY ut.captured_at DESC
         LIMIT 100`,
+      // Raw per-key genre counts (NOT LIMITed) — TS aggregates these into
+      // the 18 families. We can't bucket in SQL because the family map
+      // lives in genreDict.ts. Confidence filter still applies so
+      // YouTuber junk doesn't reach the family rollup.
+      sql`
+        SELECT k.key AS name, count(*)::int AS count
+        FROM analysis a
+        JOIN user_tracks ut ON ut.track_id = a.track_id
+        JOIN tracks t ON t.id = a.track_id
+        CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
+        WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
+          AND t.artist <> ALL(${excluded}::text[])
+          AND (NOT t.resolved OR t.match_confidence >= 0.65)
+        GROUP BY k.key`,
     ]);
+
+  // ── Family rollup. Each genre key maps via genreDict.genreFamily()
+  // into one of the 18 top-level buckets. Excluded families
+  // (Religious / Spoken / Children) are silently dropped — they
+  // already get filtered from topGenres, no point surfacing them in
+  // the family chart either. Unknown genre keys (not in the dict)
+  // bucket into "other" so the user can see how much vocabulary we
+  // didn't recognise. ──
+  const famAcc = new Map<string, { count: number; sample: Array<{ name: string; count: number }> }>();
+  for (const r of allGenreRows as Array<{ name: string; count: number }>) {
+    const fam = genreFamily(r.name);
+    if (!fam) continue;
+    if (isExcludedGenre(r.name)) continue;
+    const entry = famAcc.get(fam) ?? { count: 0, sample: [] };
+    entry.count += r.count;
+    entry.sample.push({ name: r.name, count: r.count });
+    famAcc.set(fam, entry);
+  }
+  const familyMeta: Record<string, FamilyDef> = Object.fromEntries(
+    listFamilies().map((f) => [f.id, f]),
+  );
+  const topFamilies: FamilyCount[] = [...famAcc.entries()]
+    .map(([id, v]) => {
+      const meta = familyMeta[id];
+      return {
+        id,
+        label: meta?.label ?? id,
+        labelKo: meta?.labelKo ?? id,
+        count: v.count,
+        sample: v.sample
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 3)
+          .map((s) => s.name),
+      };
+    })
+    .filter((f) => f.count > 0)
+    .sort((a, b) => b.count - a.count);
 
   const total = base[0].total as number;
   const analyzed = feel[0].analyzed as number;
@@ -363,6 +447,7 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
       count: r.count as number,
     })),
     topAlbums: albums.map((r) => ({ name: r.name as string, count: r.count as number })),
+    topFamilies,
     audioFeel:
       analyzed > 0
         ? {

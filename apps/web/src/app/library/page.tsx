@@ -9,6 +9,7 @@ import {
   type AlbumDepth,
   type AudioFeelAgg,
   type Count,
+  type FamilyCount,
 } from "@/lib/library";
 import { AnalyzePanel } from "./AnalyzePanel";
 import { PreviewButton } from "./PreviewButton";
@@ -138,6 +139,16 @@ export default async function LibraryPage({
           locale={locale}
         />
       )}
+      {/* Family rollup — same signal as Top Genres, but bucketed into
+          the 18 top-level families. Sits above Top Genres so the user
+          gets the bird's-eye view ("you're 38% Pop / 22% Rock") before
+          the sub-genre detail. */}
+      <FamilyCard
+        title={t.familyTitle}
+        items={stats.topFamilies}
+        empty={t.familyEmpty}
+        locale={locale}
+      />
       <BarCard
         title={t.genreTitle}
         items={stats.topGenres}
@@ -499,6 +510,82 @@ function Pagination({
         </span>
       )}
     </nav>
+  );
+}
+
+/**
+ * 18-family genre rollup card. Same visual language as BarCard but the
+ * row label is the family name + a sample line showing the top 3
+ * sub-genres in that family (so the user can see "Pop" expands to
+ * "indie pop · bedroom pop · jangle pop" rather than wondering what
+ * the abstraction means). Family ids are stable across i18n; we just
+ * pick the localised label for display.
+ */
+function FamilyCard({
+  title,
+  items,
+  empty,
+  locale,
+}: {
+  title: string;
+  items: FamilyCount[];
+  empty: string;
+  locale: Locale;
+}) {
+  if (items.length === 0) {
+    return (
+      <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+        <h2 className="font-semibold">{title}</h2>
+        <p className="text-sm text-neutral-500">{empty}</p>
+      </section>
+    );
+  }
+  const max = Math.max(1, ...items.map((i) => i.count));
+  const totalCount = items.reduce((s, i) => s + i.count, 0);
+  // Hue rotation across families so each row's bar has its own colour —
+  // visually scans much faster than a wall of identical indigo. 18
+  // families × 20° step covers the wheel; saturation/lightness fixed
+  // so it stays in the dark-theme palette.
+  const hueFor = (i: number) => (i * 23) % 360;
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+      <h2 className="font-semibold">{title}</h2>
+      <div className="flex flex-col gap-1.5">
+        {items.map((it, idx) => {
+          const label = locale === "ko" ? it.labelKo : it.label;
+          const pct = Math.round((it.count / totalCount) * 100);
+          return (
+            <div key={it.id} className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="w-32 shrink-0 truncate text-neutral-300 sm:w-40">
+                  {label}
+                </span>
+                <div className="h-4 flex-1 overflow-hidden rounded bg-neutral-800">
+                  <div
+                    className="h-full"
+                    style={{
+                      width: `${(it.count / max) * 100}%`,
+                      backgroundColor: `hsl(${hueFor(idx)} 65% 55%)`,
+                    }}
+                  />
+                </div>
+                <span className="w-10 shrink-0 text-right text-neutral-500 tabular-nums">
+                  {it.count}
+                </span>
+                <span className="w-10 shrink-0 text-right text-[11px] tabular-nums text-neutral-600">
+                  {pct}%
+                </span>
+              </div>
+              {it.sample.length > 0 && (
+                <p className="ml-32 text-[11px] leading-tight text-neutral-600 sm:ml-40">
+                  {it.sample.join(" · ")}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

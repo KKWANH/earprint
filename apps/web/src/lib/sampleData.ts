@@ -69,6 +69,16 @@ export const SAMPLE_STATS: LibraryStats = {
     { name: "Be the Cowboy", count: 6 },
     { name: "Bloom", count: 5 },
   ],
+  topFamilies: [
+    { id: "pop", label: "Pop", labelKo: "팝", count: 171,
+      sample: ["indie pop", "bedroom pop", "jangle pop"] },
+    { id: "ambient_experimental", label: "Ambient / Experimental", labelKo: "앰비언트/실험",
+      count: 139, sample: ["dream pop", "shoegaze", "lo-fi"] },
+    { id: "rock", label: "Rock", labelKo: "록", count: 83,
+      sample: ["indie rock", "slowcore", "alternative rock"] },
+    { id: "folk", label: "Folk / Singer-Songwriter", labelKo: "포크/싱어송라이터",
+      count: 18, sample: ["indie folk"] },
+  ],
   audioFeel: {
     analyzed: 463,
     energy: 0.42,

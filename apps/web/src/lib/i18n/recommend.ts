@@ -96,6 +96,8 @@ const en = {
   bracketPatternCross: "🔀 Mixed modes",
   bracketPatternHint:
     "Random shuffles freely. Top picks pairs your highest-scoring recs against each other. Opposites pits the most against the least similar (high vs low scores). Mixed modes interleaves song-based with unheard-genre picks.",
+  bracketKeyboardHint: "← left · → right · Space play",
+  bracketFinalBanner: "🏆 FINAL — pick your winner",
 };
 
 const ko: typeof en = {
@@ -169,6 +171,8 @@ const ko: typeof en = {
   bracketChampionSub: "정말 좋아요로 저장됨. 준우승자들은 좋아요, 1라운드 탈락자는 패스로 기록됩니다.",
   bracketRestart: "새 토너먼트",
   bracketPatternTitle: "매칭 방식",
+  bracketKeyboardHint: "← 왼쪽 · → 오른쪽 · Space 재생",
+  bracketFinalBanner: "🏆 결승 — 우승곡을 골라주세요",
   bracketPatternRandom: "🎲 무작위",
   bracketPatternFavorites: "❤️ 최애끼리",
   bracketPatternOpposites: "⚡ 정반대끼리",

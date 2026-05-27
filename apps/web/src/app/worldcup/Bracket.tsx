@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
 import { recommendDict } from "@/lib/i18n/recommend";
@@ -378,6 +378,49 @@ export function Bracket({
   const left = bracket[pairIdx * 2]!;
   const right = bracket[pairIdx * 2 + 1]!;
   const pairsInRound = bracket.length / 2;
+  // "Remaining rounds" — 1 means the cards on screen are the final pair.
+  // Used to amp the visuals on the championship match (different bg,
+  // bigger banner, glow ring on the cards).
+  const remainingRounds = layout.totalRounds - round;
+  const isFinal = remainingRounds <= 1;
+
+  // ── Keyboard shortcut: ← votes left, → votes right. Same surface
+  // area as piku-style "이상형 월드컵" sites so muscle-memoried users
+  // can blast through a 64-track bracket without mousing. Refs hold
+  // the latest pick targets so the closure stays cheap (no React
+  // re-render churn re-attaching the listener on every state tick). ──
+  const leftRef = useRef<Rec | null>(left);
+  const rightRef = useRef<Rec | null>(right);
+  leftRef.current = left;
+  rightRef.current = right;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      // Don't hijack typing in inputs (textarea, custom comment box, etc.).
+      const tgt = e.target as HTMLElement | null;
+      if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable)) {
+        return;
+      }
+      if (busyRef.current) return;
+      if (e.key === "ArrowLeft" || e.key === "1") {
+        if (leftRef.current && rightRef.current) {
+          e.preventDefault();
+          pick(leftRef.current, rightRef.current);
+        }
+      } else if (e.key === "ArrowRight" || e.key === "2") {
+        if (leftRef.current && rightRef.current) {
+          e.preventDefault();
+          pick(rightRef.current, leftRef.current);
+        }
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // pick is defined in component scope; refs cover its inputs so we
+    // don't need it in deps. Empty deps = listener attached once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -387,23 +430,40 @@ export function Bracket({
         disabled={busy}
         locale={locale}
       />
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-semibold uppercase tracking-wider text-emerald-300">
-          {t.bracketRound(round, layout.totalRounds)}
+      {/* Final-round banner — much bigger than the regular round label.
+          Sets the "this matters" feeling that piku-style worldcups get
+          for free from their image-heavy cards but song cards otherwise
+          miss. */}
+      {isFinal ? (
+        <div className="rounded-xl border border-amber-400/40 bg-gradient-to-br from-amber-950/40 via-neutral-950 to-neutral-900 px-4 py-3 text-center">
+          <p className="text-base font-extrabold tracking-wide text-amber-300 sm:text-lg">
+            {t.bracketFinalBanner}
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-sm font-bold uppercase tracking-wider text-emerald-300">
+            {t.bracketRound(round, layout.totalRounds)}
+          </span>
+          <span className="text-neutral-500">
+            {t.bracketPairOf(pairIdx + 1, pairsInRound)}
+          </span>
+        </div>
+      )}
+      <p className="text-center text-xs text-neutral-400">
+        {t.bracketHint}
+        <span className="ml-2 hidden text-neutral-600 sm:inline">
+          · {t.bracketKeyboardHint}
         </span>
-        <span className="text-neutral-500">
-          {t.bracketPairOf(pairIdx + 1, pairsInRound)}
-        </span>
-      </div>
-      <p className="text-center text-xs text-neutral-400">{t.bracketHint}</p>
+      </p>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={`grid gap-3 sm:grid-cols-2 ${isFinal ? "sm:gap-5" : ""}`}>
         {renderCard
           ? renderCard(left, () => pick(left, right))
-          : <BracketCard rec={left} onPick={() => pick(left, right)} locale={locale} />}
+          : <BracketCard rec={left} onPick={() => pick(left, right)} locale={locale} finalRound={isFinal} />}
         {renderCard
           ? renderCard(right, () => pick(right, left))
-          : <BracketCard rec={right} onPick={() => pick(right, left)} locale={locale} />}
+          : <BracketCard rec={right} onPick={() => pick(right, left)} locale={locale} finalRound={isFinal} />}
       </div>
 
       <div className="flex items-center justify-between text-xs text-neutral-500">
@@ -608,10 +668,14 @@ function BracketCard({
   rec,
   onPick,
   locale,
+  finalRound,
 }: {
   rec: Rec;
   onPick: () => void;
   locale: Locale;
+  /** Set on the championship match — adds an amber glow + ring so the
+   *  final pair reads visibly different from every prior round. */
+  finalRound?: boolean;
 }) {
   const t = recommendDict(locale);
   const { playing, error: audioError, toggle } = useAudioPlayer(rec.deezerId);
@@ -658,10 +722,14 @@ function BracketCard({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onPick();
       }}
-      className={`group flex cursor-pointer flex-col gap-3 rounded-2xl border bg-neutral-900 p-4 transition-all ${
-        hover
-          ? "border-emerald-500/60 bg-emerald-500/5"
-          : "border-white/10"
+      className={`group flex cursor-pointer flex-col gap-3 rounded-2xl border bg-neutral-900 p-4 transition-all duration-150 ${
+        finalRound
+          ? hover
+            ? "border-amber-400/70 bg-amber-500/10 ring-2 ring-amber-400/30 scale-[1.02]"
+            : "border-amber-400/40 ring-1 ring-amber-400/15"
+          : hover
+            ? "border-emerald-500/60 bg-emerald-500/5 scale-[1.02]"
+            : "border-white/10"
       }`}
     >
       <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-neutral-800">
