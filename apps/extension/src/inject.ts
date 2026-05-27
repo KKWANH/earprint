@@ -183,35 +183,13 @@
         return rows[rows.length - 1] as HTMLElement | undefined;
       };
 
-      /** Remove rows that have scrolled well past the top of the viewport.
-       *  YT Music's virtualisation is conservative — for ~1,500-row
-       *  libraries it keeps the lot in the DOM after scrolling, which is
-       *  what eventually OOMs the renderer. We've already captured the
-       *  row's data into `seen`, so dropping the DOM node is safe (the
-       *  continuation pagination uses an internal token, not DOM state).
-       *  Keeps a buffer above the visible viewport so YT's own scroll
-       *  recyclers don't fight us. */
-      const REMOVE_BUFFER_PX = 2000; // ~30 rows of headroom above viewport
-      const cleanupOffscreen = () => {
-        const rows = document.querySelectorAll("ytmusic-responsive-list-item-renderer");
-        const scroller = findScroller();
-        const scrollTop = scroller.scrollTop;
-        let removed = 0;
-        for (let i = 0; i < rows.length; i++) {
-          const row = rows[i] as HTMLElement;
-          // offsetTop is relative to nearest positioned ancestor — for YT
-          // Music's playlist that's effectively the scroller. Close enough
-          // for the "is this row well above the viewport?" check.
-          if (row.offsetTop + row.offsetHeight < scrollTop - REMOVE_BUFFER_PX) {
-            row.remove();
-            removed++;
-          } else {
-            // Rows below threshold; the rest are even closer to viewport.
-            break;
-          }
-        }
-        return removed;
-      };
+      // (Previously had a cleanupOffscreen() that pruned scrolled-past
+      //  DOM nodes to fight renderer OOM on big libraries. Removed in
+      //  the May 2026 scrape stabilisation pass — it was racing with
+      //  the scrape phase that hadn't read those rows yet, causing
+      //  captured tracks to silently drop out of `seen`. YT's own
+      //  recycler handles big lists fine; the between-pass scroll-to-
+      //  top reset below covers the OOM concern.)
 
       // YouTube's "load more" sentinel. While this element exists the list
       // still has more pages; when it is gone the list has truly ended.
@@ -221,45 +199,64 @@
           "tp-yt-paper-spinner[active], tp-yt-paper-spinner-lite[active]",
         ) != null;
 
-      // ── Multi-pass scroll, redesigned around the failure modes we hit:
+      // ── Multi-pass scroll, redesigned around three real failure modes
+      //    testers reported (May 2026 revision):
       //
-      // 1. **YT silently stops paginating** around 1,400-1,500 rows on big
-      //    libraries. The 'still loading' sentinel may stay forever even
-      //    though no new rows ever come in. We need a hard wall-clock cap.
+      // 1. **Spinner stacking**: the previous loop's fixed 700 ms wait
+      //    while `moreToLoad()` was true could end before the in-flight
+      //    pagination actually resolved. The next scroll step then
+      //    triggered ANOTHER pagination request on top of the unresolved
+      //    one — testers reported "8 loading bars stacked on the page".
+      //    Fix: `waitForSpinner()` actively polls until the sentinel
+      //    clears (or a per-iter ceiling fires), THEN scrolls.
       //
-      // 2. **Renderer OOM**: the virtualised list keeps too much DOM at
-      //    once on big libraries and Chrome kills the tab ("Aw, snap!").
-      //    Doing a top-of-list ⇄ bottom-of-list cycle lets YT recycle
-      //    off-screen nodes between passes, releasing memory.
+      // 2. **Vanishing rows**: cleanupOffscreen() removed rows from the
+      //    DOM that were already above the viewport, but YT's virtualiser
+      //    sometimes hadn't fully populated `.data` on them yet, and our
+      //    scrape racing with the remove caused captured tracks to drop
+      //    out of `seen`. We removed the mid-pass cleanup entirely — the
+      //    between-pass scroll-to-top reset already gives YT enough room
+      //    to recycle on its own.
       //
-      // 3. **scrapeNow() on every step iterates the entire row list (O(N))**
-      //    — fine at 100 rows, painful at 1,500. Throttle DOM scraping to
-      //    once every ~1s. The fetch-intercept side (window.fetch hook
-      //    above) keeps capturing browse responses regardless.
+      // 3. **Mechanical cadence**: fixed stepPx + fixed sleep made the
+      //    page feel jerky and gave YT no chance to settle. Now the step
+      //    size shrinks when nothing new came in last iter (back-off) and
+      //    grows back when rows are flowing (forward-momentum). Sleep
+      //    base is also longer per-iter (320 ms → 500 ms) so the page
+      //    has time to breathe.
       //
-      // Up to 3 passes; bails early if a full pass adds zero rows.
+      // YT silently stops paginating around 1,400-1,500 rows on big
+      // libraries (the 'still loading' sentinel may stay forever even
+      // though no new rows ever come in), so we still need the hard
+      // wall-clock cap.
       const PASSES = 3;
       const PASS_STALL_MS = 8_000;    // no new rows for 8s ends a pass
-      const PASS_BAILOUT_MS = 35_000; // hard cap per pass
+      const PASS_BAILOUT_MS = 45_000; // hard cap per pass (bumped — slower cadence)
       const ATBOTTOM_FUZZ = 60;
       const SCRAPE_THROTTLE_MS = 900; // run scrapeNow at most once per second
+      const SPINNER_MAX_WAIT_MS = 3_000;  // wait at most this long for spinner clear
+      const SPINNER_POLL_MS = 120;        // how often to re-check spinner
 
       let lastScrapeAt = 0;
-      let lastCleanupAt = 0;
-      // DOM cleanup runs less often than scrape — every ~3s. More frequent
-      // cleanup risks fighting YT's own recycling logic; less frequent
-      // lets the DOM pile up again. 3s with 2000px buffer = ~30 rows of
-      // headroom which YT comfortably manages.
-      const CLEANUP_THROTTLE_MS = 3000;
+      // Throttle scrape only — DOM cleanup removed (was causing the
+      // "music disappearing" reports). YT's own virtualiser recycles
+      // off-screen rows fine on its own; the worst-case OOM is
+      // mitigated by the between-pass scroll-to-top reset below.
       const maybeScrape = () => {
         const now = Date.now();
         if (now - lastScrapeAt < SCRAPE_THROTTLE_MS) return;
         lastScrapeAt = now;
         scrapeNow();
-        if (now - lastCleanupAt > CLEANUP_THROTTLE_MS) {
-          lastCleanupAt = now;
-          const removed = cleanupOffscreen();
-          if (removed > 0) post({ kind: "scrapeCleanup", removed });
+      };
+
+      // Wait for the loading sentinel to clear OR for the ceiling to hit.
+      // Used between every scroll step so we never trigger pagination
+      // while a previous request is still in flight.
+      const waitForSpinner = async (): Promise<void> => {
+        const deadline = Date.now() + SPINNER_MAX_WAIT_MS;
+        while (Date.now() < deadline) {
+          if (!moreToLoad()) return;
+          await sleep(SPINNER_POLL_MS);
         }
       };
 
@@ -276,29 +273,58 @@
         // crashed the renderer mid-scroll on big libraries.
         findScroller().scrollTop = 0;
         window.scrollTo(0, 0);
-        await sleep(pass === 0 ? 900 : 1500);
+        await sleep(pass === 0 ? 1200 : 1800);
         maybeScrape();
 
         const passStart = Date.now();
         let passLastGrow = Date.now();
         let passLastSize = seen.size;
+        // Adaptive scroll step factor: starts at 0.45 of viewport, decays
+        // to 0.25 when nothing new comes in, grows back to 0.55 when
+        // rows are flowing. Total range stays "gentler than before" so
+        // YT's virtualiser keeps up.
+        let stepFactor = 0.45;
 
         while (Date.now() - passStart < PASS_BAILOUT_MS) {
           if (stopRequested) break;
+
+          // FIRST: drain any still-pending pagination. If we scroll
+          // while the spinner is still up YT happily queues another
+          // request on top of it — that's the "8 loading bars" symptom.
+          if (moreToLoad()) {
+            spinnerSeen = true;
+            await waitForSpinner();
+          }
           maybeScrape();
+
+          // Scroll a moderate step, NOT a viewport-jump. The smaller
+          // step is what keeps YT's virtualiser from dropping rows we
+          // haven't had a chance to read yet.
           const scroller = findScroller();
-          const stepPx = Math.max(360, scroller.clientHeight * 0.7);
+          const stepPx = Math.max(280, scroller.clientHeight * stepFactor);
           scroller.scrollTop += stepPx;
           window.scrollBy(0, stepPx);
 
-          const loading = moreToLoad();
-          if (loading) spinnerSeen = true;
-          await sleep(loading ? 700 : 280);
+          // Settle window after the scroll. Slightly longer than the
+          // old 280 ms minimum so the page can render the rows that
+          // just got requested by THIS scroll, before our next iter
+          // reads them.
+          await sleep(500);
           maybeScrape();
 
-          if (seen.size > passLastSize) {
+          // Adaptive step: did this scroll bring in anything new?
+          const grew = seen.size > passLastSize;
+          if (grew) {
             passLastSize = seen.size;
             passLastGrow = Date.now();
+            // Rows are flowing — keep the cadence comfortable. Don't
+            // accelerate past 0.55 because aggressive jumps reintroduce
+            // the spinner-stacking failure mode.
+            stepFactor = Math.min(0.55, stepFactor + 0.05);
+          } else {
+            // Nothing came in — back off so YT has more time per step
+            // to render. Bottoms out at 0.25 = ~25% of viewport.
+            stepFactor = Math.max(0.25, stepFactor - 0.05);
           }
           post({ kind: "scrapeProgress", count: seen.size });
 
@@ -308,6 +334,9 @@
             sc.scrollTop + sc.clientHeight >= sc.scrollHeight - ATBOTTOM_FUZZ;
           const stillLoading = moreToLoad();
 
+          // Half-stall nudge: scroll the last visible row into view to
+          // trigger another pagination request directly from YT's
+          // IntersectionObserver.
           if (stalledMs > PASS_STALL_MS / 2) {
             lastRow()?.scrollIntoView({ block: "end" });
           }
@@ -328,18 +357,26 @@
       post({ kind: "scrapePhase", phase: "settling" });
 
       // ── Settle pass — short and time-capped. Just gives YT one last
-      // chance to render anything that was about to come in. ──
-      const SETTLE_MAX_MS = 15_000;
+      // chance to render anything that was about to come in. Same
+      // spinner-drain discipline as the main loop so we don't queue
+      // pagination on top of pagination here either. ──
+      const SETTLE_MAX_MS = 18_000;
       const settleStart = Date.now();
       while (Date.now() - settleStart < SETTLE_MAX_MS) {
         if (stopRequested) break;
+        // Drain pending pagination FIRST so the bottom-jump below
+        // doesn't pile a fresh request on top of it.
+        if (moreToLoad()) {
+          spinnerSeen = true;
+          await waitForSpinner();
+        }
         const scroller = findScroller();
         scroller.scrollTop = scroller.scrollHeight;
         window.scrollTo(0, document.documentElement.scrollHeight);
         lastRow()?.scrollIntoView({ block: "end" });
-        const loading = moreToLoad();
-        if (loading) spinnerSeen = true;
-        await sleep(loading ? 1800 : 900);
+        // Slightly longer than the old 900 ms so YT can actually
+        // render whatever the scroll-to-bottom requested.
+        await sleep(1100);
         const before = seen.size;
         scrapeNow();
         post({ kind: "scrapeProgress", count: seen.size });
