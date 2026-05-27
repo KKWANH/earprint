@@ -34,7 +34,10 @@ export function ExcludeButton({
     <button
       onClick={go}
       disabled={busy}
-      className="shrink-0 rounded px-1.5 text-xs text-neutral-500 hover:text-white disabled:opacity-40"
+      // Small soft chip (not the old bare ✕ that read as "delete"). The
+      // bordered hover state makes the action feel reversible — which
+      // it literally is.
+      className="shrink-0 rounded-md border border-transparent px-1.5 py-0.5 text-[11px] text-neutral-500 hover:border-white/15 hover:bg-white/5 hover:text-neutral-200 disabled:opacity-40"
       title={restore ? t.excludeIncludeTitle : t.excludeExcludeTitle}
     >
       {restore ? t.excludeRestore : t.excludeMark}

@@ -17,6 +17,10 @@ export interface Rec {
   seedTrack: string | null;
   score: number | null;
   recType: "song" | "genre" | "unheard" | "indie";
+  /** 1–2 sentence "why this song matters" blurb. Null when not yet
+   *  generated — the Tournament card kicks off a lazy POST to
+   *  /api/recommend/describe on mount and renders the result inline. */
+  description: string | null;
 }
 
 /** "Why recommended" header styling per recommendation mode. */
@@ -62,7 +66,15 @@ export function Tournament({
   const [busy, setBusy] = useState(false);
   const [comment, setComment] = useState("");
   const [counts, setCounts] = useState({ rated, likes, dislikes });
-  const [history, setHistory] = useState<string[]>([]);
+  // Tracks the rating that was assigned to each previous card so undo can
+  // both reverse the server state AND restore the correct local counter
+  // (likes -1 vs dislikes -1 vs just rated -1 for pass/known).
+  const [history, setHistory] = useState<{ id: string; rating: Rating }[]>([]);
+  // Surfaced when /api/recommend/rate or the undo POST fails — the
+  // optimistic state change is rolled back and this banner explains why
+  // the user is still on the same card. Dismissable; auto-clears on the
+  // next successful action.
+  const [err, setErr] = useState<string | null>(null);
 
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const prefetch = useRef<Promise<unknown> | null>(null);
@@ -84,6 +96,7 @@ export function Tournament({
   async function commit(rating: Rating) {
     if (!current || busy) return;
     setBusy(true);
+    setErr(null);
     stopAudio();
     const dir =
       rating === "like"
@@ -94,16 +107,36 @@ export function Tournament({
             ? { x: -620, y: 0 }
             : { x: 0, y: 620 };
     setFlyOff(dir);
-    await fetch("/api/recommend/rate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: current.id, rating, comment }),
-    }).catch(() => {});
-    setHistory((h) => [...h, current.id]);
+
+    // Server first, optimistic UI second. If the rating doesn't persist
+    // (network error, 401 expired session, 5xx), the card flies off but
+    // never advances — we cancel the flyOff and surface an error so the
+    // user knows the local counter wouldn't agree with what the server
+    // sees on next refresh.
+    let ok = false;
+    try {
+      const res = await fetch("/api/recommend/rate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: current.id, rating, comment }),
+      });
+      ok = res.ok;
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      setErr(t.ratingFailed);
+      setFlyOff(null);
+      setBusy(false);
+      return;
+    }
+
+    setHistory((h) => [...h, { id: current.id, rating }]);
     setCounts((c) => ({
       rated: c.rated + 1,
       likes: c.likes + (rating === "like" || rating === "superlike" ? 1 : 0),
-      dislikes: c.dislikes + (rating === "dislike" || rating === "strong_dislike" ? 1 : 0),
+      dislikes:
+        c.dislikes + (rating === "dislike" || rating === "strong_dislike" ? 1 : 0),
     }));
     await new Promise((r) => setTimeout(r, 300));
     setComment("");
@@ -123,15 +156,37 @@ export function Tournament({
   async function undo() {
     if (history.length === 0 || busy || idx === 0) return;
     setBusy(true);
+    setErr(null);
     stopAudio();
-    const lastId = history[history.length - 1];
-    await fetch("/api/recommend/rate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: lastId, rating: "none" }),
-    }).catch(() => {});
+    const last = history[history.length - 1]!;
+
+    let ok = false;
+    try {
+      const res = await fetch("/api/recommend/rate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: last.id, rating: "none" }),
+      });
+      ok = res.ok;
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      setErr(t.undoFailed);
+      setBusy(false);
+      return;
+    }
+
+    // Reverse the correct counter — likes / dislikes / rated only — based
+    // on the rating we recorded when this card was originally rated.
+    const wasLikePositive = last.rating === "like" || last.rating === "superlike";
+    const wasDislike = last.rating === "dislike" || last.rating === "strong_dislike";
     setHistory((h) => h.slice(0, -1));
-    setCounts((c) => ({ ...c, rated: Math.max(0, c.rated - 1) }));
+    setCounts((c) => ({
+      rated: Math.max(0, c.rated - 1),
+      likes: Math.max(0, c.likes - (wasLikePositive ? 1 : 0)),
+      dislikes: Math.max(0, c.dislikes - (wasDislike ? 1 : 0)),
+    }));
     setDrag(null);
     setFlyOff(null);
     setComment("");
@@ -253,6 +308,26 @@ export function Tournament({
         {t.countsRated} {counts.rated} · 👍 {counts.likes} · 👎 {counts.dislikes}
       </p>
 
+      {/* Rollback notice — appears when the server rejected the last
+          rating / undo attempt. The card is still on screen because the
+          optimistic state change was reverted; tapping Dismiss just
+          hides the banner. */}
+      {err && (
+        <div
+          role="alert"
+          className="flex w-full max-w-sm items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-950/40 px-3 py-2 text-xs leading-relaxed text-amber-200"
+        >
+          <span aria-hidden>⚠</span>
+          <span className="flex-1">{err}</span>
+          <button
+            onClick={() => setErr(null)}
+            className="shrink-0 rounded px-1 py-0.5 text-amber-200/70 hover:bg-amber-900/40 hover:text-amber-100"
+          >
+            {t.dismiss}
+          </button>
+        </div>
+      )}
+
       {/* card */}
       <div className="relative h-[min(33rem,62vh)] w-full max-w-sm select-none">
         <div className="absolute inset-x-3 top-3 bottom-0 rounded-2xl bg-white/5" />
@@ -271,9 +346,13 @@ export function Tournament({
             <span className={`shrink-0 font-medium ${hd.fg}`}>
               {HEADER_LABEL[current.recType] ?? HEADER_LABEL.song}
             </span>
+            {/* When the recommender attached a seed track, prepend the
+                connective ("via" / "기반:") so the chip reads as a
+                sentence-continuation of the header label instead of a
+                bare title that looks unrelated. */}
             {current.seedTrack && (
               <span className="ml-auto min-w-0 truncate rounded-full bg-white/10 px-2 py-0.5 text-xs text-neutral-300">
-                {current.seedTrack}
+                {t.headerSeedPrefix} {current.seedTrack}
               </span>
             )}
             {current.recType === "song" && pct != null && (
@@ -330,6 +409,8 @@ export function Tournament({
 
         </div>
       </div>
+
+      <DescriptionBlock key={current.id} rec={current} locale={locale} />
 
       <p className="text-xs text-neutral-600">{t.swipeHint}</p>
 
@@ -406,5 +487,54 @@ function RateBtn({
     >
       {children}
     </button>
+  );
+}
+
+/** "Why this song matters" block. Renders the cached description if the
+ *  server already has one, otherwise lazily POSTs to /api/recommend/describe
+ *  on mount and shows the result. Hidden when Gemini returns nothing
+ *  (rare niche tracks the model genuinely doesn't know) so the card
+ *  doesn't show an empty container. */
+function DescriptionBlock({ rec, locale }: { rec: Rec; locale: Locale }) {
+  const [text, setText] = useState<string | null>(rec.description);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (text || loading) return;
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const res = await fetch("/api/recommend/describe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: rec.id }),
+        });
+        if (!res.ok || cancelled) return;
+        const d = (await res.json()) as {
+          description?: string | null;
+          en?: string | null;
+          ko?: string | null;
+        };
+        // Prefer locale-matched text when the endpoint returns both.
+        const localed = locale === "ko" ? d.ko : d.en;
+        const final = localed?.trim() || d.description?.trim() || null;
+        if (!cancelled && final) setText(final);
+      } catch {
+        /* swallow — block stays hidden */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [rec.id, locale, text, loading]);
+
+  if (!text && !loading) return null;
+  return (
+    <div className="w-full max-w-sm rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs leading-relaxed text-neutral-300">
+      {text ?? <span className="text-neutral-500">⋯</span>}
+    </div>
   );
 }

@@ -1,80 +1,16 @@
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
 import { CHROME_WEB_STORE_URL } from "@/lib/constants";
-import { getDict, type Locale } from "@/lib/i18n";
+import { getDict } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n-server";
-import { PersonaCard } from "@/components/PersonaCard";
+import { ALL_ZODIACS } from "@/lib/musicZodiac";
 
-/** Illustrative personas for the landing-page gallery (not real users). */
-const SAMPLE_PERSONAS: Record<
-  Locale,
-  { persona: { emoji: string; archetype: string; name: string; tagline: string }; score: number; percentile: number | null }[]
-> = {
-  en: [
-    {
-      persona: {
-        emoji: "🌃",
-        archetype: "City-pop dreamer",
-        name: "Midnight City-Pop Dreamer",
-        tagline: "Neon-lit nostalgia on a late-night drive.",
-      },
-      score: 78,
-      percentile: 14,
-    },
-    {
-      persona: {
-        emoji: "🌫️",
-        archetype: "Shoegaze romantic",
-        name: "Reverb-Drenched Romantic",
-        tagline: "Feelings turned all the way up, vocals all the way down.",
-      },
-      score: 86,
-      percentile: 6,
-    },
-    {
-      persona: {
-        emoji: "🎐",
-        archetype: "Lo-fi wanderer",
-        name: "Lo-fi Afternoon Wanderer",
-        tagline: "Soft beats for a slow, unhurried world.",
-      },
-      score: 61,
-      percentile: null,
-    },
-  ],
-  ko: [
-    {
-      persona: {
-        emoji: "🌃",
-        archetype: "시티팝 드리머",
-        name: "심야의 시티팝 드리머",
-        tagline: "네온 불빛 아래 늦은 밤 드라이브의 노스탤지어.",
-      },
-      score: 78,
-      percentile: 14,
-    },
-    {
-      persona: {
-        emoji: "🌫️",
-        archetype: "슈게이즈 로맨티스트",
-        name: "리버브에 잠긴 로맨티스트",
-        tagline: "감정은 끝까지 올리고, 보컬은 안개 속으로.",
-      },
-      score: 86,
-      percentile: 6,
-    },
-    {
-      persona: {
-        emoji: "🎐",
-        archetype: "로파이 방랑자",
-        name: "로파이 오후의 산책자",
-        tagline: "느리고 여유로운 세계를 위한 부드러운 비트.",
-      },
-      score: 61,
-      percentile: null,
-    },
-  ],
-};
+// Four zodiac signs shown on the landing as concrete examples of the
+// archetype output. Picked for genre breadth + visual variety: Aries
+// (hip-hop), Virgo (jazz/classical), Capricorn (rock), Pisces (ambient/
+// shoegaze). Pulls live from ALL_ZODIACS so any rename / re-archetype
+// edit ripples to the landing automatically.
+const SHOWCASE_SIGNS = ["aries", "virgo", "capricorn", "pisces"] as const;
 
 export default async function LandingPage() {
   const locale = await getLocale();
@@ -106,7 +42,7 @@ export default async function LandingPage() {
         <p className="mt-3 max-w-xl text-sm leading-relaxed text-neutral-400">
           {t.intro}
         </p>
-        <div className="mt-7">
+        <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:gap-3">
           {signedIn ? (
             <Link
               href="/library"
@@ -126,15 +62,18 @@ export default async function LandingPage() {
               </button>
             </form>
           )}
+          {/* Secondary CTA — see a finished report before committing to sign-in.
+              Promoted from a small text link so the "no commitment" reassurance
+              shares the visual weight of the primary auth button. */}
+          {!signedIn && (
+            <Link
+              href="/demo"
+              className="inline-block rounded-xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-colors hover:border-white/40 hover:bg-white/10"
+            >
+              {t.ctaDemo}
+            </Link>
+          )}
         </div>
-        {!signedIn && (
-          <Link
-            href="/demo"
-            className="mt-3 text-xs text-neutral-400 underline-offset-2 hover:text-white hover:underline"
-          >
-            {t.ctaDemo}
-          </Link>
-        )}
         {signedIn && (
           <p className="mt-3 text-xs text-neutral-500">
             {t.signedInAs} {session!.user!.email}
@@ -175,29 +114,75 @@ export default async function LandingPage() {
         </p>
       </section>
 
-      {/* sample persona gallery */}
+      {/* artist map showcase — promoted above personas because it's the
+          most visually distinctive output and the strongest reason to come
+          back to Earprint after the first analysis. Full-width, single
+          block on purpose so it reads as a hero feature, not a card. */}
+      <section className="overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900">
+        <div className="grid items-center gap-8 p-6 sm:p-10 lg:grid-cols-[1fr_1.1fr] lg:gap-12">
+          <div className="flex flex-col gap-4">
+            <span className="w-fit rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+              {t.mapHeroEyebrow}
+            </span>
+            <h2 className="text-2xl font-bold leading-tight sm:text-3xl">
+              {t.mapHeroTitle}
+            </h2>
+            <p className="text-sm leading-relaxed text-neutral-300 sm:text-base">
+              {t.mapHeroBody}
+            </p>
+            <Link
+              href="/demo"
+              className="mt-2 inline-flex w-fit items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
+            >
+              {t.mapHeroCta}
+            </Link>
+          </div>
+          <MapPreview />
+        </div>
+      </section>
+
+      {/* zodiac showcase — replaces the older "Midnight City-Pop Dreamer"
+          fictional-persona gallery. Now uses real archetypes from the
+          music-zodiac system, so the landing reflects the actual product
+          output. Each card pulls live from ALL_ZODIACS — rename a
+          blurb in musicZodiac.ts, this updates. */}
       <section className="flex flex-col gap-6">
         <div className="text-center">
-          <h2 className="text-xl font-bold sm:text-2xl">{t.galleryTitle}</h2>
+          <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+            {t.zodiacHeroEyebrow}
+          </span>
+          <h2 className="mt-3 text-xl font-bold sm:text-2xl">{t.zodiacHeroTitle}</h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-neutral-400">
-            {t.gallerySubtitle}
+            {t.zodiacHeroBody}
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {SAMPLE_PERSONAS[locale].map((s) => (
-            <PersonaCard
-              key={s.persona.name}
-              persona={s.persona}
-              score={s.score}
-              percentile={s.percentile}
-              locale={locale}
-            />
-          ))}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {SHOWCASE_SIGNS.map((sign) => {
+            const z = ALL_ZODIACS.find((zz) => zz.sign === sign)!;
+            const name = locale === "ko" ? z.nameKo : z.nameEn;
+            const archetype = locale === "ko" ? z.archetypeKo : z.archetypeEn;
+            const blurb = locale === "ko" ? z.blurbKo : z.blurbEn;
+            return (
+              <div
+                key={sign}
+                className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-amber-950/30 via-neutral-950 to-neutral-900 p-5 text-center"
+              >
+                <span className="font-serif text-5xl leading-none text-amber-300 drop-shadow-[0_0_18px_rgba(252,211,77,0.35)]">
+                  {z.symbol}
+                </span>
+                <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-white/55">
+                  {name}
+                </p>
+                <h3 className="text-lg font-extrabold leading-tight">{archetype}</h3>
+                <p className="text-xs leading-relaxed text-white/65">{blurb}</p>
+              </div>
+            );
+          })}
         </div>
         <div className="text-center">
           <Link
             href="/demo"
-            className="text-sm text-emerald-400 underline-offset-2 hover:text-emerald-300 hover:underline"
+            className="text-sm text-amber-300 underline-offset-2 hover:text-amber-200 hover:underline"
           >
             {t.ctaDemo}
           </Link>
@@ -267,6 +252,95 @@ export default async function LandingPage() {
       </section>
 
     </main>
+  );
+}
+
+/**
+ * Static preview of the artist map for the landing-page showcase. Not a real
+ * render of any user's data — a hand-laid scatter of nodes designed to read
+ * as "this is what your taste looks like once it's mapped". Genre-coloured
+ * solid circles + dashed "ghost" outlines (suggesting unheard recommendations)
+ * + faint similarity edges. Decorative only; the live component lives in
+ * /map/ArtistMap.tsx.
+ */
+function MapPreview() {
+  // Hand-tuned positions clustered by colour so the result reads as
+  // "communities of related artists" rather than random noise.
+  const nodes = [
+    { x: 118, y: 78, r: 18, c: "#34d399" }, // emerald cluster (e.g. indie pop)
+    { x: 152, y: 58, r: 10, c: "#6ee7b7" },
+    { x: 92, y: 112, r: 8, c: "#6ee7b7" },
+    { x: 142, y: 108, r: 14, c: "#34d399" },
+    { x: 238, y: 138, r: 22, c: "#fbbf24" }, // amber cluster (e.g. pop)
+    { x: 212, y: 168, r: 12, c: "#fbbf24" },
+    { x: 270, y: 112, r: 10, c: "#fde68a" },
+    { x: 338, y: 88, r: 16, c: "#22d3ee" }, // cyan cluster (e.g. electronic)
+    { x: 370, y: 66, r: 8, c: "#22d3ee" },
+    { x: 314, y: 116, r: 11, c: "#67e8f9" },
+    { x: 198, y: 218, r: 14, c: "#c084fc" }, // violet cluster (e.g. K-pop)
+    { x: 232, y: 198, r: 9, c: "#c084fc" },
+    { x: 390, y: 184, r: 12, c: "#f87171" }, // rose outlier (e.g. hip-hop)
+  ];
+  // Ghost nodes — represent "unheard related artists" the user could add.
+  const ghosts = [
+    { x: 180, y: 132, r: 10 },
+    { x: 296, y: 174, r: 8 },
+    { x: 372, y: 138, r: 9 },
+  ];
+  // Edges — within-cluster ties (strong) plus a couple of cross-cluster bridges.
+  const edges: [number, number][] = [
+    [0, 1], [0, 3], [1, 3], [2, 0], [3, 4],
+    [4, 5], [4, 6], [4, 7], [4, 10], [5, 10],
+    [7, 8], [7, 9], [9, 6], [10, 11], [12, 7],
+  ];
+  return (
+    <div className="relative aspect-[16/10] w-full overflow-hidden rounded-xl border border-white/5 bg-neutral-950/60">
+      <svg viewBox="0 0 480 280" className="absolute inset-0 h-full w-full">
+        {edges.map(([a, b], i) => (
+          <line
+            key={i}
+            x1={nodes[a]!.x}
+            y1={nodes[a]!.y}
+            x2={nodes[b]!.x}
+            y2={nodes[b]!.y}
+            stroke="#ffffff"
+            strokeOpacity="0.12"
+            strokeWidth="1"
+          />
+        ))}
+        {ghosts.map((g, i) => {
+          const nearest = nodes[i * 4 % nodes.length]!;
+          return (
+            <line
+              key={`gh-${i}`}
+              x1={g.x}
+              y1={g.y}
+              x2={nearest.x}
+              y2={nearest.y}
+              stroke="#ffffff"
+              strokeOpacity="0.18"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+            />
+          );
+        })}
+        {nodes.map((n, i) => (
+          <circle key={i} cx={n.x} cy={n.y} r={n.r} fill={n.c} fillOpacity="0.9" />
+        ))}
+        {ghosts.map((g, i) => (
+          <circle
+            key={`gn-${i}`}
+            cx={g.x}
+            cy={g.y}
+            r={g.r}
+            fill="none"
+            stroke="#ffffff"
+            strokeOpacity="0.45"
+            strokeDasharray="2 2"
+          />
+        ))}
+      </svg>
+    </div>
   );
 }
 

@@ -93,3 +93,33 @@ export async function getLibrarySummary(
     })),
   };
 }
+
+/** Persisted telemetry from the user's most recent /api/sync call. Null
+ *  when the user has never synced from the new (post-CRIT-2) extension
+ *  build that populates the diagnostics. */
+export interface LastSyncStatus {
+  at: string;
+  complete: boolean | null;
+  captured: number | null;
+  expected: number | null;
+  removed: number | null;
+}
+
+export async function getLastSyncStatus(
+  userId: string,
+): Promise<LastSyncStatus | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT last_sync_at, last_sync_complete, last_sync_captured,
+           last_sync_expected, last_sync_removed
+    FROM users WHERE id = ${userId}`;
+  const r = rows[0];
+  if (!r?.last_sync_at) return null;
+  return {
+    at: r.last_sync_at as string,
+    complete: (r.last_sync_complete as boolean | null) ?? null,
+    captured: (r.last_sync_captured as number | null) ?? null,
+    expected: (r.last_sync_expected as number | null) ?? null,
+    removed: (r.last_sync_removed as number | null) ?? null,
+  };
+}

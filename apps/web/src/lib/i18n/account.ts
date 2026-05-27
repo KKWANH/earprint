@@ -74,7 +74,7 @@ const en = {
   // DSAR export
   exportTitle: "Download my data",
   exportDesc:
-    "Get a JSON file with everything Earprint stores about you — profile fields, synced tracks, AI analysis, ratings, plan state. Useful before deleting your account.",
+    "One-click JSON export of every row Earprint stores tied to your account. Satisfies GDPR Articles 15 (access) + 20 (portability). Contents: account fields (email, display name, plan, consent timestamps), every synced track (title / artist / album / videoId / liked position), AI analysis results, ratings + comments, recommendation history, Music Zodiac match, and Taste DNA inputs. Excludes anonymous infra telemetry (request logs, usage counters). For large libraries the file may be a few MB; the browser may take a moment to assemble it.",
   exportButton: "Download (JSON)",
   exportPreparing: "Preparing…",
 
@@ -88,8 +88,11 @@ const en = {
   dangerDesc:
     "Permanently delete your account and all associated data — liked tracks, analyses, recommendations, AI profile, share links, everything. This cannot be undone.",
   deleteAccount: "Delete my account & data",
-  deleteConfirmWarn: "This is permanent and cannot be undone. Are you sure?",
-  deleteConfirmYes: "Yes, delete everything",
+  deleteConfirmWarn:
+    "This is permanent. Every row tied to your account — synced tracks, AI analyses, ratings, recommendations, profile, share links, payment state — is removed in the same transaction. There is no undo, and we cannot restore deleted accounts from backups. We recommend downloading your data first.",
+  deleteTypeToConfirm: "Type DELETE to confirm",
+  deleteTypePlaceholder: "DELETE",
+  deleteConfirmYes: "Delete everything",
   deleteCancel: "Cancel",
 
   // Footer links
@@ -162,7 +165,7 @@ const ko: typeof en = {
 
   exportTitle: "내 데이터 다운로드",
   exportDesc:
-    "Earprint 가 저장한 모든 것 — 프로필 필드·동기화 곡·AI 분석·평가·플랜 상태 — 을 JSON 으로 받습니다. 계정 삭제 전에 받아두면 좋습니다.",
+    "Earprint 가 이용자 계정에 묶여 저장하는 모든 행을 JSON 한 번에 내려받습니다. GDPR 제15조(열람) + 제20조(이동성) 충족. 포함: 계정 필드(이메일·표시 이름·플랜·동의 시각), 동기화된 모든 곡(곡명·아티스트·앨범·videoId·좋아요 위치), AI 분석 결과, 평가·코멘트, 추천 기록, Music Zodiac 매칭 결과, Taste DNA 입력값. 제외: 익명 인프라 텔레메트리(요청 로그·사용량 카운터). 라이브러리가 크면 파일이 수 MB 가 될 수 있고 브라우저가 잠시 모으는 시간이 필요합니다.",
   exportButton: "다운로드 (JSON)",
   exportPreparing: "준비 중…",
 
@@ -174,8 +177,11 @@ const ko: typeof en = {
   dangerDesc:
     "계정과 모든 데이터(좋아요 곡·분석·추천·AI 프로필·공유 링크)를 영구 삭제합니다. 되돌릴 수 없습니다.",
   deleteAccount: "내 계정·데이터 삭제",
-  deleteConfirmWarn: "영구 삭제되며 되돌릴 수 없습니다. 정말 삭제할까요?",
-  deleteConfirmYes: "네, 전부 삭제",
+  deleteConfirmWarn:
+    "영구 삭제입니다. 동기화된 곡·AI 분석·평가·추천·프로필·공유 링크·결제 상태 모두 동일 트랜잭션에서 함께 삭제됩니다. 되돌릴 수 없으며 백업에서도 복원할 수 없습니다. 먼저 데이터를 내려받기를 권장합니다.",
+  deleteTypeToConfirm: "확인을 위해 DELETE 를 입력하세요",
+  deleteTypePlaceholder: "DELETE",
+  deleteConfirmYes: "전부 삭제",
   deleteCancel: "취소",
 
   privacy: "개인정보처리방침",

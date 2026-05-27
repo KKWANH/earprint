@@ -11,6 +11,7 @@ const en = {
   statAlbumDepth: "Album immersion",
   topArtistsTitle: "Most-liked artists",
   topArtistsEmpty: "No data yet.",
+  recentArtistsTitle: "Currently into",
   genreTitle: "Genre distribution",
   genreEmpty: "Run an analysis to fill in genres.",
   viewAllGenres: "View all genres →",
@@ -43,13 +44,13 @@ const en = {
   analyzeLoading: "Track analysis — loading…",
   analyzeTitle: "Track analysis",
   analyzeDesc:
-    "Songs are enriched via Deezer, then Gemini precisely analyzes genre, mood and audio characteristics.",
+    "Two-step pipeline: each track is matched against music databases for canonical metadata, then Gemini estimates genres, moods and audio feel. You can close this tab — the job keeps running in the background.",
   analyzeComplete: "Done",
   analyzeStop: "Stop",
   analyzeResume: "Resume",
   analyzeStart: "Start analysis",
-  phaseEnrich: "1/2 · Metadata enrichment (Deezer)",
-  phaseAi: "2/2 · AI deep analysis (genre · mood · audio characteristics)",
+  phaseEnrich: "Step 1 of 2 · Matching tracks with music databases (Deezer · Last.fm)",
+  phaseAi: "Step 2 of 2 · Estimating genres, moods and audio feel for each track",
   phaseDone: "Done",
   progressTracks: (done: string, total: string, pct: number) =>
     `${done} / ${total} tracks (${pct}%)`,
@@ -74,12 +75,47 @@ const en = {
   reportSending: "Sending…",
   reportResend: "Resend email",
   // ExcludeButton
-  excludeIncludeTitle: "Include in analysis again",
-  excludeExcludeTitle: "Exclude from analysis",
+  excludeIncludeTitle:
+    "Include this artist in stats again. The tracks were never removed from your library — only filtered out of the top-artists / genres / moods rollups.",
+  excludeExcludeTitle:
+    "Hide this artist from stats. Their tracks stay in your library and analysis history; they just stop counting toward top-artists / genres / moods aggregates and recommendation seeds. Reversible from the Excluded section below.",
   excludeRestore: "Restore",
-  excludeMark: "✕",
+  excludeMark: "Hide",
   // PreviewButton
   previewTitle: "30-second preview",
+  // Data confidence rollup — header line above the stats grid. Coverage
+  // is `enriched/total`. Confidence bucket maps to coverage:
+  //   ≥95% → high · 70–94% → medium · <70% → low.
+  // The bucket name is rendered in colour so the user gets the gist at a
+  // glance; the parenthetical numbers let them dig in.
+  confidenceLabel: "Data confidence",
+  confidenceHigh: "high",
+  confidenceMedium: "medium",
+  confidenceLow: "low",
+  confidenceBuilding: "building (not analyzed yet)",
+  confidenceSummary: (liked: string, analyzed: string, pct: number) =>
+    `${liked} liked · ${analyzed} analyzed (${pct}%)`,
+  // Album-immersion interpretation — rendered under the Album immersion
+  // % stat. The number alone is unintuitive ("is 35% high or low?");
+  // these phrases anchor it to listener behaviour. Buckets sit at 15%
+  // and 35% to match the natural split between singles-only / mixed /
+  // album-listener listening styles.
+  albumImmersionSingles: "You mostly collect individual tracks rather than full albums.",
+  albumImmersionMixed:
+    "You mix album-deep listening with one-off picks — some albums caught you, some songs stand alone.",
+  albumImmersionDeep: (deepN: number) =>
+    `You sit with full albums — most of your likes come from ${deepN.toLocaleString()} albums you've genuinely lived in.`,
+  // Audio feel one-line interpretation by axis + value. Each axis returns
+  // a short read of where the listener sits on that spectrum.
+  feelEnergyLow: "Calmer end — you reach for music that settles you down.",
+  feelEnergyMid: "Comfortable middle — energy depends on the song, not a fixed mood.",
+  feelEnergyHigh: "Hot end — you favour music with drive and impact.",
+  feelTempoLow: "Slower-paced listening — ballads, downtempo, atmospheric.",
+  feelTempoMid: "Mid-tempo home — flexible across pop, rock, indie speeds.",
+  feelTempoHigh: "Faster pulse — dance, punk, drum-led tracks land hardest.",
+  feelAcousticLow: "Electronic-leaning sound — synths, programmed beats, processed textures.",
+  feelAcousticMid: "Hybrid sound palette — acoustic and electronic share the room.",
+  feelAcousticHigh: "Acoustic-forward — voices and live instruments dominate.",
   dataDisclaimer:
     "Stats are derived from your YouTube Music library — track matching and genre/mood data are best-effort, so figures are approximate.",
   dangerZoneTitle: "Delete account",
@@ -101,6 +137,7 @@ const ko: typeof en = {
   statAlbumDepth: "앨범 몰입도",
   topArtistsTitle: "주요 아티스트",
   topArtistsEmpty: "데이터 없음.",
+  recentArtistsTitle: "요즘 자주 듣는 아티스트",
   genreTitle: "장르 분포",
   genreEmpty: "분석을 돌리면 채워집니다.",
   viewAllGenres: "전체 장르 보기 →",
@@ -131,13 +168,13 @@ const ko: typeof en = {
   analyzeLoading: "곡 분석 불러오는 중…",
   analyzeTitle: "곡 분석",
   analyzeDesc:
-    "Deezer 메타데이터를 먼저 채우고, Gemini 가 장르·무드·오디오 특성을 분석합니다.",
+    "두 단계 파이프라인: 먼저 음악 DB 에서 곡의 표준 메타데이터를 매칭하고, 다음으로 Gemini 가 장르·무드·오디오 특성을 추정합니다. 창을 닫아도 백그라운드에서 계속 진행됩니다.",
   analyzeComplete: "완료",
   analyzeStop: "중지",
   analyzeResume: "이어서 시작",
   analyzeStart: "분석 시작",
-  phaseEnrich: "1/2 · 메타데이터 보강 (Deezer)",
-  phaseAi: "2/2 · AI 정밀 분석 (장르 · 무드 · 오디오 특성)",
+  phaseEnrich: "1/2단계 · 곡을 음악 DB(Deezer · Last.fm)와 매칭하는 중",
+  phaseAi: "2/2단계 · 곡별 장르·무드·오디오 특성을 추정하는 중",
   phaseDone: "완료",
   progressTracks: (done: string, total: string, pct: number) =>
     `${done} / ${total}곡 (${pct}%)`,
@@ -158,11 +195,34 @@ const ko: typeof en = {
   reportFail: "❌ 발송 실패. 잠시 후 다시 시도하세요.",
   reportSending: "보내는 중…",
   reportResend: "메일 다시 보내기",
-  excludeIncludeTitle: "분석에 다시 포함",
-  excludeExcludeTitle: "분석에서 제외",
+  excludeIncludeTitle:
+    "이 아티스트를 다시 통계에 포함합니다. 곡 자체는 처음부터 라이브러리에서 제거되지 않았고, top-아티스트/장르/무드 집계에서만 빠져 있었습니다.",
+  excludeExcludeTitle:
+    "이 아티스트를 통계에서 숨깁니다. 곡은 라이브러리와 분석 기록에 그대로 남고, top-아티스트/장르/무드 집계와 추천 시드에서만 제외됩니다. 아래 '제외된 아티스트' 섹션에서 언제든 복원할 수 있습니다.",
   excludeRestore: "복원",
-  excludeMark: "✕",
+  excludeMark: "숨김",
   previewTitle: "30초 미리듣기",
+  confidenceLabel: "데이터 신뢰도",
+  confidenceHigh: "높음",
+  confidenceMedium: "보통",
+  confidenceLow: "낮음",
+  confidenceBuilding: "준비 중 (아직 분석 안 됨)",
+  confidenceSummary: (liked: string, analyzed: string, pct: number) =>
+    `좋아요 ${liked} · 분석 완료 ${analyzed} (${pct}%)`,
+  albumImmersionSingles: "주로 앨범보다 개별 곡 단위로 모으는 편이에요.",
+  albumImmersionMixed:
+    "앨범을 깊게 들은 것과 한 곡씩 고른 것이 섞여 있어요 — 어떤 앨범은 통째로 꽂혔고, 어떤 곡은 그 자체로 살아남았어요.",
+  albumImmersionDeep: (deepN: number) =>
+    `앨범에 머무는 편이에요 — 좋아요 대부분이 깊게 파고든 ${deepN.toLocaleString()}장의 앨범에서 나옵니다.`,
+  feelEnergyLow: "잔잔한 쪽 — 마음을 가라앉히는 음악을 찾습니다.",
+  feelEnergyMid: "중간 자리 — 곡에 따라 에너지가 달라지는 유연한 취향.",
+  feelEnergyHigh: "에너지 높은 쪽 — 추진력과 임팩트 있는 사운드를 선호.",
+  feelTempoLow: "느린 호흡 — 발라드·다운템포·앰비언트 위주.",
+  feelTempoMid: "중간 템포 홈 — 팝·록·인디 전반에 잘 맞는 속도.",
+  feelTempoHigh: "빠른 비트 — 댄스·펑크·드럼 중심 트랙이 더 잘 들어옵니다.",
+  feelAcousticLow: "전자음 쪽 — 신스·프로그래밍 비트·가공된 텍스처 선호.",
+  feelAcousticMid: "혼합 사운드 — 어쿠스틱과 전자음이 균형 잡혀 있어요.",
+  feelAcousticHigh: "어쿠스틱 쪽 — 목소리·생악기가 중심.",
   dataDisclaimer:
     "통계는 YouTube Music 라이브러리에서 가져온 어림값입니다. 곡 매칭·장르·무드 데이터에 한계가 있어 정확하지 않을 수 있습니다.",
   dangerZoneTitle: "계정 삭제",

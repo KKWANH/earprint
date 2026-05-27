@@ -42,11 +42,21 @@ export default async function GuidePage() {
         </p>
       </header>
 
-      {/* Video tutorial slot. Kept as a placeholder until a real walkthrough
-          is recorded — the box reserves the layout space so the page doesn't
-          jump when it's filled in. */}
-      <section className="flex aspect-video items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/[0.02] text-sm text-neutral-500">
-        🎬 {t.videoComing}
+      {/* "Why an extension?" card — replaced the old empty video-walkthrough
+          placeholder. That placeholder read as a half-finished page and gave
+          no value; the most common drop-off question at the install step is
+          "wait, why do I need to install a browser extension to read my own
+          liked songs?", and answering it inline directly converts skeptics
+          (the YouTube Music API gap, the read-only nature, what's actually
+          sent). The reassurance text is duplicated near the install CTA on
+          the landing page — duplication is intentional. */}
+      <section className="rounded-2xl border border-indigo-500/20 bg-indigo-950/20 p-5 sm:p-6">
+        <h2 className="text-base font-bold text-indigo-200">
+          {t.whyExtensionTitle}
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-indigo-100/85">
+          {t.whyExtensionBody}
+        </p>
       </section>
 
       <ol className="flex flex-col gap-5">

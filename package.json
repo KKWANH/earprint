@@ -1,5 +1,5 @@
 {
-  "name": "playlist-analyzer",
+  "name": "earprint",
   "private": true,
   "packageManager": "pnpm@9.12.0",
   "engines": {

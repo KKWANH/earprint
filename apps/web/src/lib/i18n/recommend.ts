@@ -2,15 +2,22 @@ import type { Locale } from "../i18n";
 
 const en = {
   loginGoogle: "Sign in with Google",
-  pageTitle: "Recommendation World Cup",
+  pageTitle: "Recommendations",
   pageIntro:
-    "Listen to recommendations and rate them like/pass. Likes and songs you already know are added to your library; artists you pass on are excluded from future recommendations.",
+    "Listen and rate. Liked tracks land in your library; passes drop the artist from future picks. Want a bracket-style vote-off instead? → /worldcup",
 
-  // HEADER labels (why-recommended strip)
-  headerSong: "Similar to songs you love",
-  headerGenre: "Your core genres",
-  headerUnheard: "Outside your taste",
-  headerIndie: "A hidden gem",
+  // HEADER labels (why-recommended strip). Each one is the user-facing
+  // "why this is on your screen" answer for the recType the recommender
+  // assigned — not a feature name. Read them as the sentence the card
+  // is making to the user.
+  headerSong: "Close to a song you love",
+  headerGenre: "From your core genres",
+  headerUnheard: "Outside your usual taste — try something new",
+  headerIndie: "Under-the-radar artist — hidden gem",
+  /** Renders the seedTrack chip on the right side of the strip with a
+   *  short connective so it reads naturally with whichever header label
+   *  is showing ("Close to a song you love · via Bohemian Rhapsody"). */
+  headerSeedPrefix: "via",
 
   // empty state
   emptyNoRecs: "No recommendations to rate.",
@@ -34,6 +41,12 @@ const en = {
   known: "Already know it",
   undo: "↩ Undo",
 
+  // rollback toast — shown when /api/recommend/rate fails so the user knows
+  // the rating wasn't actually saved (we revert the optimistic UI).
+  ratingFailed: "Rating wasn't saved — check your connection and try again.",
+  undoFailed: "Couldn't undo on the server — try again.",
+  dismiss: "Dismiss",
+
   // comment textarea
   commentPlaceholder: "A note about this song (optional) — saved with your rating",
 
@@ -55,18 +68,47 @@ const en = {
   modeUnheardHint: "New genres outside your taste",
   modeIndieLabel: "Hidden gems",
   modeIndieHint: "Great tracks below the big listener counts",
+
+  // Mode toggle between swipe (Tinder) and bracket (이상형월드컵) layouts
+  layoutToggleSwipe: "Swipe",
+  layoutToggleBracket: "Tournament",
+  bracketHint: "Pick the one you'd rather hear. Winners advance through the rounds; the champion is your superlike.",
+  bracketSkipBoth: "Skip both",
+  bracketWatchYt: "Watch on YouTube ↗",
+  bracketEmpty: "Not enough new recs for a tournament. Generate a fresh batch?",
+  bracketNeedMore: (have: number, need: number): string =>
+    `Need ${need} recs for a tournament — have ${have}. Generate more?`,
+  bracketRound: (round: number, totalRounds: number): string => {
+    const remaining = totalRounds - round;
+    if (remaining <= 1) return "Final";
+    if (remaining === 2) return "Semi-final";
+    if (remaining === 3) return "Quarter-final";
+    return `Round of ${2 ** remaining}`;
+  },
+  bracketPairOf: (idx: number, of: number): string => `Pair ${idx} of ${of}`,
+  bracketChampionTitle: "🏆 Your champion",
+  bracketChampionSub: "Rated as a superlike. The runners-up got likes; first-round losers were passed.",
+  bracketRestart: "New tournament",
+  bracketPatternTitle: "Match-up style",
+  bracketPatternRandom: "🎲 Random",
+  bracketPatternFavorites: "❤️ Top picks first",
+  bracketPatternOpposites: "⚡ Opposites",
+  bracketPatternCross: "🔀 Mixed modes",
+  bracketPatternHint:
+    "Random shuffles freely. Top picks pairs your highest-scoring recs against each other. Opposites pits the most against the least similar (high vs low scores). Mixed modes interleaves song-based with unheard-genre picks.",
 };
 
 const ko: typeof en = {
   loginGoogle: "Google 로 로그인",
-  pageTitle: "추천 월드컵",
+  pageTitle: "추천",
   pageIntro:
-    "추천을 듣고 좋아요·별로를 골라 보세요. 좋아요나 이미 아는 곡은 라이브러리에 추가되고, 별로한 아티스트는 다음 추천에서 빠집니다.",
+    "추천을 듣고 좋아요·별로를 선택. 좋아요한 곡은 라이브러리에, 별로한 아티스트는 다음 추천에서 빠집니다. 토너먼트로 비교하고 싶다면 → /worldcup",
 
-  headerSong: "좋아한 곡과 비슷한 곡",
-  headerGenre: "주요 장르",
-  headerUnheard: "취향 밖 장르",
-  headerIndie: "숨은 명곡",
+  headerSong: "좋아하는 곡과 가까운 곡",
+  headerGenre: "주요 장르 안에서",
+  headerUnheard: "취향 밖 — 새 영역 도전",
+  headerIndie: "덜 알려진 아티스트의 숨은 명곡",
+  headerSeedPrefix: "기반:",
 
   emptyNoRecs: "평가할 추천 없음.",
   generating: "추천 만드는 중… (~10초)",
@@ -75,6 +117,9 @@ const ko: typeof en = {
   countsRated: "평가",
 
   swipeHint: "스와이프 / 화살표 · ← 별로 · → 좋아요 · ↑ 정말 좋아요 · Space 재생",
+  ratingFailed: "평가가 저장되지 않았습니다 — 연결을 확인하고 다시 시도해 주세요.",
+  undoFailed: "되돌리기를 서버에 반영하지 못했습니다 — 다시 시도해 주세요.",
+  dismiss: "닫기",
 
   rateStrongDislike: "정말 별로",
   rateDislike: "별로",
@@ -103,6 +148,33 @@ const ko: typeof en = {
   modeUnheardHint: "취향 밖의 새 장르",
   modeIndieLabel: "숨은 명곡",
   modeIndieHint: "청취자가 적은, 덜 알려진 좋은 곡",
+
+  layoutToggleSwipe: "스와이프",
+  layoutToggleBracket: "이상형 월드컵",
+  bracketHint: "두 곡 중 듣고 싶은 쪽을 고르세요. 이긴 곡은 다음 라운드로 진출하고, 마지막에 남은 우승곡은 정말 좋아요로 기록됩니다.",
+  bracketSkipBoth: "둘 다 건너뛰기",
+  bracketWatchYt: "YouTube 에서 보기 ↗",
+  bracketEmpty: "토너먼트를 진행할 새 추천이 부족합니다. 새 배치를 받을까요?",
+  bracketNeedMore: (have: number, need: number) =>
+    `토너먼트는 ${need}곡 필요 — 현재 ${have}곡. 더 만들까요?`,
+  bracketRound: (round: number, totalRounds: number): string => {
+    const remaining = totalRounds - round;
+    if (remaining <= 1) return "결승";
+    if (remaining === 2) return "준결승";
+    if (remaining === 3) return "8강";
+    return `${2 ** remaining}강`;
+  },
+  bracketPairOf: (idx: number, of: number): string => `${idx} / ${of}`,
+  bracketChampionTitle: "🏆 우승",
+  bracketChampionSub: "정말 좋아요로 저장됨. 준우승자들은 좋아요, 1라운드 탈락자는 패스로 기록됩니다.",
+  bracketRestart: "새 토너먼트",
+  bracketPatternTitle: "매칭 방식",
+  bracketPatternRandom: "🎲 무작위",
+  bracketPatternFavorites: "❤️ 최애끼리",
+  bracketPatternOpposites: "⚡ 정반대끼리",
+  bracketPatternCross: "🔀 장르 교차",
+  bracketPatternHint:
+    "무작위는 그냥 섞고, 최애끼리는 점수 높은 곡들을 먼저 붙이고, 정반대끼리는 점수 차이 큰 곡들을 맞붙입니다. 장르 교차는 '비슷한 곡'과 '안 들어본 장르' 추천을 번갈아 배치.",
 };
 
 export function recommendDict(locale: Locale) {

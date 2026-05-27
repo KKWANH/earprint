@@ -23,6 +23,11 @@ export function AnalyzePanel({ locale }: { locale: Locale }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [capped, setCapped] = useState(false);
+  // Until the user has pressed start in this session, hide the progress
+  // bar — otherwise the panel loads showing "1,402 / 1,416" from prior
+  // shared-cache enrichment and looks like work was already done here.
+  // The button itself still reflects resume vs. start via `started`.
+  const [interacted, setInteracted] = useState(false);
   const looping = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -77,6 +82,7 @@ export function AnalyzePanel({ locale }: { locale: Locale }) {
   async function act(action: "start" | "stop") {
     setBusy(true);
     setError(null);
+    setInteracted(true);
     if (action === "start") setCapped(false);
     try {
       const res = await fetch("/api/jobs", {
@@ -117,6 +123,10 @@ export function AnalyzePanel({ locale }: { locale: Locale }) {
         ? t.phaseAi
         : t.phaseDone;
   const started = job.enrich.remaining < job.enrich.total || job.ai.total > 0;
+  // Show progress chrome only once the user has driven the panel in this
+  // session, or while a run is actively in flight / done. Prevents the
+  // misleading "you already analyzed 1,402" first impression.
+  const showProgress = interacted || running || complete;
 
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-6">
@@ -148,7 +158,7 @@ export function AnalyzePanel({ locale }: { locale: Locale }) {
         )}
       </div>
 
-      {!complete && (
+      {!complete && showProgress && (
         <>
           <p className="text-xs text-emerald-300">{phaseLabel}</p>
           <div className="h-2 overflow-hidden rounded-full bg-white/10">

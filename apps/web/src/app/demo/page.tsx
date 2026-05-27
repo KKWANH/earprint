@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { signIn } from "@/auth";
+import { AiPsychologyDisclaimer } from "@/components/AiPsychologyDisclaimer";
+import { LikesDisclaimer } from "@/components/LikesDisclaimer";
 import { MusicZodiacCard } from "@/components/MusicZodiacCard";
 import { getLocale } from "@/lib/i18n-server";
 import { demoDict } from "@/lib/i18n/demo";
@@ -42,6 +44,13 @@ export default async function DemoPage() {
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
       </header>
+
+      {/* Same disclaimers as the real /profile + /library pages. A visitor
+          comparing /demo to a friend's shared profile should see the same
+          framing both places — keeps the "this is entertainment, not
+          diagnosis" promise visible regardless of entry point. */}
+      <LikesDisclaimer locale={locale} />
+      <AiPsychologyDisclaimer locale={locale} />
 
       {zodiac && <MusicZodiacCard data={zodiac} locale={locale} />}
 

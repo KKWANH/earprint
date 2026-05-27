@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
-import { getLibrarySummary } from "@/lib/connection";
+import { getLastSyncStatus, getLibrarySummary } from "@/lib/connection";
 import { requireOnboarded } from "@/lib/onboarding";
 import { getLocale } from "@/lib/i18n-server";
+import type { Locale } from "@/lib/i18n";
 import { connectDict } from "@/lib/i18n/connect";
 import { ApiSyncButton } from "./ApiSyncButton";
 import { TokenBox } from "./TokenBox";
@@ -36,7 +37,10 @@ export default async function ConnectPage() {
   }
 
   const { userId, token } = await requireOnboarded();
-  const { count, recent } = await getLibrarySummary(userId);
+  const [{ count, recent }, lastSync] = await Promise.all([
+    getLibrarySummary(userId),
+    getLastSyncStatus(userId),
+  ]);
 
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-8 px-6 py-16">
@@ -79,6 +83,7 @@ export default async function ConnectPage() {
             {t.analysisDashboard}
           </Link>
         </div>
+        {lastSync && <LastSyncBadge status={lastSync} locale={locale} />}
         {recent.length === 0 ? (
           <p className="text-sm text-neutral-500">{t.noSyncedSongs}</p>
         ) : (
@@ -94,4 +99,78 @@ export default async function ConnectPage() {
       </section>
     </main>
   );
+}
+
+/**
+ * Compact one-liner under the library count summarising the user's last
+ * extension sync. Three shapes correspond to the three real outcomes the
+ * server distinguishes today (see /api/sync):
+ *
+ *   • complete     — extension reached the bottom of the liked list and
+ *                    matched the playlist header. Library was authorised
+ *                    to drop missing tracks; `removed` says how many.
+ *   • partial      — capture count came in short of the page header.
+ *                    Library was NOT replaced — append-only this round.
+ *                    Surfaced as a warning so the user re-runs sync.
+ *   • append-only  — extension didn't assert completeness (older build,
+ *                    or interrupted scrape). No deletes. Soft notice.
+ */
+function LastSyncBadge({
+  status,
+  locale,
+}: {
+  status: import("@/lib/connection").LastSyncStatus;
+  locale: Locale;
+}) {
+  const ago = formatRelative(status.at, locale);
+  const isPartial =
+    status.complete === false &&
+    status.expected != null &&
+    status.captured != null &&
+    status.captured < status.expected;
+
+  if (status.complete === true) {
+    const removed = status.removed ?? 0;
+    const removedStr =
+      removed > 0
+        ? locale === "ko"
+          ? ` · ${removed.toLocaleString()}곡 정리됨`
+          : ` · ${removed.toLocaleString()} removed`
+        : "";
+    return (
+      <p className="rounded-md border border-emerald-500/30 bg-emerald-950/30 px-3 py-1.5 text-xs text-emerald-200">
+        {locale === "ko"
+          ? `✓ 완전 동기화 — ${(status.captured ?? 0).toLocaleString()}곡${removedStr} · ${ago}`
+          : `✓ Complete sync — ${(status.captured ?? 0).toLocaleString()} songs${removedStr} · ${ago}`}
+      </p>
+    );
+  }
+  if (isPartial) {
+    return (
+      <p className="rounded-md border border-amber-500/30 bg-amber-950/40 px-3 py-1.5 text-xs text-amber-200">
+        {locale === "ko"
+          ? `⚠ 부분 동기화 — ${(status.captured ?? 0).toLocaleString()} / ${(status.expected ?? 0).toLocaleString()} · 라이브러리는 교체되지 않았습니다. 다시 동기화하세요 · ${ago}`
+          : `⚠ Partial sync — ${(status.captured ?? 0).toLocaleString()} of ${(status.expected ?? 0).toLocaleString()}. Library was NOT replaced. Run sync again · ${ago}`}
+      </p>
+    );
+  }
+  return (
+    <p className="rounded-md border border-neutral-700 bg-neutral-800/60 px-3 py-1.5 text-xs text-neutral-300">
+      {locale === "ko"
+        ? `최근 동기화: ${(status.captured ?? 0).toLocaleString()}곡 (추가 전용) · ${ago}`
+        : `Last sync: ${(status.captured ?? 0).toLocaleString()} songs (append-only) · ${ago}`}
+    </p>
+  );
+}
+
+/** "12 minutes ago" / "12분 전" — coarse, no need for a date library. */
+function formatRelative(iso: string, locale: Locale): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.round(ms / 60_000);
+  if (min < 1) return locale === "ko" ? "방금" : "just now";
+  if (min < 60) return locale === "ko" ? `${min}분 전` : `${min} min ago`;
+  const hours = Math.round(min / 60);
+  if (hours < 24) return locale === "ko" ? `${hours}시간 전` : `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return locale === "ko" ? `${days}일 전` : `${days}d ago`;
 }
