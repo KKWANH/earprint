@@ -55,25 +55,14 @@ const en = {
   progressTracks: (done: string, total: string, pct: number) =>
     `${done} / ${total} tracks (${pct}%)`,
   runningHint:
-    "⚙ Keep this window open to go faster. It keeps running in the background if you close it. We'll email you when the analysis finishes. 📬",
+    "⚙ Keep this window open to go faster. It keeps running in the background if you close it — come back later to see your finished analysis. 🎧",
   completeHint:
-    "📬 We've sent the analysis summary to your registered email.",
+    "🎉 Analysis complete — your taste profile is ready to view above and share with friends.",
   cappedNote:
     "🌙 AI analysis is paused — today's shared analysis limit was reached. It resumes automatically tomorrow; the data collected so far is kept.",
   noSyncedTracks: "No synced tracks.",
   errorPrefix: "Error:",
   errorCode: (code: number) => `Error ${code}`,
-  // ResendReportButton
-  reportTitle: "Analysis report email",
-  reportDesc:
-    "Sends a taste summary (artists · genres · moods · audio characteristics) to your registered email.",
-  reportSent: "✅ Email sent. Check your inbox.",
-  reportSkip:
-    "⚠ Email delivery isn't set up yet — a Resend API key is required.",
-  reportNoData: "No synced tracks, so there's nothing to send.",
-  reportFail: "❌ Sending failed. Please try again in a moment.",
-  reportSending: "Sending…",
-  reportResend: "Resend email",
   // ExcludeButton
   excludeIncludeTitle:
     "Include this artist in stats again. The tracks were never removed from your library — only filtered out of the top-artists / genres / moods rollups.",
@@ -179,22 +168,13 @@ const ko: typeof en = {
   progressTracks: (done: string, total: string, pct: number) =>
     `${done} / ${total}곡 (${pct}%)`,
   runningHint:
-    "⚙ 창을 열어두면 더 빠릅니다. 닫아도 백그라운드에서 계속 진행되고, 끝나면 메일로 알립니다. 📬",
-  completeHint: "📬 분석 요약을 가입 메일로 보냈습니다.",
+    "⚙ 창을 열어두면 더 빠릅니다. 닫아도 백그라운드에서 계속 진행되고, 나중에 다시 와서 완성된 분석을 확인할 수 있어요. 🎧",
+  completeHint: "🎉 분석 완료 — 취향 프로파일이 준비되었습니다. 위에서 바로 확인하고 친구와 공유해 보세요.",
   cappedNote:
     "🌙 오늘 공용 AI 한도가 다 찼습니다. 내일 자동으로 이어집니다 (지금까지 모은 데이터는 그대로).",
   noSyncedTracks: "동기화된 곡 없음.",
   errorPrefix: "오류:",
   errorCode: (code: number) => `오류 ${code}`,
-  reportTitle: "분석 리포트 메일",
-  reportDesc:
-    "취향 요약(아티스트·장르·무드·오디오 특성)을 가입 메일로 보냅니다.",
-  reportSent: "✅ 메일 발송 완료. 받은편지함을 확인하세요.",
-  reportSkip: "⚠ 메일 발송 미설정 — Resend API 키가 필요합니다.",
-  reportNoData: "보낼 내용이 없습니다. 좋아요 곡을 먼저 동기화하세요.",
-  reportFail: "❌ 발송 실패. 잠시 후 다시 시도하세요.",
-  reportSending: "보내는 중…",
-  reportResend: "메일 다시 보내기",
   excludeIncludeTitle:
     "이 아티스트를 다시 통계에 포함합니다. 곡 자체는 처음부터 라이브러리에서 제거되지 않았고, top-아티스트/장르/무드 집계에서만 빠져 있었습니다.",
   excludeExcludeTitle:

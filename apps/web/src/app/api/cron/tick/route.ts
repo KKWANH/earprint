@@ -11,11 +11,10 @@ import { captureError } from "@/lib/sentry";
  * Three responsibilities:
  *   1. (optional) Run one analyze batch per running job — gated by
  *      WORKERS_ANALYZE_DISABLED so we can hand the heavy lifting to the
- *      Fly analyzer once we've verified it's stable. The email path
- *      (isComplete → finishJob) stays here regardless because Resend
- *      lives in this codebase.
- *   2. Promote completed jobs to status='done' and fire the completion
- *      email exactly once.
+ *      Fly analyzer once we've verified it's stable.
+ *   2. Promote completed jobs to status='done'. (No more notification
+ *      email — Resend was removed; the user sees their finished
+ *      analysis on the next /library visit.)
  *   3. Daily retention sweep (kept regardless of who runs analysis).
  *
  * Setting `WORKERS_ANALYZE_DISABLED=true` lets the Fly worker take over
@@ -46,8 +45,7 @@ export async function POST(req: Request) {
         captureError(e, { tag: "cron.analyze", extra: { userId } });
       }
     }
-    // isComplete + finishJob always run — they're the email path, which
-    // we don't want to lose just because Fly is doing the batches.
+    // Terminal state transition — runs regardless of who does batches.
     if (await isComplete(userId)) await finishJob(userId);
   }
 

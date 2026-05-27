@@ -108,7 +108,7 @@ const en = {
     {
       heading: "Third-party services and no affiliation",
       body: [
-        "The Service relies on third-party services, including Google (authentication), Deezer, Last.fm and MusicBrainz (music metadata), Google Gemini (AI analysis), Resend (email delivery), Neon (database hosting) and Cloudflare (application hosting). Your use of those services through Earprint may also be subject to their respective terms.",
+        "The Service relies on third-party services, including Google (authentication), Deezer, Last.fm and MusicBrainz (music metadata), Google Gemini (AI analysis), Neon (database hosting) and Cloudflare (application hosting). Your use of those services through Earprint may also be subject to their respective terms.",
         "Earprint is an independent project and is not affiliated with, endorsed by, or sponsored by Google, YouTube, Deezer, Last.fm, MusicBrainz, or any other third party named in the Service.",
       ],
     },
@@ -269,7 +269,7 @@ const ko: typeof en = {
     {
       heading: "제3자 서비스 및 비제휴",
       body: [
-        "서비스는 Google(인증), Deezer·Last.fm·MusicBrainz(음악 메타데이터), Google Gemini(AI 분석), Resend(이메일 발송), Neon(데이터베이스 호스팅), Cloudflare(애플리케이션 호스팅) 등 제3자 서비스에 의존합니다. Earprint 를 통한 해당 서비스 이용에는 각 서비스의 약관이 함께 적용될 수 있습니다.",
+        "서비스는 Google(인증), Deezer·Last.fm·MusicBrainz(음악 메타데이터), Google Gemini(AI 분석), Neon(데이터베이스 호스팅), Cloudflare(애플리케이션 호스팅) 등 제3자 서비스에 의존합니다. Earprint 를 통한 해당 서비스 이용에는 각 서비스의 약관이 함께 적용될 수 있습니다.",
         "Earprint 는 독립적인 프로젝트이며 Google·YouTube·Deezer·Last.fm·MusicBrainz 및 서비스 내에 언급된 그 밖의 제3자와 제휴·보증·후원 관계가 없습니다.",
       ],
     },

@@ -17,21 +17,72 @@ const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
  *   { "error": { "code": 400, "status": "FAILED_PRECONDITION",
  *     "message": "User location is not supported for the API use." }}
  *
- * This is NOT a code bug — the project's API key needs billing enabled
- * in Google Cloud Console (the paid tier is available in ~100 more
- * countries than the free tier, including KR). Callers should catch
- * this and surface a one-line "AI service unavailable in your region —
- * we're working on it" instead of dumping the raw 400.
+ * Underlying fix is GCP-side: enable billing on the specific project
+ * that owns the API key (paid tier covers ~100 more countries than free,
+ * including KR). geminiJson tries a lighter fallback model before
+ * throwing this — see REGION_FALLBACK_MODEL.
  */
 export const GEMINI_REGION_ERROR = "GEMINI_REGION_UNSUPPORTED";
 
 /**
- * Default model — used by callers that don't pass an override. `gemini-2.0-flash`
- * is the cheap workhorse; the music-psychology profile bumps to `gemini-2.5-pro`
- * via the `model` argument because that single high-value generation is worth
- * the price difference (~$0.014 vs $0.0007 per call).
+ * Default model — used by callers that don't pass an override.
+ * `gemini-2.0-flash` is the cheap workhorse; the music-psychology
+ * profile bumps to `gemini-2.5-pro` via the `model` argument because
+ * that single high-value generation is worth the price difference
+ * (~$0.014 vs $0.0007 per call).
  */
 const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+
+/**
+ * Fallback model used when the primary call returns the region-
+ * restriction 400. `gemini-2.0-flash-lite` has the widest country
+ * coverage on the free tier — when billing hasn't propagated to the
+ * project yet (or the user happens to live somewhere a heavier model
+ * isn't yet enabled), at least flash-lite usually works. Output quality
+ * drops vs. 2.5-pro but the user gets a result instead of a 400.
+ *
+ * Only used if the primary `model` wasn't already this — otherwise we
+ * just throw GEMINI_REGION_ERROR for the UI to surface.
+ */
+const REGION_FALLBACK_MODEL =
+  process.env.GEMINI_REGION_FALLBACK ?? "gemini-2.0-flash-lite";
+
+/** Inner fetch — one call to one model. Surfaces region errors as the
+ *  sentinel + cost-tracks success-only. */
+async function callModel<T>(
+  key: string,
+  model: string,
+  prompt: string,
+  schema: object,
+): Promise<T> {
+  const res = await fetch(`${ENDPOINT}/${model}:generateContent?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+        temperature: 0.85,
+      },
+    }),
+    signal: AbortSignal.timeout(60000),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    if (
+      res.status === 400 &&
+      /User location is not supported|FAILED_PRECONDITION/i.test(body)
+    ) {
+      throw new Error(GEMINI_REGION_ERROR);
+    }
+    throw new Error(`Gemini ${res.status}: ${body.slice(0, 300)}`);
+  }
+  const data: any = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Gemini 응답이 비어 있습니다");
+  return JSON.parse(text) as T;
+}
 
 /**
  * Generates a JSON result from a prompt plus a response schema.
@@ -43,10 +94,14 @@ const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
  *   2. Global daily cap — prevents a viral launch from running cost away.
  * Whitelisted users pass `bypassCap` to skip BOTH ceilings.
  *
- * Counters are incremented ONLY after a successful response from Gemini
- * so a network error / 4xx / 5xx doesn't burn a user's credit — the
- * earlier implementation recorded before the call and the failure mode
- * was unfair to paying users.
+ * Region resilience: if the primary call returns the "User location is
+ * not supported" 400, geminiJson retries ONCE with REGION_FALLBACK_MODEL
+ * (defaults to gemini-2.0-flash-lite, broadest country coverage). Only
+ * if both fail does the GEMINI_REGION_ERROR sentinel propagate to the
+ * caller for UI surfacing + credit refund.
+ *
+ * Counters are incremented ONLY after a successful response so a network
+ * error / 4xx / 5xx doesn't burn a user's credit.
  */
 export async function geminiJson<T>(
   prompt: string,
@@ -62,44 +117,29 @@ export async function geminiJson<T>(
     if (await geminiOverCap()) throw new Error(GEMINI_CAP_ERROR);
   }
 
-  const model = opts?.model ?? DEFAULT_MODEL;
-  const res = await fetch(`${ENDPOINT}/${model}:generateContent?key=${key}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-        temperature: 0.85,
-      },
-    }),
-    signal: AbortSignal.timeout(60000),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    // Specific surface for the region-restriction case so the UI can
-    // distinguish "service genuinely not available where you are" from
-    // a transient 4xx. See GEMINI_REGION_ERROR docstring above.
+  const primaryModel = opts?.model ?? DEFAULT_MODEL;
+  let result: T;
+  try {
+    result = await callModel<T>(key, primaryModel, prompt, schema);
+  } catch (e) {
+    // Region failover: lighter model has wider country support; try once.
     if (
-      res.status === 400 &&
-      /User location is not supported|FAILED_PRECONDITION/i.test(body)
+      String(e).includes(GEMINI_REGION_ERROR) &&
+      primaryModel !== REGION_FALLBACK_MODEL
     ) {
-      throw new Error(GEMINI_REGION_ERROR);
+      try {
+        result = await callModel<T>(key, REGION_FALLBACK_MODEL, prompt, schema);
+      } catch (e2) {
+        // Both blocked — surface the region sentinel so the UI can show
+        // its localised message + the route can refund the credit.
+        throw e2;
+      }
+    } else {
+      throw e;
     }
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 300)}`);
   }
 
-  const data: any = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini 응답이 비어 있습니다");
-
-  // Success path — only NOW do we charge against the daily counters.
-  // Failure paths above all throw before reaching here, so the user
-  // never pays for a request that didn't return useful content.
   await recordGemini();
   if (opts?.userId) await recordGeminiForUser(opts.userId);
-
-  return JSON.parse(text) as T;
+  return result;
 }

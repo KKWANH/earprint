@@ -1,48 +1,29 @@
 import type { Locale } from "../i18n";
 
-export type ReportCategory =
-  | "security"
-  | "billing"
-  | "account"
-  | "bug"
-  | "general";
+/**
+ * Strings for the public /security page.
+ *
+ * The page used to host an in-app contact form that POSTed to
+ * /api/security/report and emailed the maintainer via Resend. The Resend
+ * dependency was removed (KR users hit deliverability issues, sandbox
+ * domain limits, and the operator preferred direct mailto: anyway).
+ *
+ * The page is now a static contact card: mailto: + GitHub Issues link,
+ * plus the existing scope / safe-harbor / SLA reference text that
+ * security researchers actually read.
+ */
 
 const en = {
   pageTitle: "Security & contact",
   intro:
-    "Security disclosures, bug reports, account or billing questions, and general feedback all reach the maintainer through the same form. Pick a category so we can triage faster — security reports are escalated first.",
+    "Reach the maintainer directly for security disclosures, bug reports, account or billing questions, and general feedback. Security-vulnerability reports are triaged first.",
 
-  reportTitle: "Send a message",
-  reportDesc:
-    "Your message goes directly to the maintainer's inbox. No personal email addresses are exposed publicly.",
-
-  fieldCategory: "Category",
-  categories: {
-    security: "Security vulnerability",
-    billing: "Billing or refund",
-    account: "Account help",
-    bug: "Bug report",
-    general: "General inquiry",
-  } as Record<ReportCategory, string>,
-
-  fieldTitle: "Subject",
-  fieldTitlePlaceholder: "Short summary",
-  fieldBody: "Details",
-  fieldBodyPlaceholder:
-    "What happened, what you expected, when, and any relevant URLs. For refunds, please include the rough date of purchase.",
-  fieldEmail: "Your email",
-  fieldEmailPlaceholder: "you@example.com",
-  emailHintRequired: "Required so we can reply.",
-  emailHintOptional:
-    "Optional. Reports are accepted anonymously, but a reply needs an address.",
-  fieldImage: "Screenshot (optional, max 2MB)",
-  imageHelp: "PNG, JPEG, WebP, or GIF.",
-  imageRemove: "Remove image",
-  submit: "Send",
-  submitting: "Sending…",
-  successMsg:
-    "✓ Message received. We'll reply within 3 business days if you left an email.",
-  errorPrefix: "Failed:",
+  contactCardTitle: "How to reach us",
+  contactCardBody:
+    "Drop a line at the address below. Include the category in the subject so we can triage faster — e.g. [Security] / [Billing] / [Account] / [Bug] / [General].",
+  contactEmailLabel: "Email the maintainer",
+  contactGithubLabel: "Open an issue on GitHub",
+  contactGithubHint: "Bug reports, feature requests, and code-level questions are easier to track here.",
 
   securityRefHeading: "For security researchers",
   securityRefBody:
@@ -57,7 +38,7 @@ const en = {
     "The Chrome extension (id: nfhgnpjhiencoajdfdadegnfbbhfjjkj)",
   ],
   scopeOut: [
-    "Third-party providers (Cloudflare, Neon, Google, Lemon Squeezy, Resend, Deezer, Last.fm) — please report directly to them",
+    "Third-party providers (Cloudflare, Neon, Google, Lemon Squeezy, Deezer, Last.fm) — please report directly to them",
     "Denial of service or volumetric attacks",
     "Issues that require physical access to a victim's device",
     "Social-engineering attacks against project maintainers",
@@ -71,7 +52,7 @@ const en = {
     "Never access, modify, retain, or download other users' data. Stop the moment you realise a request would expose data that isn't yours, and tell us what you saw.",
     "Don't degrade service availability for other users — no DoS, no volumetric scans, no automated rate-limit hammering. A handful of curl calls to confirm a finding is fine; a 10k-request fuzzer isn't.",
     "Give us a reasonable opportunity to investigate and fix before public disclosure — 90 days from your first report or until a fix ships, whichever comes first. We will keep you informed of progress and credit you publicly if you wish.",
-    "Report through the form on this page, or another reasonable private channel, before any public disclosure or third-party submission (Twitter, blog, full-disclosure list, etc.).",
+    "Report through the email or GitHub channel above, or another reasonable private channel, before any public disclosure or third-party submission (Twitter, blog, full-disclosure list, etc.).",
     "Don't deploy backdoors, persistence mechanisms, or anything that would harm us or other users to demonstrate impact.",
   ],
   safeHarborTail:
@@ -85,39 +66,14 @@ const en = {
 const ko: typeof en = {
   pageTitle: "보안 및 문의",
   intro:
-    "보안 취약점 제보, 버그 신고, 계정·결제 관련 문의, 일반 피드백 모두 동일한 폼을 통해 운영자에게 전달됩니다. 카테고리를 선택해 주시면 빠른 트리아지가 가능합니다 — 보안 신고는 최우선으로 격상 처리됩니다.",
+    "보안 취약점 제보, 버그 신고, 계정·결제 관련 문의, 일반 피드백 등 무엇이든 운영자에게 직접 보내주세요. 보안 취약점 신고는 최우선으로 처리합니다.",
 
-  reportTitle: "메시지 전송",
-  reportDesc:
-    "전송된 메시지는 운영자 메일함으로 직접 전달됩니다. 본 페이지에 개인 이메일을 노출하지 않습니다.",
-
-  fieldCategory: "문의 유형",
-  categories: {
-    security: "보안 취약점 신고",
-    billing: "결제 및 환불 문의",
-    account: "계정 관련 문의",
-    bug: "버그 신고",
-    general: "일반 문의",
-  } as Record<ReportCategory, string>,
-
-  fieldTitle: "제목",
-  fieldTitlePlaceholder: "내용을 한 줄로 요약해 주세요",
-  fieldBody: "상세 내용",
-  fieldBodyPlaceholder:
-    "발생한 상황, 기대했던 동작, 발생 시각, 관련 URL 등을 작성해 주세요. 환불 문의 시 결제 시점을 함께 알려주시면 처리가 빠릅니다.",
-  fieldEmail: "회신용 이메일",
-  fieldEmailPlaceholder: "you@example.com",
-  emailHintRequired: "회신을 위해 이메일이 필요합니다.",
-  emailHintOptional:
-    "선택 입력입니다. 보안 신고는 익명으로도 접수 가능하지만, 답변이 필요하시면 이메일을 남겨주시기 바랍니다.",
-  fieldImage: "스크린샷 (선택, 최대 2MB)",
-  imageHelp: "PNG · JPEG · WebP · GIF 지원.",
-  imageRemove: "이미지 제거",
-  submit: "전송",
-  submitting: "전송 중…",
-  successMsg:
-    "✓ 메시지가 정상 접수되었습니다. 회신용 이메일을 남기셨다면 영업일 기준 3일 이내 답변드리겠습니다.",
-  errorPrefix: "실패:",
+  contactCardTitle: "연락 방법",
+  contactCardBody:
+    "아래 주소로 메일을 보내주세요. 제목에 카테고리를 함께 적어주시면 트리아지가 빨라집니다 — 예: [Security] / [Billing] / [Account] / [Bug] / [General].",
+  contactEmailLabel: "운영자에게 메일",
+  contactGithubLabel: "GitHub 이슈 등록",
+  contactGithubHint: "버그 신고·기능 요청·코드 레벨 질문은 여기가 추적하기 더 편합니다.",
 
   securityRefHeading: "보안 연구자 참고 사항",
   securityRefBody:
@@ -132,7 +88,7 @@ const ko: typeof en = {
     "Chrome 확장 프로그램 (id: nfhgnpjhiencoajdfdadegnfbbhfjjkj)",
   ],
   scopeOut: [
-    "제3자 서비스 제공자 (Cloudflare · Neon · Google · Lemon Squeezy · Resend · Deezer · Last.fm) — 해당 업체에 직접 신고해 주시기 바랍니다",
+    "제3자 서비스 제공자 (Cloudflare · Neon · Google · Lemon Squeezy · Deezer · Last.fm) — 해당 업체에 직접 신고해 주시기 바랍니다",
     "서비스 거부 공격 (DoS) 및 대량 트래픽 공격",
     "피해자 기기에 물리적 접근이 필요한 이슈",
     "운영자를 대상으로 한 사회공학적 공격",
@@ -146,7 +102,7 @@ const ko: typeof en = {
     "타 이용자의 데이터에 접근·수정·보관·다운로드하지 말 것. 본인 것이 아닌 데이터가 노출될 가능성을 인지한 즉시 요청을 중단하고 어떤 정보를 보았는지 알려주세요.",
     "다른 이용자의 서비스 가용성을 저해하지 말 것 — DoS, 대량 스캔, 자동화된 rate-limit 우회 금지. 결함 확인을 위한 몇 회의 curl 호출은 괜찮지만, 1만 건 단위의 퍼저(fuzzer)는 안 됩니다.",
     "운영자가 조사 및 수정할 합리적 시간을 보장할 것 — 최초 신고일로부터 90일 또는 수정이 완료된 시점 중 빠른 시점까지 공개 유보. 진행 상황은 운영자가 공유하며, 원하시는 경우 공개 시 크레딧을 드립니다.",
-    "공개 발표 또는 제3자 제출(Twitter, 블로그, full-disclosure 메일링 리스트 등) 전에 본 페이지의 폼 또는 그 밖의 합리적인 비공개 채널로 먼저 알릴 것.",
+    "공개 발표 또는 제3자 제출(Twitter, 블로그, full-disclosure 메일링 리스트 등) 전에 위 이메일 또는 GitHub 채널, 또는 그 밖의 합리적인 비공개 채널로 먼저 알릴 것.",
     "영향도 입증을 위해 백도어·지속성 메커니즘 등 운영자나 다른 이용자에게 피해를 줄 수 있는 것을 설치하지 말 것.",
   ],
   safeHarborTail:

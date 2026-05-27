@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
 import { getLocale } from "@/lib/i18n-server";
 import { securityDict } from "@/lib/i18n/security";
-import { ReportForm } from "./ReportForm";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = securityDict(await getLocale());
   return { title: `${t.pageTitle} — Earprint` };
 }
 
-/**
- * Unified contact + report page. The form on top handles every inbound
- * channel — refunds, account help, bug reports, security disclosures,
- * general feedback — and routes them all to the maintainer inbox with
- * a category-prefixed subject. The security-researcher sections below
- * are kept as reference for that specific category.
- */
+/** Contact + security-research reference. The contact form / Resend
+ *  send path was removed (RESEND-REMOVE) — the maintainer prefers
+ *  direct mailto: and GitHub Issues over an in-app form that depends
+ *  on a verified Resend sending domain and a working SMTP/HTTP path
+ *  for KR-located requests. */
+const CONTACT_EMAIL = "kwanho0096@gmail.com";
+const GITHUB_ISSUES = "https://github.com/KKWANH/earprint/issues/new";
+
 export default async function SecurityPage() {
   const locale = await getLocale();
   const t = securityDict(locale);
@@ -26,9 +26,28 @@ export default async function SecurityPage() {
         <p className="text-sm leading-relaxed text-neutral-400">{t.intro}</p>
       </header>
 
-      <Section title={t.reportTitle}>
-        <p className="text-sm leading-relaxed text-neutral-400">{t.reportDesc}</p>
-        <ReportForm locale={locale} />
+      <Section title={t.contactCardTitle}>
+        <p className="text-sm leading-relaxed text-neutral-400">{t.contactCardBody}</p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <a
+            href={`mailto:${CONTACT_EMAIL}?subject=%5BEarprint%5D%20`}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
+          >
+            📧 {t.contactEmailLabel}
+          </a>
+          <a
+            href={GITHUB_ISSUES}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-white/15 px-4 py-2 text-sm font-medium text-neutral-200 hover:border-white/30 hover:text-white"
+          >
+            🐙 {t.contactGithubLabel} ↗
+          </a>
+        </div>
+        <p className="text-[11px] text-neutral-500">{t.contactGithubHint}</p>
+        <p className="select-all rounded-md bg-black/30 px-3 py-2 font-mono text-xs text-neutral-300">
+          {CONTACT_EMAIL}
+        </p>
       </Section>
 
       <div className="flex flex-col gap-3 border-t border-white/5 pt-6">
