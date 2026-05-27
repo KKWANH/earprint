@@ -56,7 +56,7 @@
     "message": "Counts may differ."
   },
   "disclaimerBody": {
-    "message": "The number YouTube Music shows under your Liked Music (\"1,234곡\") and the number Earprint actually collects can differ — YT silently drops some rows on large libraries and counts items we can't render. Earprint shows both so you can see the gap."
+    "message": "The number YouTube Music shows under your Liked Music (\"1,234 songs\") and the number Earprint actually collects can differ — YT silently drops some rows on large libraries and counts items we can't render. Earprint shows both so you can see the gap."
   },
   "msgCheckingToken": {
     "message": "Checking your connection…"

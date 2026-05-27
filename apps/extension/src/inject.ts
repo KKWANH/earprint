@@ -167,37 +167,32 @@
         }
       };
 
-      // Snap to top, give YT a beat to recycle its virtualiser before we
-      // start reading. The 800 ms is generous enough that big libraries
-      // don't catch the page mid-render.
+      // Snap to top — 400 ms is enough to let YT recycle, since the list
+      // is already fully loaded by the main pass (we're not waiting for
+      // pagination here, just reading the DOM).
       const sc = findScroller();
       sc.scrollTop = 0;
       window.scrollTo(0, 0);
-      await sleep(800);
+      await sleep(400);
       readDom();
 
-      // Walk down in viewport-sized steps. Each step is shorter than
-      // the main pass's step (no need to trigger pagination here — the
-      // list is already fully loaded). Hard ceiling at 25 s so a wedge
-      // doesn't extend the run forever.
-      const VERIFY_MAX_MS = 25_000;
+      // Walk down FAST in near-viewport steps. 10 s hard ceiling covers
+      // any realistic library at this cadence. Break the moment we
+      // hit bottom AND nothing new came in this iteration — verify
+      // reads are deterministic so one zero-growth at bottom is
+      // conclusive (the old two-strike check was paranoia overhead).
+      const VERIFY_MAX_MS = 10_000;
       const t0 = Date.now();
-      let lastTopAt = 0;
       while (Date.now() - t0 < VERIFY_MAX_MS) {
+        if (stopRequested) break;
         const before = verifiedIds.size;
-        const step = Math.max(220, sc.clientHeight * 0.85);
+        const step = Math.max(280, sc.clientHeight * 0.95);
         sc.scrollTop += step;
         window.scrollBy(0, step);
-        await sleep(220);
+        await sleep(130);
         readDom();
-        // Hit the bottom (or didn't move) twice in a row → done.
         const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 30;
-        if (atBottom && verifiedIds.size === before) {
-          if (lastTopAt > 0) break;
-          lastTopAt = 1;
-        } else {
-          lastTopAt = 0;
-        }
+        if (atBottom && verifiedIds.size === before) break;
       }
 
       post({ kind: "verifyDone", verifiedCount: verifiedIds.size });
@@ -424,11 +419,27 @@
       // ── Settle pass — short and time-capped. Just gives YT one last
       // chance to render anything that was about to come in. Same
       // spinner-drain discipline as the main loop so we don't queue
-      // pagination on top of pagination here either. ──
-      const SETTLE_MAX_MS = 18_000;
+      // pagination on top of pagination here either.
+      //
+      // Cap shortened May 2026 (18 s → 7 s) after testers reported the
+      // tail end of sync felt "stuck". By this point the main scrape
+      // has already drained the list 3× over; settle's only job is to
+      // catch the last in-flight pagination, not to keep pulling new
+      // rows. If first iteration sees no new growth and no spinner,
+      // bail immediately — there's nothing left to settle. ──
+      const SETTLE_MAX_MS = 7_000;
       const settleStart = Date.now();
+      let firstSettleIter = true;
       while (Date.now() - settleStart < SETTLE_MAX_MS) {
         if (stopRequested) break;
+        // Fast bail on first iter: nothing pending + nothing on screen
+        // means there's nothing for settle to do.
+        if (firstSettleIter && !moreToLoad()) {
+          const sizeBefore = seen.size;
+          scrapeNow();
+          if (seen.size === sizeBefore) break;
+        }
+        firstSettleIter = false;
         // Drain pending pagination FIRST so the bottom-jump below
         // doesn't pile a fresh request on top of it.
         if (moreToLoad()) {
@@ -439,9 +450,9 @@
         scroller.scrollTop = scroller.scrollHeight;
         window.scrollTo(0, document.documentElement.scrollHeight);
         lastRow()?.scrollIntoView({ block: "end" });
-        // Slightly longer than the old 900 ms so YT can actually
-        // render whatever the scroll-to-bottom requested.
-        await sleep(1100);
+        // Sleep tightened 1100 → 600 ms — YT renders the new row
+        // batch fast enough that a longer wait just sits idle.
+        await sleep(600);
         const before = seen.size;
         scrapeNow();
         post({ kind: "scrapeProgress", count: seen.size });

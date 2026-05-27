@@ -256,14 +256,16 @@ async function runSync(): Promise<unknown> {
         resolve();
       };
       window.postMessage({ __pa: true, kind: "verify" }, "*");
-      // Hard ceiling on the wait too — inject's own cap is 25s, ours
-      // is the safety net if the message never comes back.
+      // Hard ceiling on the wait too — inject's own cap is 10 s, ours
+      // is 12 s as a safety net if the verifyDone message never makes
+      // the round-trip. Tightened from 30 s after testers reported the
+      // end of sync dragging.
       setTimeout(() => {
         if (onVerifyDone) {
           onVerifyDone = null;
           resolve();
         }
-      }, 30_000);
+      }, 12_000);
     });
 
     const list = [...tracks.values()];
