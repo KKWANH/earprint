@@ -5,6 +5,7 @@ import { requireOnboarded } from "@/lib/onboarding";
 import { getSql } from "@/lib/db";
 import {
   getLibraryStats,
+  getLibraryTracks,
   type AlbumDepth,
   type AudioFeelAgg,
   type Count,
@@ -23,7 +24,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t.pageTitle} — Earprint` };
 }
 
-export default async function LibraryPage() {
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; page?: string }>;
+}) {
   const locale = await getLocale();
   const t = libraryDict(locale);
   const session = await auth();
@@ -46,15 +51,23 @@ export default async function LibraryPage() {
 
   const { userId } = await requireOnboarded();
   const sql = getSql();
+  // Search + page come from URL — the form below uses method=GET so a
+  // bookmarked / shared URL keeps the user on the same page of the same
+  // query. Parse defensively (empty string → undefined, NaN page → 1).
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+  const pageNum = Math.max(1, Number(sp.page) || 1);
   // Share id is created lazily when /api/profile lands; here we only
   // surface the share UI when one already exists, so the user doesn't
   // see a "share my analysis" button before they've actually run an
   // analysis. Cheap one-column SELECT.
-  const [stats, shareRow] = await Promise.all([
+  const [stats, tracksPage, shareRow] = await Promise.all([
     getLibraryStats(userId),
+    getLibraryTracks(userId, { q, page: pageNum, pageSize: 50 }),
     sql`SELECT share_id FROM taste_profiles WHERE user_id = ${userId}`,
   ]);
   const shareId = (shareRow[0]?.share_id as string | undefined) ?? null;
+  const totalPages = Math.max(1, Math.ceil(tracksPage.total / tracksPage.pageSize));
   const pt = profileDict(locale);
 
   return (
@@ -181,44 +194,89 @@ export default async function LibraryPage() {
       )}
 
       <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
-        <h2 className="font-semibold">{t.tracksTitle(stats.tracks.length)}</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-800 text-left text-neutral-500">
-                <th className="py-2 pr-3 font-medium">{t.thTitle}</th>
-                <th className="py-2 pr-3 font-medium">{t.thArtist}</th>
-                <th className="hidden py-2 pr-3 font-medium sm:table-cell">{t.thGenre}</th>
-                <th className="hidden py-2 pr-3 font-medium sm:table-cell">{t.thMood}</th>
-                <th className="py-2 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              {stats.tracks.map((t, i) => (
-                <tr key={i} className="border-b border-neutral-800/60 last:border-0">
-                  <td className="max-w-[14rem] truncate py-1.5 pr-3">{t.title}</td>
-                  <td className="max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400">
-                    <Link
-                      href={`/artist/${encodeURIComponent(t.artist)}`}
-                      className="hover:text-white hover:underline"
-                    >
-                      {t.artist}
-                    </Link>
-                  </td>
-                  <td className="hidden max-w-[11rem] truncate py-1.5 pr-3 text-neutral-400 sm:table-cell">
-                    {t.genres?.slice(0, 2).join(", ") ?? "—"}
-                  </td>
-                  <td className="hidden max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400 sm:table-cell">
-                    {t.moods?.slice(0, 2).join(", ") ?? "—"}
-                  </td>
-                  <td className="py-1.5 text-right">
-                    <PreviewButton deezerId={t.deezerId} locale={locale} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="font-semibold">{t.tracksTitle(tracksPage.total)}</h2>
+          <p className="text-xs text-neutral-500">
+            {t.searchResultCount(tracksPage.tracks.length, tracksPage.total)}
+          </p>
         </div>
+        {/* GET form so the URL is shareable + reload-safe. Resets to page=1
+            implicitly because the form doesn't carry `page` over. */}
+        <form
+          method="GET"
+          action="/library"
+          className="flex items-center gap-2"
+        >
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder={t.searchPlaceholder}
+            className="flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none"
+          />
+          {q && (
+            <Link
+              href="/library"
+              className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400 hover:bg-neutral-800"
+            >
+              {t.searchClear}
+            </Link>
+          )}
+        </form>
+        <div className="overflow-x-auto">
+          {tracksPage.tracks.length === 0 ? (
+            <p className="py-6 text-center text-sm text-neutral-500">
+              {t.searchNoMatch}
+            </p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-800 text-left text-neutral-500">
+                  <th className="py-2 pr-3 font-medium">{t.thTitle}</th>
+                  <th className="py-2 pr-3 font-medium">{t.thArtist}</th>
+                  <th className="hidden py-2 pr-3 font-medium sm:table-cell">{t.thGenre}</th>
+                  <th className="hidden py-2 pr-3 font-medium sm:table-cell">{t.thMood}</th>
+                  <th className="py-2 font-medium" />
+                </tr>
+              </thead>
+              <tbody>
+                {tracksPage.tracks.map((tr, i) => (
+                  <tr key={i} className="border-b border-neutral-800/60 last:border-0">
+                    <td className="max-w-[14rem] truncate py-1.5 pr-3">{tr.title}</td>
+                    <td className="max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400">
+                      <Link
+                        href={`/artist/${encodeURIComponent(tr.artist)}`}
+                        className="hover:text-white hover:underline"
+                      >
+                        {tr.artist}
+                      </Link>
+                    </td>
+                    <td className="hidden max-w-[11rem] truncate py-1.5 pr-3 text-neutral-400 sm:table-cell">
+                      {tr.genres?.slice(0, 2).join(", ") ?? "—"}
+                    </td>
+                    <td className="hidden max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400 sm:table-cell">
+                      {tr.moods?.slice(0, 2).join(", ") ?? "—"}
+                    </td>
+                    <td className="py-1.5 text-right">
+                      <PreviewButton deezerId={tr.deezerId} locale={locale} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {/* Pagination — hidden on single-page results. Links carry the
+            current q so the user stays inside their search while flipping
+            pages. */}
+        {totalPages > 1 && (
+          <Pagination
+            page={pageNum}
+            totalPages={totalPages}
+            q={q}
+            labels={{ prev: t.pagePrev, next: t.pageNext, of: t.pageOf }}
+          />
+        )}
       </section>
 
       <p className="text-xs leading-relaxed text-neutral-600">{t.dataDisclaimer}</p>
@@ -380,6 +438,67 @@ function AlbumImmersionLine({
         : t.albumImmersionDeep(depth.deepAlbums);
   return (
     <p className="text-xs leading-relaxed text-neutral-500">{line}</p>
+  );
+}
+
+/**
+ * Pagination footer for the tracks table. Kept dumb — Prev / page indicator
+ * / Next, no jump-to-page input. With pageSize=50, even a 5k-track library
+ * is 100 pages, which is a reasonable Next-button workout — anyone wanting
+ * to scan past that should use search instead.
+ */
+function Pagination({
+  page,
+  totalPages,
+  q,
+  labels,
+}: {
+  page: number;
+  totalPages: number;
+  q: string;
+  labels: {
+    prev: string;
+    next: string;
+    of: (cur: number, total: number) => string;
+  };
+}) {
+  const href = (p: number) => {
+    const qp = new URLSearchParams();
+    if (q) qp.set("q", q);
+    if (p > 1) qp.set("page", String(p));
+    const s = qp.toString();
+    return s ? `/library?${s}` : "/library";
+  };
+  const hasPrev = page > 1;
+  const hasNext = page < totalPages;
+  return (
+    <nav className="flex items-center justify-between gap-2 pt-2 text-xs text-neutral-500">
+      {hasPrev ? (
+        <Link
+          href={href(page - 1)}
+          className="rounded-md border border-neutral-700 px-3 py-1.5 hover:bg-neutral-800 hover:text-white"
+        >
+          {labels.prev}
+        </Link>
+      ) : (
+        <span className="rounded-md border border-neutral-800 px-3 py-1.5 text-neutral-700">
+          {labels.prev}
+        </span>
+      )}
+      <span className="tabular-nums">{labels.of(page, totalPages)}</span>
+      {hasNext ? (
+        <Link
+          href={href(page + 1)}
+          className="rounded-md border border-neutral-700 px-3 py-1.5 hover:bg-neutral-800 hover:text-white"
+        >
+          {labels.next}
+        </Link>
+      ) : (
+        <span className="rounded-md border border-neutral-800 px-3 py-1.5 text-neutral-700">
+          {labels.next}
+        </span>
+      )}
+    </nav>
   );
 }
 

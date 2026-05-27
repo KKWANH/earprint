@@ -6,9 +6,16 @@
  * Env vars expected on Cloudflare:
  *   LEMON_API_KEY            — Bearer token (Settings → API)
  *   LEMON_STORE_ID           — numeric store ID
- *   LEMON_VARIANT_MONTHLY    — Variant ID for the $3 subscription
- *   LEMON_VARIANT_LIFETIME   — Variant ID for the $25 lifetime
+ *   LEMON_VARIANT_ANALYSIS   — Variant ID for the per-analysis credit SKU
+ *                              (one-shot purchase; current pricing model)
  *   LEMON_WEBHOOK_SECRET     — Signing secret you set on the webhook
+ *
+ * The Pro monthly subscription is paused (README #status); the webhook
+ * still handles subscription_* events defensively in case we re-enable
+ * it once the analysis-history feature lands. LEMON_VARIANT_MONTHLY is
+ * read only by /api/lemon/checkout?variant=monthly when (and if) that
+ * is wired back to a real CTA. LEMON_VARIANT_LIFETIME is gone — no
+ * lifetime SKU exists or is planned.
  */
 
 const API_BASE = "https://api.lemonsqueezy.com/v1";

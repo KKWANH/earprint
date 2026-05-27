@@ -6,9 +6,11 @@ import { createCheckoutUrl } from "@/lib/lemon";
 
 /**
  * Generates a Lemon Squeezy hosted checkout URL and redirects the user to
- * it. Called from /pricing and /account upgrade buttons.
+ * it. Called from /pricing's "Buy analysis" CTA.
  *
- * Query: ?variant=monthly|lifetime
+ * Query: ?variant=analysis (default; only SKU currently sold).
+ *        ?variant=monthly is supported defensively for when the paused Pro
+ *        subscription gets re-enabled — no UI links to it today.
  */
 export async function GET(req: NextRequest) {
   if (!PAYMENTS_ENABLED) {
@@ -19,15 +21,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  const variantParam = new URL(req.url).searchParams.get("variant") ?? "monthly";
+  // Default changed from "monthly" → "analysis" (May 2026) — monthly was
+  // paused and the only UI CTA passes `variant=analysis` explicitly, so
+  // hitting this endpoint without a param now does what 100% of real
+  // callers want.
+  const variantParam = new URL(req.url).searchParams.get("variant") ?? "analysis";
   const variantId =
     variantParam === "analysis"
       ? process.env.LEMON_VARIANT_ANALYSIS
-      : process.env.LEMON_VARIANT_MONTHLY;
+      : variantParam === "monthly"
+        ? process.env.LEMON_VARIANT_MONTHLY
+        : undefined;
   if (!variantId) {
     return NextResponse.json(
-      { error: `LEMON_VARIANT_${variantParam.toUpperCase()} not configured` },
-      { status: 500 },
+      { error: `unknown or unconfigured variant: ${variantParam}` },
+      { status: 400 },
     );
   }
 
