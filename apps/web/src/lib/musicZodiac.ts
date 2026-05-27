@@ -1,19 +1,35 @@
 import type { LibraryStats } from "./library";
+import {
+  findGenre,
+  genreZodiacWeights,
+  isExcludedGenre,
+  type ZodiacSign,
+  type ZodiacWeights,
+} from "./genreDict";
 
 /**
  * Music zodiac — twelve listener archetypes derived from the user's top
- * genres and moods. The label set was tuned with the user (May 2026) so
- * each sign reads as a recognisable *role* rather than a personality
- * description: "Rap Circuit", "Reverb Field", etc. Genre lists carry
- * the matching signal; the archetype + blurb carry the framing.
+ * genres and moods.
  *
- * Genre attribution is single-winner — each user genre is attributed
- * to the one sign with the most specific matching keyword, so e.g.
- * "indie rock" doesn't double-count into both `indie` (Cancer) and
- * `rock` (Capricorn).
+ * Matching (May 2026 refactor) is now multi-label weighted:
+ *   • Each user-genre is canonicalised via genreDict.findGenre(), which
+ *     handles alias / casing / punctuation variations + falls back to
+ *     longest-alias substring match.
+ *   • The resolved node contributes its full ZodiacWeights vector to
+ *     every sign it touches (e.g. dance-pop hits gemini AND libra in
+ *     the right proportions — no winner-take-all).
+ *   • Moods retain the older flat-keyword matcher because they're
+ *     fuzzier and a smaller surface area; the bias they could introduce
+ *     is bounded.
+ *   • Religious / Spoken / Children-family genres contribute zero
+ *     zodiac signal (set via genreDict's excludeFromZodiac flag) — a
+ *     library that's 60% lo-fi-christian-piano lands on its zodiac
+ *     based on the remaining 40% of real music signal.
  *
- * Per-sign breakdown is computed too so the UI can show "how much of
- * you" lands on every sign, not just the winner.
+ * Flavors (sub-archetypes within a winning sign) keep their own genre
+ * lists since they're domain-specific copy ("Drill Devotee" / "K-Pop
+ * Devotee" etc.) and the family-level abstraction would lose that
+ * granularity.
  */
 export interface Star {
   x: number;
@@ -33,12 +49,12 @@ export interface ZodiacFlavor {
   key: string;
   nameKo: string;
   nameEn: string;
-  /** Subset of the parent zodiac's `genres` list this flavor claims. */
+  /** Substring keywords (matched against canonicalised genre input). */
   genres: string[];
 }
 
 export interface Zodiac {
-  sign: string;
+  sign: ZodiacSign;
   symbol: string;
   nameKo: string;
   nameEn: string;
@@ -46,7 +62,8 @@ export interface Zodiac {
   archetypeEn: string;
   blurbKo: string;
   blurbEn: string;
-  genres: string[];
+  /** Mood keywords this sign claims — still flat-list because mood
+   *  vocabulary is smaller and not covered by genreDict. */
   moods: string[];
   /** Optional sub-archetypes. The matcher picks the flavor whose genre
    *  share of the winning sign's matches is largest, with a margin
@@ -61,7 +78,7 @@ export interface ZodiacMatched {
 }
 
 export interface SignBreakdown {
-  sign: string;
+  sign: ZodiacSign;
   share: number; // 0..1 of total matched + unmatched signal
   matched: ZodiacMatched[];
 }
@@ -84,10 +101,8 @@ export interface MusicZodiac {
    *  too even to call). Display as a suffix to the main archetype. */
   flavor: FlavorShare | null;
   /** Every flavor with a non-zero share inside the winning sign, sorted
-   *  desc. Used by the UI to draw a breakdown chart so a Virgo split
-   *  between Jazz (55%) and Classical (45%) reads as the near-tie that
-   *  it is, not a clean win. Empty when the sign has no flavors defined
-   *  or no matches landed in any flavor. */
+   *  desc. Empty when the sign has no flavors defined or no matches
+   *  landed in any flavor. */
   flavorBreakdown: FlavorShare[];
 }
 
@@ -101,16 +116,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Rap Circuit",
     blurbKo: "랩과 비트의 타격감으로 움직이는 청취.",
     blurbEn: "Rap and beats — built around the hit of the kick.",
-    genres: [
-      "hip-hop", "hip hop", "rap", "trap", "conscious rap",
-      "alternative hip hop", "alt-hip-hop", "boom bap", "drill", "mumble rap",
-      "lyrical hip hop", "gangsta rap", "west coast hip hop",
-      "east coast hip hop", "southern hip hop", "korean hip hop", "k-rap",
-      "k-hiphop", "cloud rap", "emo rap", "uk drill", "phonk", "hyperphonk",
-      "plugg", "rage rap", "grime", "road rap", "jersey drill",
-      "brooklyn drill", "chicago drill", "j-hip-hop", "j-rap",
-      "latin trap", "afro-rap", "abstract hip hop",
-    ],
     moods: ["confident", "fierce", "gritty", "swagger", "hype", "narrative"],
     constellation: {
       stars: [{ x: 10, y: 75 }, { x: 32, y: 50 }, { x: 60, y: 35 }, { x: 88, y: 48 }],
@@ -126,13 +131,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Acoustic Room",
     blurbKo: "통기타와 한 목소리 — 가사가 들리는 청취.",
     blurbEn: "One guitar, one voice — songs where the words land.",
-    genres: [
-      "folk", "acoustic", "country", "alt-country", "country pop",
-      "outlaw country", "singer-songwriter", "ballad", "americana",
-      "indie folk", "folk rock", "folk pop", "bluegrass", "k-ballad",
-      "trot", "acoustic pop", "neo-folk", "anti-folk", "contemporary folk",
-      "japanese folk",
-    ],
     moods: ["warm", "cozy", "calm", "gentle", "soft", "intimate", "peaceful", "tender"],
     constellation: {
       stars: [{ x: 18, y: 18 }, { x: 38, y: 38 }, { x: 50, y: 60 }, { x: 62, y: 38 }, { x: 82, y: 18 }],
@@ -148,13 +146,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Pop Switch",
     blurbKo: "장르를 자유로이 옮겨 다니는 후크 중심의 팝.",
     blurbEn: "Hook-driven pop, channel-flipped across genres.",
-    genres: [
-      "k-pop", "j-pop", "c-pop", "mandopop", "v-pop", "t-pop", "latin pop",
-      "dance-pop", "electropop", "art pop", "synth-pop", "synthpop",
-      "hyperpop", "bubblegum pop", "teen pop", "alt-pop", "chamber pop",
-      "power pop", "twee pop", "future pop", "kawaii pop", "indo-pop",
-      "korean pop ballad", "k-pop ballad",
-    ],
     moods: ["playful", "upbeat", "fun", "bright", "cheerful", "catchy", "uplifting"],
     constellation: {
       stars: [
@@ -173,12 +164,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Indie Afterglow",
     blurbKo: "조용한 인디, 감정선이 길게 남는 청취.",
     blurbEn: "Bedroom-quiet indie that lingers.",
-    genres: [
-      "indie", "indie pop", "indie rock", "bedroom pop", "lo-fi",
-      "slowcore", "sadcore", "emo", "emo revival", "midwest emo",
-      "jangle pop", "korean indie", "japanese indie", "indie folk pop",
-      "indie sleaze", "indie ballad", "indie soul",
-    ],
     moods: [
       "melancholic", "nostalgic", "emotional", "introspective", "sad",
       "wistful", "bittersweet", "longing", "yearning", "reflective",
@@ -197,14 +182,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Groove Line",
     blurbKo: "그루브와 보컬 중심 — 소울·펑크·R&B.",
     blurbEn: "Groove first, voice front — soul, funk, R&B in motion.",
-    genres: [
-      "disco", "funk", "soul", "r&b", "neo-soul", "motown", "nu-disco",
-      "post-disco", "future funk", "electro-funk", "jazz funk", "funk rock",
-      "g-funk", "afrobeats", "alternative r&b", "contemporary r&b",
-      "hip-hop soul", "rare groove", "boogie", "blue-eyed soul",
-      "modern soul", "deep soul", "southern soul", "philly soul",
-      "k-r&b", "korean soul", "italo disco",
-    ],
     moods: ["groovy", "confident", "danceable", "celebratory", "joyful", "smooth", "lively", "festive"],
     constellation: {
       stars: [
@@ -223,17 +200,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Detail Lab",
     blurbKo: "연주력·편곡·구조에 까다로운 귀.",
     blurbEn: "Where playing and arrangement matter — jazz, classical, prog.",
-    genres: [
-      "jazz", "bebop", "swing", "vocal jazz", "cool jazz", "hard bop",
-      "acid jazz", "nu-jazz", "modal jazz", "spiritual jazz", "latin jazz",
-      "gypsy jazz", "jazz piano", "jazz manouche", "classical",
-      "neo-classical", "baroque", "contemporary classical",
-      "modern classical", "big band", "fusion jazz", "jazz fusion",
-      "post-bop", "free jazz", "chamber music", "minimalism",
-      "modern composition", "orchestral", "impressionism", "romanticism",
-      "progressive rock", "prog rock", "art rock", "math rock",
-      "progressive metal", "krautrock",
-    ],
     moods: ["sophisticated", "refined", "complex", "elegant", "intricate", "cerebral"],
     constellation: {
       stars: [{ x: 14, y: 22 }, { x: 30, y: 38 }, { x: 50, y: 50 }, { x: 70, y: 60 }, { x: 86, y: 75 }],
@@ -249,13 +215,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Soft Focus",
     blurbKo: "세련되고 부드러운 결 — 시티팝·소프트락.",
     blurbEn: "Smooth, refined — city pop, soft rock, lounge.",
-    genres: [
-      "city pop", "soft rock", "smooth jazz", "lounge", "bossa nova",
-      "yacht rock", "easy listening", "japanese city pop", "soft pop",
-      "adult contemporary", "quiet storm", "aor", "sophisti-pop",
-      "kayokyoku", "japanese smooth jazz", "soft jazz", "smooth soul",
-      "smooth pop", "lo-fi soul", "chillhop",
-    ],
     moods: ["smooth", "mellow", "balanced", "refined", "sleek", "laid-back", "chill"],
     constellation: {
       stars: [{ x: 50, y: 15 }, { x: 20, y: 50 }, { x: 80, y: 50 }, { x: 50, y: 85 }],
@@ -263,10 +222,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     },
   },
   {
-    // Scorpio NO LONGER metal — restructured (May 2026) to the dark-but-
-    // not-heavy quadrant: post-punk, darkwave, industrial, trip-hop.
-    // Metal in all its forms moved to Capricorn (Guitar Axis) since the
-    // user's taste model groups guitar-band genres together.
     sign: "scorpio",
     symbol: "♏",
     nameKo: "전갈자리",
@@ -275,14 +230,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Night Current",
     blurbKo: "어둡고 밀도 있는 텍스처 — 포스트펑크·다크웨이브·인더스트리얼.",
     blurbEn: "Dark current — post-punk, darkwave, industrial, trip-hop.",
-    genres: [
-      "post-punk", "gothic rock", "deathrock", "coldwave", "no-wave",
-      "no wave", "darkwave", "ethereal wave", "dark cabaret",
-      "industrial", "industrial rock", "ebm",
-      "trip-hop", "trip hop", "downtempo",
-      "witch house", "hauntology", "minimal wave", "post-industrial",
-      "neofolk", "neo-folk-dark", "dark folk", "dark ambient",
-    ],
     moods: ["dark", "brooding", "intense", "moody", "menacing", "hypnotic"],
     constellation: {
       stars: [
@@ -302,15 +249,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Border Radio",
     blurbKo: "경계 너머의 라디오 — 월드·라틴·아프로·사이키.",
     blurbEn: "Crossing borders — world, latin, afro, with psychedelic edges.",
-    genres: [
-      "world", "latin", "afrobeat", "reggae", "dancehall", "ska", "gypsy",
-      "world music", "salsa", "samba", "bossa", "bachata", "merengue",
-      "kuduro", "k-traditional", "k-folk", "cumbia", "flamenco", "tango",
-      "calypso", "soca", "ethiopian", "balkan", "celtic", "global pop",
-      "highlife", "arabic pop", "persian pop", "indian pop", "bhangra",
-      "qawwali", "j-folk", "asian folk", "andean", "moroccan",
-      "psychedelic rock", "psych-folk", "psychedelic pop", "neo-psychedelia",
-    ],
     moods: ["adventurous", "free", "expansive", "exotic", "festive"],
     constellation: {
       stars: [
@@ -321,11 +259,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     },
   },
   {
-    // Capricorn restructured (May 2026): now absorbs all metal subgenres
-    // that used to live in Scorpio. The unifying signal is "guitar-led
-    // band sound" — rock, alt-rock, punk, classic rock, metal in every
-    // form. Post-punk moved OUT to Scorpio (it's the dark-texture
-    // sibling, not the riff-architecture one).
     sign: "capricorn",
     symbol: "♑",
     nameKo: "염소자리",
@@ -334,26 +267,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Guitar Axis",
     blurbKo: "기타 중심의 밴드 사운드 — 록·올터·펑크·메탈.",
     blurbEn: "Guitar-led, band-shaped — rock, alt-rock, punk, metal.",
-    genres: [
-      // Rock cluster
-      "rock", "hard rock", "classic rock", "alternative rock", "modern rock",
-      "punk rock", "punk", "pop-punk", "pop punk", "skate punk",
-      "post-hardcore", "grunge", "post-grunge", "garage rock",
-      "new wave", "blues rock", "blues",
-      "pop rock", "southern rock", "stoner rock", "roots rock", "britpop",
-      "alt-rock", "korean rock", "rock and roll", "rockabilly", "surf rock",
-      "glam rock", "indie rock revival",
-      // Metal cluster (moved from Scorpio)
-      "metal", "heavy metal", "death metal", "black metal", "thrash",
-      "thrash metal", "speed metal", "power metal", "doom", "doom metal",
-      "sludge", "sludge metal", "stoner metal", "post-metal", "metalcore",
-      "deathcore", "hardcore", "hardcore punk", "screamo", "grindcore",
-      "djent", "symphonic metal", "melodic death metal",
-      "technical death metal", "blackened death metal", "atmospheric black metal",
-      "depressive black metal", "post-black metal", "viking metal",
-      "pagan metal", "folk metal", "gothic metal", "funeral doom",
-      "drone metal", "mathcore", "glam metal", "nu-metal", "nu metal",
-    ],
     moods: ["energetic", "raw", "powerful", "dramatic", "passionate", "anthemic", "aggressive", "heavy"],
     constellation: {
       stars: [{ x: 22, y: 70 }, { x: 50, y: 22 }, { x: 78, y: 70 }],
@@ -369,20 +282,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Signal Room",
     blurbKo: "전자음과 신스의 신호 — 일렉트로니카·하우스·테크노·DnB.",
     blurbEn: "Synths and signals — electronic, house, techno, DnB.",
-    genres: [
-      "electronic", "electronica", "techno", "minimal techno", "tech house",
-      "house", "deep house", "progressive house", "tropical house",
-      "future house", "slap house", "bass house", "melodic house",
-      "melodic techno", "organic house", "edm", "big room", "trance",
-      "psy-trance", "uplifting trance", "progressive trance",
-      "industrial techno", "synthwave", "electro", "electroclash",
-      "indie dance", "italo house",
-      "dnb", "drum and bass", "liquid drum and bass", "neurofunk",
-      "dubstep", "future bass", "future garage", "uk garage", "2-step",
-      "breakbeat", "footwork", "juke", "jungle", "hard techno",
-      "hardstyle", "gabber", "acid house", "gqom", "baltimore club",
-      "jersey club", "afro-house",
-    ],
     moods: ["electric", "hypnotic", "futuristic", "pulsing", "driving"],
     constellation: {
       stars: [
@@ -401,15 +300,6 @@ export const ALL_ZODIACS: Zodiac[] = [
     archetypeEn: "Reverb Field",
     blurbKo: "잔향과 공간감의 레이어 — 드림팝·슈게이즈·앰비언트.",
     blurbEn: "Reverb-soaked fields — dream pop, shoegaze, ambient.",
-    genres: [
-      "shoegaze", "dream pop", "chillwave", "nu-gaze",
-      "blackgaze", "dreamgaze", "post-shoegaze", "ambient",
-      "ambient electronic", "ambient pop", "ambient techno", "drone",
-      "drone ambient", "experimental", "idm", "post-rock", "minimal",
-      "vaporwave", "chillout", "lo-fi hip hop",
-      "lo-fi beats", "modular synth", "new age", "kankyo ongaku",
-      "post-metal-atmos",
-    ],
     moods: ["dreamy", "hazy", "romantic", "surreal", "ethereal", "abstract", "atmospheric", "spacious"],
     constellation: {
       stars: [{ x: 14, y: 30 }, { x: 32, y: 22 }, { x: 50, y: 40 }, { x: 68, y: 22 }, { x: 86, y: 30 }],
@@ -419,16 +309,10 @@ export const ALL_ZODIACS: Zodiac[] = [
 ];
 
 /**
- * Sub-flavor clusters per zodiac. The matcher uses these to refine the
- * winning sign into a more specific archetype — e.g. someone whose Virgo
- * signal is mostly bebop tags reads as "Virgo · Jazz" rather than the
- * umbrella "Detail Lab". A flavor sticks only when ≥2 supporting tracks
- * fall in it AND it owns the dominant share within the winning sign's
- * genre matches; otherwise the UI shows just the umbrella.
- *
- * Flavor keyword matching uses the same substring rules as the main
- * matcher (longest keyword wins) so we don't double-count overlaps.
- * Signs absent from this map silently fall back to no flavor.
+ * Sub-flavor clusters per zodiac. Flavor matching is still substring-based
+ * because the keywords here are domain-specific labels (Boom-Bap Kid,
+ * K-Pop Devotee, etc.) — the family-level abstraction in genreDict would
+ * collapse these into the umbrella and lose the granularity.
  */
 const FLAVORS: Record<string, ZodiacFlavor[]> = {
   aries: [
@@ -439,11 +323,11 @@ const FLAVORS: Record<string, ZodiacFlavor[]> = {
     { key: "drill", nameKo: "드릴 마니아", nameEn: "Drill Devotee",
       genres: ["drill", "uk drill", "phonk", "hyperphonk", "rage rap", "grime", "road rap", "jersey drill", "brooklyn drill", "chicago drill", "plugg"] },
     { key: "krap", nameKo: "한국 힙합", nameEn: "K-Rap Loyal",
-      genres: ["korean hip hop", "k-rap", "k-hiphop"] },
+      genres: ["korean hip hop", "k-rap", "k-hiphop", "korean rap"] },
   ],
   taurus: [
     { key: "kballad", nameKo: "한국 발라드", nameEn: "K-Ballad",
-      genres: ["k-ballad", "ballad", "korean pop ballad", "k-pop ballad", "trot"] },
+      genres: ["k-ballad", "ballad", "korean pop ballad", "k-pop ballad", "trot", "korean ballad"] },
     { key: "folk", nameKo: "포크 어쿠스틱", nameEn: "Folk Acoustic",
       genres: ["folk", "indie folk", "folk rock", "folk pop", "americana", "bluegrass", "neo-folk", "contemporary folk", "japanese folk", "anti-folk"] },
     { key: "country", nameKo: "컨트리", nameEn: "Country",
@@ -451,17 +335,17 @@ const FLAVORS: Record<string, ZodiacFlavor[]> = {
   ],
   gemini: [
     { key: "kpop", nameKo: "K팝", nameEn: "K-Pop",
-      genres: ["k-pop", "korean pop ballad", "k-pop ballad"] },
+      genres: ["k-pop", "korean pop", "korean pop ballad", "k-pop ballad"] },
     { key: "jpop", nameKo: "J팝", nameEn: "J-Pop",
       genres: ["j-pop", "kawaii pop"] },
     { key: "synth", nameKo: "신스팝", nameEn: "Synth-Pop",
-      genres: ["synth-pop", "synthpop", "electropop", "hyperpop", "future pop"] },
+      genres: ["synth-pop", "synthpop", "synth pop", "electropop", "hyperpop", "future pop"] },
     { key: "chamber", nameKo: "챔버팝", nameEn: "Chamber Pop",
-      genres: ["art pop", "chamber pop", "twee pop", "alt-pop"] },
+      genres: ["art pop", "chamber pop", "twee pop", "alt-pop", "alt pop"] },
   ],
   cancer: [
     { key: "bedroom", nameKo: "베드룸 팝", nameEn: "Bedroom Pop",
-      genres: ["bedroom pop", "lo-fi"] },
+      genres: ["bedroom pop", "lo-fi", "lofi"] },
     { key: "emo", nameKo: "이모", nameEn: "Emo",
       genres: ["emo", "emo revival", "midwest emo"] },
     { key: "indie", nameKo: "감성 인디", nameEn: "Tender Indie",
@@ -469,19 +353,21 @@ const FLAVORS: Record<string, ZodiacFlavor[]> = {
   ],
   leo: [
     { key: "funk", nameKo: "펑크", nameEn: "Funk",
-      genres: ["funk", "funk rock", "g-funk", "electro-funk", "jazz funk", "future funk"] },
+      genres: ["funk", "funk rock", "g-funk", "g funk", "electro-funk", "electro funk", "jazz funk", "future funk"] },
     { key: "soul", nameKo: "소울", nameEn: "Soul",
-      genres: ["soul", "neo-soul", "modern soul", "deep soul", "southern soul", "philly soul", "blue-eyed soul", "hip-hop soul", "korean soul", "rare groove"] },
+      genres: ["soul", "neo-soul", "neo soul", "modern soul", "deep soul", "southern soul", "philly soul", "blue-eyed soul", "hip-hop soul", "korean soul", "rare groove"] },
     { key: "disco", nameKo: "디스코", nameEn: "Disco",
-      genres: ["disco", "nu-disco", "post-disco", "italo disco", "boogie"] },
+      genres: ["disco", "nu-disco", "nu disco", "post-disco", "post disco", "italo disco", "boogie"] },
     { key: "rnb", nameKo: "R&B", nameEn: "R&B",
-      genres: ["r&b", "alternative r&b", "contemporary r&b", "k-r&b"] },
+      genres: ["r&b", "rnb", "alternative r&b", "contemporary r&b", "k-r&b", "korean r&b"] },
+    { key: "afrobeats", nameKo: "아프로비츠", nameEn: "Afrobeats",
+      genres: ["afrobeats", "afro pop", "afro-pop"] },
   ],
   virgo: [
     { key: "jazz", nameKo: "재즈", nameEn: "Jazz",
-      genres: ["jazz", "bebop", "swing", "vocal jazz", "cool jazz", "hard bop", "acid jazz", "nu-jazz", "modal jazz", "spiritual jazz", "latin jazz", "gypsy jazz", "jazz piano", "jazz manouche", "big band", "fusion jazz", "jazz fusion", "post-bop", "free jazz"] },
+      genres: ["jazz", "bebop", "swing", "vocal jazz", "cool jazz", "hard bop", "acid jazz", "nu-jazz", "nu jazz", "modal jazz", "spiritual jazz", "latin jazz", "gypsy jazz", "jazz piano", "jazz manouche", "big band", "fusion jazz", "jazz fusion", "post-bop", "post bop", "free jazz"] },
     { key: "classical", nameKo: "클래식", nameEn: "Classical",
-      genres: ["classical", "neo-classical", "baroque", "contemporary classical", "modern classical", "chamber music", "minimalism", "modern composition", "orchestral", "impressionism", "romanticism"] },
+      genres: ["classical", "neo-classical", "neo classical", "baroque", "contemporary classical", "modern classical", "chamber music", "minimalism", "modern composition", "orchestral", "impressionism", "romanticism", "romantic"] },
     { key: "prog", nameKo: "프로그/매스", nameEn: "Prog & Math",
       genres: ["progressive rock", "prog rock", "art rock", "math rock", "progressive metal", "krautrock"] },
   ],
@@ -489,39 +375,39 @@ const FLAVORS: Record<string, ZodiacFlavor[]> = {
     { key: "citypop", nameKo: "시티팝", nameEn: "City Pop",
       genres: ["city pop", "japanese city pop", "kayokyoku"] },
     { key: "smooth", nameKo: "스무스 재즈", nameEn: "Smooth Jazz",
-      genres: ["smooth jazz", "lounge", "bossa nova", "japanese smooth jazz", "soft jazz", "chillhop", "lo-fi soul"] },
+      genres: ["smooth jazz", "lounge", "bossa nova", "japanese smooth jazz", "soft jazz", "chillhop", "lo-fi soul", "quiet storm"] },
     { key: "soft", nameKo: "소프트 록", nameEn: "Soft Rock",
-      genres: ["soft rock", "yacht rock", "aor", "sophisti-pop", "easy listening", "adult contemporary"] },
+      genres: ["soft rock", "yacht rock", "aor", "sophisti-pop", "sophisti pop", "easy listening", "adult contemporary"] },
   ],
   scorpio: [
     { key: "postpunk", nameKo: "포스트펑크", nameEn: "Post-Punk",
-      genres: ["post-punk", "gothic rock", "deathrock", "coldwave", "no-wave", "no wave", "minimal wave"] },
+      genres: ["post-punk", "post punk", "gothic rock", "deathrock", "coldwave", "no-wave", "no wave", "minimal wave"] },
     { key: "darkwave", nameKo: "다크웨이브", nameEn: "Darkwave",
       genres: ["darkwave", "ethereal wave", "dark cabaret", "witch house"] },
     { key: "industrial", nameKo: "인더스트리얼", nameEn: "Industrial",
-      genres: ["industrial", "industrial rock", "ebm", "post-industrial"] },
+      genres: ["industrial", "industrial rock", "ebm", "post-industrial", "post industrial"] },
     { key: "triphop", nameKo: "트립합", nameEn: "Trip-Hop",
       genres: ["trip-hop", "trip hop", "downtempo"] },
   ],
   sagittarius: [
     { key: "latin", nameKo: "라틴", nameEn: "Latin",
-      genres: ["latin", "salsa", "samba", "bossa", "bachata", "merengue", "cumbia", "flamenco", "tango", "calypso", "soca"] },
+      genres: ["latin", "salsa", "samba", "bossa", "bossa nova", "bachata", "merengue", "cumbia", "flamenco", "tango", "calypso", "soca", "reggaeton", "mpb"] },
     { key: "afro", nameKo: "아프로", nameEn: "Afro",
-      genres: ["afrobeat", "highlife", "kuduro", "ethiopian"] },
+      genres: ["afrobeat", "afrobeats", "highlife", "kuduro", "ethiopian", "amapiano", "kwaito"] },
     { key: "asia", nameKo: "아시아 전통", nameEn: "Asian Traditional",
-      genres: ["k-traditional", "k-folk", "j-folk", "asian folk", "bhangra", "qawwali", "indian pop"] },
+      genres: ["k-traditional", "k-folk", "j-folk", "asian folk", "bhangra", "qawwali", "indian pop", "indian classical", "bollywood"] },
     { key: "carib", nameKo: "캐리비안", nameEn: "Caribbean",
-      genres: ["reggae", "dancehall", "ska"] },
+      genres: ["reggae", "dancehall", "ska", "dub", "rocksteady", "lovers rock"] },
     { key: "psych", nameKo: "사이키델릭", nameEn: "Psychedelic",
-      genres: ["psychedelic rock", "psych-folk", "psychedelic pop", "neo-psychedelia"] },
+      genres: ["psychedelic rock", "psych rock", "psych-folk", "psychedelic pop", "neo-psychedelia"] },
   ],
   capricorn: [
     { key: "classic", nameKo: "클래식 록", nameEn: "Classic Rock",
       genres: ["rock", "classic rock", "hard rock", "rock and roll", "rockabilly", "surf rock", "glam rock", "british invasion"] },
     { key: "alt", nameKo: "얼터너티브", nameEn: "Alternative",
-      genres: ["alternative rock", "alt-rock", "modern rock", "grunge", "post-grunge", "indie rock revival", "britpop"] },
+      genres: ["alternative rock", "alt-rock", "alt rock", "modern rock", "grunge", "post-grunge", "indie rock revival", "britpop"] },
     { key: "punk", nameKo: "펑크", nameEn: "Punk",
-      genres: ["punk", "punk rock", "pop-punk", "skate punk", "post-hardcore", "hardcore punk"] },
+      genres: ["punk", "punk rock", "pop-punk", "pop punk", "skate punk", "post-hardcore", "hardcore punk"] },
     { key: "metal", nameKo: "메탈", nameEn: "Metal",
       genres: ["metal", "heavy metal", "thrash", "thrash metal", "speed metal", "power metal", "death metal", "black metal", "doom", "doom metal", "sludge", "sludge metal", "stoner metal", "post-metal", "metalcore", "deathcore", "screamo", "grindcore", "djent", "symphonic metal", "melodic death metal", "technical death metal", "blackened death metal", "atmospheric black metal", "depressive black metal", "post-black metal", "viking metal", "pagan metal", "folk metal", "gothic metal", "funeral doom", "drone metal", "mathcore", "glam metal", "nu-metal", "nu metal"] },
     { key: "blues", nameKo: "블루스 록", nameEn: "Blues Rock",
@@ -529,29 +415,29 @@ const FLAVORS: Record<string, ZodiacFlavor[]> = {
   ],
   aquarius: [
     { key: "techno", nameKo: "테크노", nameEn: "Techno",
-      genres: ["techno", "minimal techno", "industrial techno", "melodic techno", "hard techno"] },
+      genres: ["techno", "minimal techno", "industrial techno", "melodic techno", "hard techno", "detroit techno"] },
     { key: "house", nameKo: "하우스", nameEn: "House",
-      genres: ["house", "deep house", "progressive house", "tropical house", "future house", "slap house", "bass house", "melodic house", "organic house", "tech house", "italo house", "acid house", "afro-house"] },
+      genres: ["house", "deep house", "progressive house", "tropical house", "future house", "slap house", "bass house", "melodic house", "organic house", "tech house", "italo house", "acid house", "afro-house", "afro house"] },
     { key: "dnb", nameKo: "DnB", nameEn: "DnB",
       genres: ["dnb", "drum and bass", "liquid drum and bass", "neurofunk", "jungle"] },
     { key: "trance", nameKo: "트랜스", nameEn: "Trance",
-      genres: ["trance", "psy-trance", "uplifting trance", "progressive trance"] },
+      genres: ["trance", "psy-trance", "psytrance", "uplifting trance", "progressive trance"] },
     { key: "bass", nameKo: "베이스", nameEn: "Bass",
-      genres: ["dubstep", "future bass", "future garage", "uk garage", "2-step", "breakbeat", "footwork", "juke"] },
+      genres: ["dubstep", "future bass", "future garage", "uk garage", "2-step", "2 step", "breakbeat", "footwork", "juke"] },
     { key: "synthwave", nameKo: "신스웨이브", nameEn: "Synthwave",
-      genres: ["synthwave", "electro", "electroclash", "indie dance"] },
+      genres: ["synthwave", "retrowave", "electro", "electroclash", "indie dance"] },
   ],
   pisces: [
     { key: "shoegaze", nameKo: "슈게이즈", nameEn: "Shoegaze",
-      genres: ["shoegaze", "dream pop", "nu-gaze", "blackgaze", "dreamgaze", "post-shoegaze"] },
+      genres: ["shoegaze", "dream pop", "nu-gaze", "nugaze", "blackgaze", "dreamgaze", "post-shoegaze"] },
     { key: "ambient", nameKo: "앰비언트", nameEn: "Ambient",
-      genres: ["ambient", "ambient electronic", "ambient pop", "ambient techno", "drone", "drone ambient", "new age", "kankyo ongaku"] },
+      genres: ["ambient", "dark ambient", "ambient electronic", "ambient pop", "ambient techno", "drone", "drone ambient", "new age", "kankyo ongaku"] },
     { key: "vapor", nameKo: "베이퍼웨이브", nameEn: "Vaporwave",
       genres: ["vaporwave", "chillwave"] },
     { key: "lofi", nameKo: "로파이", nameEn: "Lo-Fi",
-      genres: ["lo-fi hip hop", "lo-fi beats", "chillout"] },
+      genres: ["lo-fi hip hop", "lo-fi beats", "chillout", "lofi", "lo-fi"] },
     { key: "postrock", nameKo: "포스트록", nameEn: "Post-Rock",
-      genres: ["post-rock", "post-metal-atmos"] },
+      genres: ["post-rock", "post rock", "post-metal-atmos"] },
   ],
 };
 
@@ -561,6 +447,8 @@ for (const z of ALL_ZODIACS) {
   const f = FLAVORS[z.sign];
   if (f) z.flavors = f;
 }
+
+const ALL_SIGNS: readonly ZodiacSign[] = ALL_ZODIACS.map((z) => z.sign);
 
 /** Returns the full flavor breakdown for a sign and the dominant pick
  *  (or null when the signal is too thin / too even to commit to one). */
@@ -618,24 +506,94 @@ function flavorAnalysis(
 /**
  * Picks the best-matching zodiac and computes per-sign breakdown so the UI
  * can show every sign's share, not just the winner.
+ *
+ * Genre signal is multi-label weighted (each genre's full ZodiacWeights
+ * vector contributes to every sign it touches). Mood signal stays flat-
+ * keyword matched against each sign's mood list, weighted equally to the
+ * sum of all matched genre weights (so moods can't dominate genres).
  */
 export function getMusicZodiac(stats: LibraryStats): MusicZodiac | null {
   if (stats.topGenres.length === 0 && stats.topMoods.length === 0) return null;
 
-  const scores = new Map<string, number>();
-  const matched = new Map<string, ZodiacMatched[]>();
-  // Per-sign genre name → count. Used downstream by pickFlavor() to score
-  // sub-archetypes (e.g. how much of the user's Virgo signal is jazz vs.
-  // classical). Mood matches don't contribute to flavors — flavors are
-  // strictly about which corner of the sign's musical world dominates.
+  // signScore[sign] = total weight (genre weights * track counts + mood
+  // matches * track counts) — same denominator units, additive.
+  const signScore = new Map<ZodiacSign, number>();
+  // Track which user-genres/moods landed on which signs so the UI can
+  // show "matched on: indie pop, lo-fi, dream pop" per sign.
+  const signMatched = new Map<ZodiacSign, ZodiacMatched[]>();
+  // Per-sign canonical-genre name → count (for the flavor sub-archetype
+  // matcher). Mood matches don't feed flavors — flavors are strictly
+  // about which corner of the sign's musical world dominates.
   const signGenreCounts = new Map<string, Map<string, number>>();
 
-  const assign = (name: string, original: string, count: number, kind: "genre" | "mood") => {
-    let bestSign: string | null = null;
+  const addToSign = (
+    sign: ZodiacSign,
+    weight: number,
+    matched: ZodiacMatched,
+  ) => {
+    signScore.set(sign, (signScore.get(sign) ?? 0) + weight);
+    const arr = signMatched.get(sign) ?? [];
+    if (!arr.some((m) => m.name === matched.name && m.type === matched.type)) {
+      arr.push(matched);
+      signMatched.set(sign, arr);
+    }
+  };
+
+  // ── Genre pass (multi-label weighted, via genreDict) ──
+  let totalSignal = 0;
+  let excludedSignal = 0;
+  for (const g of stats.topGenres) {
+    if (isExcludedGenre(g.name)) {
+      excludedSignal += g.count;
+      continue;
+    }
+    const weights: ZodiacWeights = genreZodiacWeights(g.name);
+    const keys = Object.keys(weights) as ZodiacSign[];
+    if (keys.length === 0) continue;
+    totalSignal += g.count;
+    // Record canonical (id-level) genre count for the flavor matcher.
+    // Falls back to the raw lowercased input when canonicalisation
+    // returns null (so old/unknown labels still feed something).
+    const canon = findGenre(g.name)?.id.replace(/_/g, " ") ?? g.name.toLowerCase();
+    for (const sign of keys) {
+      const w = weights[sign] ?? 0;
+      if (w <= 0) continue;
+      // Contribute weight × track-count to this sign.
+      addToSign(sign, w * g.count, { name: g.name, type: "genre" });
+      // Pull genre count into per-sign canonical map ONLY for the sign
+      // whose weight is highest — keeps flavor matching crisp (a track
+      // tagged with "dance-pop" lands its flavor under whichever sign
+      // it most belongs to, not split across all of them).
+      const m = signGenreCounts.get(sign) ?? new Map();
+      // Reserved; populated below after the dominant-sign pick.
+      signGenreCounts.set(sign, m);
+    }
+    // Dominant sign for THIS genre — the one with the highest weight
+    // gets the canonical name added to its flavor map.
+    let domSign: ZodiacSign | null = null;
+    let domW = 0;
+    for (const sign of keys) {
+      const w = weights[sign] ?? 0;
+      if (w > domW) {
+        domW = w;
+        domSign = sign;
+      }
+    }
+    if (domSign) {
+      const m = signGenreCounts.get(domSign) ?? new Map();
+      m.set(canon, (m.get(canon) ?? 0) + g.count);
+      signGenreCounts.set(domSign, m);
+    }
+  }
+
+  // ── Mood pass (flat keyword match) ──
+  for (const m of stats.topMoods) {
+    const lower = m.name.toLowerCase();
+    let bestSign: ZodiacSign | null = null;
     let bestLen = 0;
     for (const z of ALL_ZODIACS) {
-      for (const kw of z[kind === "genre" ? "genres" : "moods"]) {
-        if (name === kw || name.includes(kw) || kw.includes(name)) {
+      for (const kw of z.moods) {
+        if (lower === kw || lower.includes(kw) || kw.includes(lower)) {
           if (kw.length > bestLen) {
             bestSign = z.sign;
             bestLen = kw.length;
@@ -644,32 +602,21 @@ export function getMusicZodiac(stats: LibraryStats): MusicZodiac | null {
       }
     }
     if (bestSign) {
-      scores.set(bestSign, (scores.get(bestSign) ?? 0) + count);
-      const arr = matched.get(bestSign) ?? [];
-      arr.push({ name: original, type: kind });
-      matched.set(bestSign, arr);
-      if (kind === "genre") {
-        let m = signGenreCounts.get(bestSign);
-        if (!m) { m = new Map(); signGenreCounts.set(bestSign, m); }
-        m.set(name, (m.get(name) ?? 0) + count);
-      }
+      // Mood-weight = 1 per track (equivalent to a full-weight genre);
+      // genres usually dominate via sheer count + the multi-label
+      // breadth.
+      addToSign(bestSign, m.count, { name: m.name, type: "mood" });
+      totalSignal += m.count;
     }
-  };
-
-  let totalCount = 0;
-  for (const g of stats.topGenres) {
-    totalCount += g.count;
-    assign(g.name.toLowerCase(), g.name, g.count, "genre");
   }
-  for (const m of stats.topMoods) {
-    totalCount += m.count;
-    assign(m.name.toLowerCase(), m.name, m.count, "mood");
-  }
-  if (scores.size === 0 || totalCount === 0) return null;
 
-  let bestSign: string | null = null;
+  if (signScore.size === 0 || totalSignal === 0) return null;
+
+  // Best sign by score.
+  let bestSign: ZodiacSign | null = null;
   let bestScore = 0;
-  for (const [s, sc] of scores) {
+  for (const s of ALL_SIGNS) {
+    const sc = signScore.get(s) ?? 0;
     if (sc > bestScore) {
       bestSign = s;
       bestScore = sc;
@@ -677,11 +624,23 @@ export function getMusicZodiac(stats: LibraryStats): MusicZodiac | null {
   }
   if (!bestSign) return null;
 
-  const breakdown: SignBreakdown[] = ALL_ZODIACS.map((z) => ({
-    sign: z.sign,
-    share: (scores.get(z.sign) ?? 0) / totalCount,
-    matched: matched.get(z.sign) ?? [],
-  })).sort((a, b) => b.share - a.share);
+  // Per-sign breakdown for the UI.
+  const totalScore = ALL_SIGNS.reduce(
+    (acc, s) => acc + (signScore.get(s) ?? 0),
+    0,
+  );
+  const breakdown: SignBreakdown[] = ALL_SIGNS
+    .map((s) => ({
+      sign: s,
+      share: totalScore > 0 ? (signScore.get(s) ?? 0) / totalScore : 0,
+      matched: signMatched.get(s) ?? [],
+    }))
+    .sort((a, b) => b.share - a.share);
+
+  // Reference excludedSignal so future telemetry can surface "we ignored
+  // N religious/spoken tracks when computing your archetype" — not used
+  // yet but the count is captured for free.
+  void excludedSignal;
 
   const z = ALL_ZODIACS.find((x) => x.sign === bestSign)!;
   const { flavor, breakdown: flavorBreakdown } = flavorAnalysis(
@@ -690,8 +649,8 @@ export function getMusicZodiac(stats: LibraryStats): MusicZodiac | null {
   );
   return {
     zodiac: z,
-    matched: matched.get(bestSign) ?? [],
-    share: bestScore / totalCount,
+    matched: signMatched.get(bestSign) ?? [],
+    share: totalScore > 0 ? bestScore / totalScore : 0,
     breakdown,
     flavor,
     flavorBreakdown,
