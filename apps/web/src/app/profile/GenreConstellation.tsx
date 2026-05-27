@@ -209,86 +209,70 @@ export function GenreConstellation({
       const radii = sim.map((s) => s.r).sort((a, b) => a - b);
       const spikeThreshold = radii[Math.floor(radii.length * 0.75)] ?? 999;
 
+      // Stars — May 2026 redesign. Earlier pass used a 3-layer
+      // halo + mid-glow + bright core + 4-point cross flare on top
+      // 25% of stars; tester feedback was "두꺼운 원에 빛 효과에
+      // 십자가까지 넣으니 괴상" (the chunky cross flares + thick
+      // gradient halos look UFO-ish, not star-like). Real telescope
+      // star plates render each star as a small bright point with a
+      // very subtle bloom — that's what we mimic now.
       for (const i of drawOrder) {
         const s = sim[i]!;
         const px = s.x * scale + ox;
         const py = s.y * scale + oy;
         const dim = focus != null && i !== focus && !(nbr && nbr.has(i));
         const r = s.r * scale;
-        // Twinkle: 0.7 ↔ 1.0 multiplier on halo opacity. Each star
-        // gets its own phase, plus a small radius variation so the
-        // spikes pulse subtly too.
-        const twink = 0.7 + 0.3 * (0.5 + 0.5 * Math.sin(t * 1.3 + twinkleSeed(i)));
-        const baseAlpha = dim ? 0.18 : 1;
+        // Twinkle: 0.75 ↔ 1.0 multiplier on alpha. Subtle — barely
+        // perceptible per-frame but enough to break the "static dot
+        // print" feeling over a few seconds of looking.
+        const twink = 0.75 + 0.25 * (0.5 + 0.5 * Math.sin(t * 1.3 + twinkleSeed(i)));
+        const baseAlpha = dim ? 0.22 : 1;
 
-        // Diffraction spikes — only for the brightest stars, scaled
-        // by radius so big genres get visibly bigger flares. Drawn
-        // FIRST so the halo + core overlay them at the centre.
-        if (!dim && s.r >= spikeThreshold) {
-          const spikeLen = r * (3.2 + twink * 0.6);
-          ctx.globalAlpha = baseAlpha * 0.6 * twink;
-          ctx.strokeStyle = `hsl(${s.hue} 90% 80%)`;
-          ctx.lineCap = "round";
-          // Horizontal spike thins out toward the tip.
-          ctx.lineWidth = Math.max(0.7, r * 0.18);
-          ctx.beginPath();
-          ctx.moveTo(px - spikeLen, py);
-          ctx.lineTo(px + spikeLen, py);
-          ctx.stroke();
-          // Vertical spike, slightly shorter — looks more "lens-real".
-          ctx.beginPath();
-          ctx.moveTo(px, py - spikeLen * 0.85);
-          ctx.lineTo(px, py + spikeLen * 0.85);
-          ctx.stroke();
-        }
+        // Magnitude — the visible dot. Scaled down vs. the force-sim
+        // radius so even big genres render as a SMALL point, not a
+        // pancake. Min 1.4 px so tiny genres still have something to
+        // see. Ranges roughly 1.4–4.5 px on a typical canvas.
+        const dotR = Math.max(1.4, Math.min(4.5, r * 0.55));
 
-        // Halo (outer glow) — radial gradient instead of solid disk so
-        // the outer edge fades naturally and the halo doesn't clip a
-        // hard circle against neighbours.
-        const haloR = r * 3.6;
-        const halo = ctx.createRadialGradient(px, py, r * 0.6, px, py, haloR);
-        halo.addColorStop(0, `hsla(${s.hue}, 80%, 70%, ${0.55 * twink})`);
-        halo.addColorStop(0.55, `hsla(${s.hue}, 70%, 55%, ${0.2 * twink})`);
-        halo.addColorStop(1, `hsla(${s.hue}, 60%, 45%, 0)`);
+        // Soft bloom — tiny radial gradient, much smaller than the
+        // previous halo (was r * 3.6 → now dotR * 2.6). Same hue as
+        // the star, fades to transparent at the edge. No mid-glow
+        // layer; the bloom plus the bright dot reads cleaner.
+        const bloomR = dotR * 2.6;
+        const bloom = ctx.createRadialGradient(px, py, 0, px, py, bloomR);
+        bloom.addColorStop(0, `hsla(${s.hue}, 75%, 75%, ${0.35 * twink})`);
+        bloom.addColorStop(0.6, `hsla(${s.hue}, 70%, 55%, ${0.1 * twink})`);
+        bloom.addColorStop(1, `hsla(${s.hue}, 60%, 45%, 0)`);
         ctx.globalAlpha = baseAlpha;
-        ctx.fillStyle = halo;
+        ctx.fillStyle = bloom;
         ctx.beginPath();
-        ctx.arc(px, py, haloR, 0, Math.PI * 2);
+        ctx.arc(px, py, bloomR, 0, Math.PI * 2);
         ctx.fill();
 
-        // Mid glow — tighter, more saturated. Drives the perceived hue
-        // of the star against the dark background.
-        ctx.globalAlpha = baseAlpha * 0.85;
+        // The dot itself — near-white with a faint hue tint. Single
+        // small disk, no nested gradients. Reads as "a star" without
+        // looking constructed.
+        ctx.globalAlpha = baseAlpha * twink;
+        ctx.fillStyle = `hsl(${s.hue} 80% 92%)`;
         ctx.beginPath();
-        ctx.arc(px, py, r * 1.4, 0, Math.PI * 2);
-        ctx.fillStyle = `hsl(${s.hue} 80% 62%)`;
+        ctx.arc(px, py, dotR, 0, Math.PI * 2);
         ctx.fill();
 
-        // Bright core — white-hot, slightly tinted toward the hue at
-        // the edge so it doesn't read as a hard cut-out. Use a tiny
-        // radial so the centre is pure white but the rim picks up
-        // the star colour. Visible on stars of any size.
-        const coreR = Math.max(1.5, r * 0.55);
-        const core = ctx.createRadialGradient(px, py, 0, px, py, coreR);
-        core.addColorStop(0, "#ffffff");
-        core.addColorStop(0.7, `hsl(${s.hue} 95% 92%)`);
-        core.addColorStop(1, `hsl(${s.hue} 90% 82%)`);
-        ctx.globalAlpha = baseAlpha;
-        ctx.fillStyle = core;
-        ctx.beginPath();
-        ctx.arc(px, py, coreR, 0, Math.PI * 2);
-        ctx.fill();
-
+        // Selected node: thin ring at a comfortable distance. No
+        // cross-flare flourish — the ring alone is enough signal.
         if (i === focus) {
           ctx.globalAlpha = 1;
-          ctx.lineWidth = 1.5;
-          ctx.strokeStyle = "rgba(255,255,255,0.95)";
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = "rgba(255,255,255,0.85)";
           ctx.beginPath();
-          ctx.arc(px, py, r * 1.9, 0, Math.PI * 2);
+          ctx.arc(px, py, dotR + 5, 0, Math.PI * 2);
           ctx.stroke();
         }
         ctx.globalAlpha = 1;
       }
+      // spikeThreshold no longer drives drawing; kept locally above
+      // so the variable doesn't go cold. Reference to silence lint.
+      void spikeThreshold;
 
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";

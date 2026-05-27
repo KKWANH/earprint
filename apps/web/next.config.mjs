@@ -25,6 +25,12 @@ const CSP = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self' https://*.googleapis.com",
+  // Deezer 30-second previews are loaded from cdnt-preview.dzcdn.net /
+  // cdns-preview-*.dzcdn.net into <audio> elements. Without an explicit
+  // media-src the CSP falls back to default-src 'self' and the browser
+  // blocks playback with "violates default-src 'self'". The wildcard
+  // covers the half-dozen preview sub-domains Deezer rotates between.
+  "media-src 'self' https://*.dzcdn.net",
   "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
   "frame-ancestors 'none'",
   "form-action 'self'",

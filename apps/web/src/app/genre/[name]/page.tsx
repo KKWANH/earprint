@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BackLink } from "./BackLink";
 import { auth, signIn } from "@/auth";
 import { requireOnboarded } from "@/lib/onboarding";
 import { getGenreDetail } from "@/lib/genreDetail";
@@ -55,9 +56,7 @@ export default async function GenrePage({
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <div className="flex items-center justify-between gap-3">
-        <Link href="/library" className="text-xs text-neutral-500 hover:text-white">
-          {t.back}
-        </Link>
+        <BackLink label={t.back} fallbackHref="/library" />
         <Link href="/genres" className="text-xs text-neutral-500 hover:text-white">
           {t.allGenres}
         </Link>

@@ -324,7 +324,37 @@ INSERT INTO artist_aliases (raw, canonical, source) VALUES
   ('엑소',                   'EXO',              'manual'),
   ('갓세븐',                 'GOT7',             'manual'),
   ('마마무',                 'MAMAMOO',          'manual'),
-  ('트와이스',               'TWICE',            'manual')
+  ('트와이스',               'TWICE',            'manual'),
+  -- Indie rock / band names commonly written in both scripts. Added
+  -- May 2026 after a tester noticed "Crying Nut" and "크라잉넛" were
+  -- showing up as two separate artists on the dashboard.
+  ('크라잉넛',               'Crying Nut',       'manual'),
+  ('자우림',                 'Jaurim',           'manual'),
+  ('국카스텐',               'Guckkasten',       'manual'),
+  ('넬',                     'Nell',             'manual'),
+  ('잔나비',                 'JANNABI',          'manual'),
+  ('혁오',                   'HYUKOH',           'manual'),
+  ('새소년',                 'SE SO NEON',       'manual'),
+  ('실리카겔',               'Silica Gel',       'manual'),
+  ('소란',                   'SORAN',            'manual'),
+  ('데이브레이크',           'Daybreak',         'manual'),
+  ('잠비나이',               'Jambinai',         'manual'),
+  ('악동뮤지션',             'AKMU',             'manual'),
+  ('볼빨간사춘기',           'Bolbbalgan4',      'manual'),
+  ('십센치',                 '10cm',             'manual'),
+  ('어반자카파',             'Urban Zakapa',     'manual'),
+  ('한로로',                 'Hanroro',          'manual'),
+  ('체리필터',               'Cherry Filter',    'manual'),
+  ('윤하',                   'YOUNHA',           'manual'),
+  ('아이묭',                 'aimyon',           'manual'),
+  ('요네즈 켄시',            'Kenshi Yonezu',    'manual'),
+  ('요네즈 켄지',            'Kenshi Yonezu',    'manual'),
+  ('비비',                   'BIBI',             'manual'),
+  ('헤이즈',                 'Heize',            'manual'),
+  ('백예린',                 'Yerin Baek',       'manual'),
+  ('데이식스',               'DAY6',             'manual'),
+  ('엔플라잉',               'N.Flying',         'manual'),
+  ('더로즈',                 'The Rose',         'manual')
 ON CONFLICT (raw) DO NOTHING;
 
 -- ── Like sync (extension → backend) ───────────────────

@@ -132,9 +132,6 @@ export default async function LibraryPage({
           color="bg-emerald-500"
           empty={t.topArtistsEmpty}
           linkArtist
-          highlightAgainst={new Set(
-            stats.topArtists.map((a) => a.name.toLowerCase()),
-          )}
           pctOf={stats.recentArtists.reduce((s, a) => s + a.count, 0)}
           locale={locale}
         />
