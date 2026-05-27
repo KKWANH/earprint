@@ -1,7 +1,21 @@
 import { z } from "zod";
-import { aiJson } from "./ai";
+import { aiJson, sanitizeAiString } from "./ai";
 import type { Locale } from "./i18n";
 import { getLibraryStats } from "./library";
+
+/** A length-bounded string that's scrubbed of URLs, bidi controls, and
+ *  stray markdown fences before persistence. Used by every text field
+ *  in the AI profile so any future model misbehaviour can't leak a
+ *  clickable link into prose the user reads as authoritative. */
+const safeStr = (min: number, max: number) =>
+  z
+    .string()
+    .min(min)
+    .max(max)
+    .transform(sanitizeAiString)
+    // re-assert min length AFTER sanitization — a string that was nothing
+    // but URLs could pass the initial min check then collapse to empty.
+    .refine((s) => s.length >= min, { message: `length below ${min} after sanitize` });
 
 /** A music persona — the listener anthropomorphized as a shareable character. */
 export interface Persona {
@@ -32,23 +46,26 @@ export interface AiProfile {
  *  so minor model misbehaviour (e.g. diggingScore returned as a string)
  *  doesn't fail the whole generation. */
 const PersonaZ = z.object({
-  name: z.string().min(1).max(120),
-  archetype: z.string().min(1).max(80),
+  name: safeStr(1, 120),
+  archetype: safeStr(1, 80),
+  // emoji isn't run through sanitize: stripping bidi controls is fine but
+  // the URL-scheme regex would eat legitimate "data:" -free emoji strings,
+  // and the 8-char cap keeps abuse trivial.
   emoji: z.string().min(1).max(8),
-  tagline: z.string().min(1).max(200),
+  tagline: safeStr(1, 200),
 });
 const AiProfileZ = z.object({
   persona: PersonaZ,
-  headline: z.string().min(1).max(200),
-  personality: z.string().min(1).max(2000),
-  traits: z.array(z.string().min(1).max(60)).min(1).max(10),
-  favoriteGenres: z.array(z.string().min(1).max(60)).max(10),
-  avoidedGenres: z.array(z.string().min(1).max(60)).max(10),
-  unexploredGenres: z.array(z.string().min(1).max(60)).max(10),
-  moodProfile: z.string().min(1).max(2000),
+  headline: safeStr(1, 200),
+  personality: safeStr(1, 2000),
+  traits: z.array(safeStr(1, 60)).min(1).max(10),
+  favoriteGenres: z.array(safeStr(1, 60)).max(10),
+  avoidedGenres: z.array(safeStr(1, 60)).max(10),
+  unexploredGenres: z.array(safeStr(1, 60)).max(10),
+  moodProfile: safeStr(1, 2000),
   diggingScore: z.coerce.number().int().min(0).max(100),
-  diggingComment: z.string().min(1).max(800),
-  improvementTips: z.array(z.string().min(1).max(800)).max(8),
+  diggingComment: safeStr(1, 800),
+  improvementTips: z.array(safeStr(1, 800)).max(8),
 });
 
 const SCHEMA = {
@@ -98,7 +115,8 @@ export async function generateProfile(
 - 총 좋아요 곡: ${s.total}
 - 서로 다른 아티스트: ${s.distinctArtists} (다양성 비율 ${(diversity * 100).toFixed(0)}%)
 - 분석 완료(장르/무드 보유): ${s.enriched}곡
-- 자주 좋아한 아티스트: ${s.topArtists.map((a) => `${a.name}(${a.count})`).join(", ") || "데이터 없음"}
+- 자주 좋아한 아티스트(전 기간): ${s.topArtists.map((a) => `${a.name}(${a.count})`).join(", ") || "데이터 없음"}
+- 최근 자주 듣는 아티스트(최근 좋아요 위주): ${s.recentArtists.map((a) => `${a.name}(${a.count})`).join(", ") || "데이터 없음"}
 - 장르 분포: ${s.topGenres.map((g) => `${g.name}(${g.count})`).join(", ") || "데이터 없음"}
 - 무드 분포: ${s.topMoods.map((m) => `${m.name}(${m.count})`).join(", ") || "데이터 없음"}
 - 오디오 특성(0~1 평균): ${
@@ -131,6 +149,7 @@ export async function generateProfile(
 - avoidedGenres: 의식적으로 피하는 듯한 주요 장르(데이터에 거의 없음).
 - unexploredGenres: 이 취향이면 좋아할 만한데 아직 안 들어본 장르 3~5개.
 - moodProfile: 무드 분포와 오디오 특성(에너지·템포·어쿠스틱)을 엮어 정서적 경향을 1~2문장으로.
+- personality / moodProfile / improvementTips 작성 시, "전 기간 취향"과 "최근 자주 듣는 아티스트"가 명확히 다르면 그 변화를 짚어 주세요 — 예: "예전에는 X 위주였는데 요즘은 Y 쪽으로 옮겨가는 중". 둘이 비슷하면 굳이 언급하지 않아도 됩니다.
 - diggingScore: 0~100 정수. 아티스트 다양성·장르 폭·마이너 장르 비중에 더해 **앨범 몰입도**(한 앨범을 깊게 파는지)도 함께 반영해 '음악 디깅 수준'을 평가. 싱글 위주로 흩어 듣기보다 앨범을 통째로 깊게 파는 사람을 디깅 수준이 높다고 본다.
 - diggingComment: diggingScore 의 근거(다양성·앨범 몰입도 포함) + 점수를 올리려면 무엇이 필요한지 한 문장으로.
 - improvementTips: 이 리스너의 취향에서 '보강하면 좋을 점' 4~6개. 각 항목은 한 문장으로 끝내지 말고 ① 무엇이 부족하거나 편향됐는지 ② 왜 그것을 보강하면 좋은지 ③ 구체적으로 어떤 하위장르·아티스트·곡부터 시작하면 좋은지 를 모두 담아 2~3문장으로 충실히 설명하세요. 막연한 조언이 아니라 실제 데이터(편중된 장르/무드, 낮은 다양성 등)에 근거해서.`;
@@ -139,7 +158,7 @@ export async function generateProfile(
   // Override via GEMINI_MODEL_PROFILE if it gets too expensive (defaults
   // to gemini-2.5-pro ≈ $0.014/call vs $0.0007 on 2.0-flash).
   const model = process.env.GEMINI_MODEL_PROFILE ?? "gemini-2.5-pro";
-  const raw = await aiJson<unknown>(prompt, SCHEMA, { bypassCap, model });
+  const raw = await aiJson<unknown>(prompt, SCHEMA, { bypassCap, model, userId });
   const parsed = AiProfileZ.safeParse(raw);
   if (!parsed.success) {
     throw new Error(

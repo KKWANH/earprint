@@ -8,8 +8,17 @@ import { isWhitelisted } from "./usage";
 export type JobStatus = "running" | "stopped" | "done" | "idle";
 export type Phase = "enrich" | "ai" | "done";
 
-const ENRICH_BATCH = 16; // Deezer only — cheap per track
-const AI_BATCH = 15; // one Gemini call covers the whole batch
+// Cloudflare Workers (free plan) caps a single request at 50 outbound
+// subrequests. Each enrichTrack can fire up to 4 (cache SELECT + advanced
+// search + fallback search + track detail + cache INSERT), so we keep the
+// batch comfortably under: 8 × 4 = 32, plus ~7 housekeeping SQL → ~39.
+// Bumping past 10 here will start tripping HTTP 500s on uncached tracks.
+const ENRICH_BATCH = 8;
+// AI batch is NOT bound by the subrequest cap — one Gemini call covers the
+// whole batch, regardless of size. Bigger batch = fewer round-trips =
+// shorter total wallclock. 30 tracks gives ~3,000 output tokens, well
+// within the model's 8K cap, and Gemini's quality holds at this size.
+const AI_BATCH = 30;
 
 /** Phase 1 — Deezer + Last.fm enrichment. Returns tracks processed. */
 export async function runEnrichBatch(userId: string): Promise<number> {
@@ -51,6 +60,7 @@ export async function runAiAnalysisBatch(userId: string): Promise<number> {
         title: t.title as string,
       })),
       await isWhitelisted(userId),
+      userId,
     );
     await sql`SELECT save_ai_analysis(${JSON.stringify(rows)}::jsonb)`;
   }
@@ -84,17 +94,67 @@ export function phaseOf(p: Progress): Phase {
   return "done";
 }
 
-/** Runs one batch of the first phase that still has work. */
+/**
+ * Per-user worker mutex.
+ *
+ * cron tick (every 60 s) and the user-driven /api/jobs/tick can both reach
+ * runAnalyzeBatch for the same user simultaneously. Without a lock, both
+ * paths SELECT the same 8 / 30 unprocessed tracks and BOTH call enrichTrack
+ * (Deezer + Last.fm) or aiAnalyzeBatch (Gemini) on every one — duplicate
+ * paid API calls, doubled cost, no extra throughput.
+ *
+ * The lock uses background_jobs.locked_until as the mutex word. The 60 s
+ * TTL is the safety net: if a worker dies mid-batch, the lock self-heals
+ * on the next call rather than wedging the user's analysis forever.
+ *
+ * Returns true if this caller now holds the lock and should proceed,
+ * false if another worker is in progress (caller should silently no-op).
+ */
+const LOCK_TTL_SECONDS = 60;
+
+async function tryAcquireAnalyzeLock(userId: string): Promise<boolean> {
+  const sql = getSql();
+  const r = await sql`
+    UPDATE background_jobs
+    SET locked_until = now() + (${LOCK_TTL_SECONDS} || ' seconds')::interval
+    WHERE user_id = ${userId}
+      AND kind = 'analyze'
+      AND (locked_until IS NULL OR locked_until < now())
+    RETURNING user_id`;
+  return r.length > 0;
+}
+
+async function releaseAnalyzeLock(userId: string): Promise<void> {
+  const sql = getSql();
+  // Best-effort release; the TTL also covers us if this fails.
+  await sql`
+    UPDATE background_jobs SET locked_until = NULL
+    WHERE user_id = ${userId} AND kind = 'analyze'`.catch(() => {});
+}
+
+/** Runs one batch of the first phase that still has work. Returns 0 when
+ *  another worker holds the lock or no work remains — both treated as
+ *  "nothing to do this tick" by the callers (cron / /api/jobs). */
 export async function runAnalyzeBatch(userId: string): Promise<number> {
-  const phase = phaseOf(await getProgress(userId));
-  if (phase === "enrich") return runEnrichBatch(userId);
-  if (phase === "ai") return runAiAnalysisBatch(userId);
-  return 0;
+  if (!(await tryAcquireAnalyzeLock(userId))) return 0;
+  try {
+    const phase = phaseOf(await getProgress(userId));
+    if (phase === "enrich") return await runEnrichBatch(userId);
+    if (phase === "ai") return await runAiAnalysisBatch(userId);
+    return 0;
+  } finally {
+    await releaseAnalyzeLock(userId);
+  }
 }
 
 export async function isComplete(userId: string): Promise<boolean> {
   const p = await getProgress(userId);
-  return p.enrich.total > 0 && phaseOf(p) === "done";
+  // Treat 0-track libraries as already complete — without this guard a
+  // user whose tracks all got deleted (re-sync edge case, or starting an
+  // analyze on an empty library) would stay 'running' forever because
+  // `total > 0` could never become true again. phaseOf() returns 'done'
+  // when both phase remainings are zero, which covers the 0-track case.
+  return phaseOf(p) === "done";
 }
 
 export async function getJob(userId: string): Promise<JobStatus> {

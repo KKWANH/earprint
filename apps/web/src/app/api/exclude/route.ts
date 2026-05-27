@@ -1,6 +1,6 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
-import { json } from "@/lib/http";
+import { json, readJsonBody } from "@/lib/http";
 
 /** Excludes an artist from analysis/stats (action omitted/exclude) or restores it (restore). */
 export async function POST(req: Request) {
@@ -11,12 +11,12 @@ export async function POST(req: Request) {
     return json({ error: "unauthorized" }, 401);
   }
 
-  let body: { artist?: string; action?: string };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: "invalid json" }, 400);
-  }
+  const parsed = await readJsonBody<{ artist?: string; action?: string }>(
+    req,
+    1024,
+  );
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
   const artist = (body.artist ?? "").trim();
   if (!artist) return json({ error: "artist required" }, 400);
 

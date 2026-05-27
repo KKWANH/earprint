@@ -1,6 +1,6 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
-import { json } from "@/lib/http";
+import { json, readJsonBody } from "@/lib/http";
 
 const VALID = new Set(["superlike", "like", "pass", "dislike", "strong_dislike", "known"]);
 
@@ -16,12 +16,13 @@ export async function POST(req: Request) {
     return json({ error: "unauthorized" }, 401);
   }
 
-  let body: { id?: string; rating?: string; comment?: string };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: "invalid json" }, 400);
-  }
+  const parsed = await readJsonBody<{
+    id?: string;
+    rating?: string;
+    comment?: string;
+  }>(req, 16 * 1024);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
   if (!body.id) return json({ error: "id required" }, 400);
 
   const sql = getSql();

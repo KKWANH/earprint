@@ -1,11 +1,11 @@
 import { getSql } from "./db";
 import { getJson } from "./http";
 import { z } from "zod";
-import { aiJson } from "./ai";
+import { aiJson, sanitizeAiString } from "./ai";
 
 const GenreDescZ = z.object({
-  en: z.string().max(800),
-  ko: z.string().max(800),
+  en: z.string().max(800).transform(sanitizeAiString),
+  ko: z.string().max(800).transform(sanitizeAiString),
 });
 
 const LASTFM = "https://ws.audioscrobbler.com/2.0/";
@@ -76,9 +76,13 @@ async function tagTopTracks(genre: string): Promise<{ artist: string; title: str
   }
 }
 
-/** AI genre description in both languages. Best-effort — null on failure. */
+/** AI genre description in both languages. Best-effort — null on failure.
+ *  `userId` is attributed against the per-user Gemini cap; the result is
+ *  globally cached, so subsequent users hitting the same genre never burn
+ *  a second call regardless of who warmed it. */
 async function genreDescription(
   genre: string,
+  userId?: string,
 ): Promise<{ en: string | null; ko: string | null }> {
   try {
     const raw = await aiJson<unknown>(
@@ -87,6 +91,7 @@ async function genreDescription(
         `en 필드는 영어로, ko 필드는 자연스러운 한국어로 작성. ` +
         `실제 음악 장르가 아니거나 모호하면 두 필드 모두 빈 문자열.`,
       DESC_SCHEMA,
+      userId ? { userId } : undefined,
     );
     const r = GenreDescZ.safeParse(raw);
     if (!r.success) return { en: null, ko: null };
@@ -96,7 +101,16 @@ async function genreDescription(
   }
 }
 
-/** Loads cached genre info; on a cache miss, builds and caches it once. */
+/** Loads cached genre info; on a cache miss, builds the cheap fields fast.
+ *
+ *  The previous version tried to fill *everything* inline on cache miss —
+ *  including a synchronous Gemini call. On Workers free plan (10ms CPU per
+ *  request) that crossed the budget for new genres and produced Error 1102.
+ *  We now ship the cheap parts (Last.fm tag lookups, which are I/O-bound)
+ *  inline and leave the AI description for `/api/genre/warm` to fill in
+ *  out of band — see warmGenreDescription() below. The page renders
+ *  immediately; the description fades in on a subsequent visit (or the
+ *  client component can poll it). */
 async function loadGenreInfo(genre: string) {
   const sql = getSql();
   const key = genre.toLowerCase();
@@ -116,8 +130,8 @@ async function loadGenreInfo(genre: string) {
     /* fall through to a fresh build */
   }
 
-  const [desc, topArtists, topTracks] = await Promise.all([
-    genreDescription(genre),
+  // Last.fm only — I/O-bound, ~100ms wall but trivial CPU.
+  const [topArtists, topTracks] = await Promise.all([
     tagTopArtists(genre),
     tagTopTracks(genre),
   ]);
@@ -126,18 +140,57 @@ async function loadGenreInfo(genre: string) {
       INSERT INTO genre_info
         (genre, description_en, description_ko, top_artists, top_tracks)
       VALUES (
-        ${key}, ${desc.en}, ${desc.ko},
+        ${key}, NULL, NULL,
         ${JSON.stringify(topArtists)}::jsonb, ${JSON.stringify(topTracks)}::jsonb)
       ON CONFLICT (genre) DO NOTHING`;
   } catch {
     /* best-effort cache */
   }
   return {
-    descriptionEn: desc.en,
-    descriptionKo: desc.ko,
+    descriptionEn: null,
+    descriptionKo: null,
     topArtists,
     topTracks,
   };
+}
+
+/** Fills the description column for a genre. Called by `/api/genre/warm`
+ *  from the client after the page is on-screen — it dodges Workers' per-
+ *  request CPU budget by running in its own request rather than blocking
+ *  the page render. Safe to call repeatedly: the SQL only writes if both
+ *  description columns are currently NULL. */
+export async function warmGenreDescription(
+  genre: string,
+  userId?: string,
+): Promise<{
+  descriptionEn: string | null;
+  descriptionKo: string | null;
+}> {
+  const sql = getSql();
+  const key = genre.toLowerCase();
+  // Skip if already filled.
+  const existing = await sql`
+    SELECT description_en, description_ko FROM genre_info WHERE genre = ${key}`;
+  if (existing.length > 0) {
+    const e = existing[0]!;
+    if (e.description_en || e.description_ko) {
+      return {
+        descriptionEn: (e.description_en as string) ?? null,
+        descriptionKo: (e.description_ko as string) ?? null,
+      };
+    }
+  }
+  const desc = await genreDescription(genre, userId);
+  try {
+    await sql`
+      UPDATE genre_info
+      SET description_en = ${desc.en}, description_ko = ${desc.ko}
+      WHERE genre = ${key}
+        AND description_en IS NULL AND description_ko IS NULL`;
+  } catch {
+    /* best-effort */
+  }
+  return { descriptionEn: desc.en, descriptionKo: desc.ko };
 }
 
 /** Everything the genre detail page needs. */

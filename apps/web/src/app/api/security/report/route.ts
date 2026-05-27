@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { auth } from "@/auth";
-import { json } from "@/lib/http";
+import { json, readJsonBody } from "@/lib/http";
 import { sendEmail } from "@/lib/email";
 
 /**
@@ -18,6 +18,10 @@ const MAX_TITLE = 200;
 const MAX_BODY = 8_000;
 const MAX_EMAIL = 200;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB raw, ~2.7 MB base64
+/** Total request body cap. Covers ~2.7 MB base64 image + the text fields.
+ *  Anything beyond this is rejected before JSON parse so a 100MB body
+ *  can't OOM the isolate. */
+const MAX_REPORT_BYTES = 4 * 1024 * 1024;
 const MAX_IMAGE_MIME = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
 type Category = "security" | "billing" | "account" | "bug" | "general";
@@ -51,12 +55,9 @@ interface ReportBody {
 }
 
 export async function POST(req: NextRequest) {
-  let payload: ReportBody;
-  try {
-    payload = (await req.json()) as ReportBody;
-  } catch {
-    return json({ error: "invalid json" }, 400);
-  }
+  const parsed = await readJsonBody<ReportBody>(req, MAX_REPORT_BYTES);
+  if (!parsed.ok) return parsed.response;
+  const payload = parsed.data;
 
   const rawCategory = String(payload.category ?? "general");
   const category: Category = CATEGORIES.has(rawCategory as Category)

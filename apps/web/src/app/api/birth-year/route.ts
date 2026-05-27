@@ -1,6 +1,6 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
-import { json } from "@/lib/http";
+import { json, readJsonBody } from "@/lib/http";
 
 /** Saves the listener's birth year — drives the reminiscence-bump analysis. */
 export async function POST(req: Request) {
@@ -11,12 +11,9 @@ export async function POST(req: Request) {
     return json({ error: "unauthorized" }, 401);
   }
 
-  let body: { year?: unknown };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: "invalid json" }, 400);
-  }
+  const parsed = await readJsonBody<{ year?: unknown }>(req, 256);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const year = Number(body.year);
   const now = new Date().getFullYear();

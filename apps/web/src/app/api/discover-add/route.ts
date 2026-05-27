@@ -1,6 +1,6 @@
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
-import { getJson, json } from "@/lib/http";
+import { getJson, json, readJsonBody } from "@/lib/http";
 
 const LASTFM = "https://ws.audioscrobbler.com/2.0/";
 
@@ -17,12 +17,12 @@ export async function POST(req: Request) {
     return json({ error: "unauthorized" }, 401);
   }
 
-  let body: { artist?: string; weight?: unknown };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: "invalid json" }, 400);
-  }
+  const parsed = await readJsonBody<{ artist?: string; weight?: unknown }>(
+    req,
+    4 * 1024,
+  );
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
   const artist = (body.artist ?? "").trim();
   if (!artist) return json({ error: "artist required" }, 400);
   const weight = Number(body.weight);

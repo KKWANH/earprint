@@ -27,6 +27,57 @@ interface YtListResponse {
   pageInfo?: { totalResults?: number };
 }
 
+interface YtVideoMeta {
+  id: string;
+  snippet?: { categoryId?: string };
+}
+interface YtVideosResponse {
+  items?: YtVideoMeta[];
+}
+
+/**
+ * Filters a batch of videoIds down to ones in YouTube's "Music" category
+ * (categoryId = "10"). The LL ("Liked Videos") playlist mixes music with
+ * vlogs, gaming clips, tutorials, etc. — without this filter, a user with
+ * 5k liked YouTube videos but only 500 actual songs would get all 5k
+ * dumped into their Earprint library as "tracks".
+ *
+ * One videos.list call per 50 IDs (the API max). Quota cost is the same
+ * as playlistItems.list (1 unit), so this roughly doubles the per-page
+ * quota — still trivially within the 10k/day default project quota.
+ */
+async function filterMusicCategory(
+  accessToken: string,
+  videoIds: string[],
+): Promise<Set<string>> {
+  if (videoIds.length === 0) return new Set();
+  const musicIds = new Set<string>();
+  // 50 IDs per call — the videos.list cap. A typical chunk of 250
+  // playlist items takes 5 of these calls.
+  for (let i = 0; i < videoIds.length; i += 50) {
+    const batch = videoIds.slice(i, i + 50);
+    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+    url.searchParams.set("part", "snippet");
+    url.searchParams.set("id", batch.join(","));
+    url.searchParams.set("maxResults", "50");
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) {
+      // Don't throw — a partial-quality filter is better than zero
+      // music tracks captured. Worst case we accept some non-music
+      // and let the user delete from their library; the alternative
+      // is an opaque "0 tracks captured" message.
+      continue;
+    }
+    const json = (await res.json()) as YtVideosResponse;
+    for (const v of json.items ?? []) {
+      if (v.snippet?.categoryId === "10" && v.id) musicIds.add(v.id);
+    }
+  }
+  return musicIds;
+}
+
 /**
  * Pulls one chunk of the LL playlist (Liked Videos), resumable via pageToken.
  *
@@ -39,9 +90,17 @@ interface YtListResponse {
 export async function fetchLikedVideos(
   accessToken: string,
   opts: { maxPages?: number; pageToken?: string } = {},
-): Promise<{ items: YtPlaylistItem[]; total: number; nextPageToken: string | null }> {
+): Promise<{
+  items: YtPlaylistItem[];
+  total: number;
+  nextPageToken: string | null;
+  /** How many items came back from playlistItems.list before the music
+   *  filter. Surfaced in the API response so /connect can show
+   *  "captured 47 music tracks (filtered from 250 liked videos)". */
+  rawCount: number;
+}> {
   const maxPages = opts.maxPages ?? 5;
-  const items: YtPlaylistItem[] = [];
+  const raw: YtPlaylistItem[] = [];
   let pageToken: string | undefined = opts.pageToken;
   let total = 0;
 
@@ -60,13 +119,23 @@ export async function fetchLikedVideos(
       throw new YouTubeApiError(res.status, body);
     }
     const json = (await res.json()) as YtListResponse;
-    items.push(...(json.items ?? []));
+    raw.push(...(json.items ?? []));
     total = json.pageInfo?.totalResults ?? total;
     pageToken = json.nextPageToken;
     if (!pageToken) break;
   }
 
-  return { items, total, nextPageToken: pageToken ?? null };
+  // Filter to YouTube category 10 (Music) — see filterMusicCategory note.
+  // Without this the LL playlist dumps movies, vlogs, gaming, recipes,
+  // anything the user has ever liked into their music library, which
+  // poisons every downstream feature (Zodiac, genre analysis, recs).
+  const videoIds = raw
+    .map((it) => it.contentDetails?.videoId)
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
+  const musicIds = await filterMusicCategory(accessToken, videoIds);
+  const items = raw.filter((it) => musicIds.has(it.contentDetails?.videoId ?? ""));
+
+  return { items, total, nextPageToken: pageToken ?? null, rawCount: raw.length };
 }
 
 /** Typed error so callers can react to 401 (expired token) vs everything else. */

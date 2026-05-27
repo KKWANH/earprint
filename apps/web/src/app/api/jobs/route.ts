@@ -1,5 +1,6 @@
 import { ensureConnection } from "@/lib/connection";
-import { json } from "@/lib/http";
+import { json, readJsonBody } from "@/lib/http";
+import { captureError } from "@/lib/sentry";
 import { GEMINI_CAP_ERROR } from "@/lib/usage";
 import {
   finishJob,
@@ -20,7 +21,14 @@ async function batchOrCap(userId: string): Promise<boolean> {
     await runAnalyzeBatch(userId);
     return false;
   } catch (e) {
-    return String(e).includes(GEMINI_CAP_ERROR); // other errors: the cron retries
+    const capped = String(e).includes(GEMINI_CAP_ERROR);
+    if (!capped) {
+      // Cap errors are expected and noisy in Sentry; the rest aren't.
+      // Capturing here exposes the otherwise-invisible "stuck at N%" bugs
+      // that the cron's swallow-and-retry pattern used to hide.
+      captureError(e, { tag: "jobs.batch", extra: { userId } });
+    }
+    return capped;
   }
 }
 
@@ -45,12 +53,9 @@ export async function POST(req: Request) {
     return json({ error: "unauthorized" }, 401);
   }
 
-  let body: { action?: string };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return json({ error: "invalid json" }, 400);
-  }
+  const parsed = await readJsonBody<{ action?: string }>(req, 256);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   if (body.action === "stop") {
     await setJob(userId, "stopped");

@@ -95,6 +95,7 @@ function toObj(arr: unknown, maxLen: number): Record<string, number> {
 export async function aiAnalyzeBatch(
   tracks: AiAnalysisInput[],
   bypassCap = false,
+  userId?: string,
 ): Promise<AiAnalysisRow[]> {
   if (tracks.length === 0) return [];
 
@@ -113,20 +114,30 @@ export async function aiAnalyzeBatch(
 
 ${list}`;
 
-  // Track analysis runs in batches of 6 and is the per-track workhorse —
-  // flash-lite is materially cheaper than flash (~25%) and the output shape
-  // is structured JSON, so the quality gap doesn't show up. Override via
-  // GEMINI_MODEL_ANALYZE if needed.
+  // Per-track workhorse — flash-lite is materially cheaper than flash (~25%)
+  // and the output is structured JSON, so the quality gap doesn't show.
+  // Override via GEMINI_MODEL_ANALYZE if needed.
   const model = process.env.GEMINI_MODEL_ANALYZE ?? "gemini-2.0-flash-lite";
-  const raw = await aiJson<unknown>(prompt, SCHEMA, { bypassCap, model });
+  let raw: unknown;
+  try {
+    raw = await aiJson<unknown>(prompt, SCHEMA, { bypassCap, model, userId });
+  } catch (e) {
+    // Cap errors must propagate so the job parks; everything else collapses
+    // to defaults so the batch isn't retried forever on the same tracks.
+    if (String(e).includes("GEMINI_DAILY_CAP")) throw e;
+    return tracks.map((t) => emptyResult(t.id));
+  }
   const validated = AnalyzeBatchZ.safeParse(raw);
   if (!validated.success) {
-    throw new Error(
-      `AI analyze schema mismatch: ${validated.error.issues
-        .slice(0, 3)
-        .map((i) => `${i.path.join(".")} ${i.message}`)
-        .join("; ")}`,
-    );
+    // Earlier this threw — and the throw was the source of the "stuck at
+    // 98%" stalls: batchOrCap caught the throw, the tick returned ok, and
+    // the next tick picked the same N tracks (still audio_feel IS NULL)
+    // and reproduced the same Gemini failure. Forever. Now we return
+    // default rows so save_ai_analysis stamps audio_feel and the tracks
+    // exit the queue. Genres stay empty (NOT `{"unknown": 1}`) because
+    // save_ai_analysis merges genres via JSONB `||`, and a sentinel
+    // weight would dominate any real Last.fm tags written in Phase 1.
+    return tracks.map((t) => emptyResult(t.id));
   }
   const byId = new Map<string, z.infer<typeof AnalyzeRowZ>>();
   for (const r of validated.data.results) byId.set(r.id, r);
@@ -152,4 +163,18 @@ ${list}`;
       realTitle: typeof r?.realTitle === "string" ? r.realTitle.trim() : "",
     };
   });
+}
+
+/** Default-filled row used when Gemini returns an unparseable response.
+ *  Stamps audio_feel so the track exits the analysis queue instead of
+ *  being retried on every cron tick forever. */
+function emptyResult(trackId: string): AiAnalysisRow {
+  return {
+    trackId,
+    genres: {},
+    moods: {},
+    audioFeel: { energy: 0.5, tempo: 0.5, acousticness: 0.5, instruments: [] },
+    realArtist: "",
+    realTitle: "",
+  };
 }

@@ -1,5 +1,11 @@
 /** Gemini API — generates structured (JSON) responses. */
-import { GEMINI_CAP_ERROR, geminiOverCap, recordGemini } from "./usage";
+import {
+  GEMINI_CAP_ERROR,
+  geminiOverCap,
+  geminiOverUserCap,
+  recordGemini,
+  recordGeminiForUser,
+} from "./usage";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -15,19 +21,30 @@ const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
  * Generates a JSON result from a prompt plus a response schema.
  * schema is Gemini's responseSchema (OpenAPI subset, types in uppercase).
  *
- * Every call counts against a global daily cap (see lib/usage) — once it is
- * exhausted this throws GEMINI_CAP_ERROR so cost can't run away on launch day.
- * Whitelisted users pass `bypassCap` to skip that ceiling.
+ * Cost guards (in order):
+ *   1. Per-user daily cap (when `userId` is passed) — prevents a single
+ *      authenticated user from draining the global budget themselves.
+ *   2. Global daily cap — prevents a viral launch from running cost away.
+ * Whitelisted users pass `bypassCap` to skip BOTH ceilings.
+ *
+ * Counters are incremented ONLY after a successful response from Gemini
+ * so a network error / 4xx / 5xx doesn't burn a user's credit — the
+ * earlier implementation recorded before the call and the failure mode
+ * was unfair to paying users.
  */
 export async function geminiJson<T>(
   prompt: string,
   schema: object,
-  opts?: { bypassCap?: boolean; model?: string },
+  opts?: { bypassCap?: boolean; model?: string; userId?: string },
 ): Promise<T> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set");
-  if (!opts?.bypassCap && (await geminiOverCap())) throw new Error(GEMINI_CAP_ERROR);
-  await recordGemini();
+  if (!opts?.bypassCap) {
+    if (opts?.userId && (await geminiOverUserCap(opts.userId))) {
+      throw new Error(GEMINI_CAP_ERROR);
+    }
+    if (await geminiOverCap()) throw new Error(GEMINI_CAP_ERROR);
+  }
 
   const model = opts?.model ?? DEFAULT_MODEL;
   const res = await fetch(`${ENDPOINT}/${model}:generateContent?key=${key}`, {
@@ -52,5 +69,12 @@ export async function geminiJson<T>(
   const data: any = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("Gemini 응답이 비어 있습니다");
+
+  // Success path — only NOW do we charge against the daily counters.
+  // Failure paths above all throw before reaching here, so the user
+  // never pays for a request that didn't return useful content.
+  await recordGemini();
+  if (opts?.userId) await recordGeminiForUser(opts.userId);
+
   return JSON.parse(text) as T;
 }
