@@ -98,9 +98,15 @@ export const SAMPLE_PROFILE: AiProfile = {
   personality:
     "You gravitate toward records that feel like a bedroom at 2 AM — soft-focus guitars, vocals half-buried in tape hiss, a kind of beautiful sadness that's also a kind of comfort. There's a clear thread of late-2010s indie running through your library, and you reach for it most when you want to feel something specific rather than be distracted.",
   traits: ["Introspective", "Nostalgic", "Texture-driven", "Quietly intense"],
-  diggingScore: 76,
+  diggingScore: 64, // overwritten at render-time = mean of axisScores below
   diggingComment:
-    "You go deeper than the algorithm's first-page picks — 142 distinct artists across 487 likes means you're not just looping the same five.",
+    "Strong on album depth and indie discovery, narrower on genre and era — a listener who finds a sound and lives in it rather than channel-surfing.",
+  axisScores: {
+    genreBreadth: 42,
+    albumDepth: 78,
+    indieDepth: 81,
+    eraBreadth: 55,
+  },
   favoriteGenres: ["dream pop", "bedroom pop", "shoegaze", "indie folk"],
   avoidedGenres: ["EDM", "trap", "country"],
   unexploredGenres: ["post-punk", "ambient", "jazz fusion"],

@@ -12,6 +12,11 @@ const en = {
   noProfile:
     "No AI analysis yet. Use the button above to generate one. (Run a library analysis first so genre and mood data is filled in for better accuracy.)",
   diggingScore: "Digging score",
+  axisGenreBreadth: "Genre breadth",
+  axisAlbumDepth: "Album depth",
+  axisIndieDepth: "Indie depth",
+  axisEraBreadth: "Era breadth",
+  axisHint: "Strong in one axis is fine — these aren't grades.",
   favoriteGenres: "Favorite genres",
   avoidedGenres: "Avoided genres",
   unexploredGenres: "Unexplored genres",
@@ -75,6 +80,11 @@ const ko: typeof en = {
   noProfile:
     "분석이 없습니다. 위 버튼으로 만드세요. 라이브러리 분석을 먼저 돌리면 장르·무드 데이터가 채워져 더 정확합니다.",
   diggingScore: "디깅 점수",
+  axisGenreBreadth: "장르 다양성",
+  axisAlbumDepth: "앨범 몰입",
+  axisIndieDepth: "인디 발굴",
+  axisEraBreadth: "시대 폭",
+  axisHint: "한 축만 높아도 좋아요 — 종합점수가 아닙니다.",
   favoriteGenres: "좋아하는 장르",
   avoidedGenres: "피하는 장르",
   unexploredGenres: "안 들어본 장르",

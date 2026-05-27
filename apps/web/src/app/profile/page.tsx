@@ -165,6 +165,30 @@ function StatsSection({ stats, t }: { stats: LibraryStats; t: ProfileT }) {
   );
 }
 
+/**
+ * Single axis bar — labelled left, 0-100 value bar in the middle,
+ * numeric right. Hue lets each axis carry its own colour so the four
+ * bars scan visually instead of looking like four indistinct rows.
+ */
+function AxisBar({ label, value, hue }: { label: string; value: number; hue: number }) {
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div className="flex items-center gap-3 text-xs">
+      <span className="w-20 shrink-0 text-neutral-400 sm:w-24">{label}</span>
+      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-neutral-800">
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${v}%`,
+            background: `linear-gradient(90deg, hsl(${hue} 70% 35%) 0%, hsl(${hue} 75% 55%) 100%)`,
+          }}
+        />
+      </div>
+      <span className="w-7 shrink-0 text-right tabular-nums text-neutral-300">{v}</span>
+    </div>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-white/10 bg-black/30 p-3">
@@ -229,17 +253,35 @@ function ProfileView({
         </div>
       </section>
 
-      <section className="flex items-center gap-5 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
-        <div className="flex flex-col items-center">
-          <div className="text-4xl font-bold text-emerald-400">{p.diggingScore}</div>
-          <div className="text-xs text-neutral-500">{t.diggingScore}</div>
-          {percentile != null && (
-            <div className="mt-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
-              {t.topPercent(percentile)}
-            </div>
-          )}
+      <section className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
+        <div className="flex items-center gap-5">
+          <div className="flex flex-col items-center">
+            <div className="text-4xl font-bold text-emerald-400">{p.diggingScore}</div>
+            <div className="text-xs text-neutral-500">{t.diggingScore}</div>
+            {percentile != null && (
+              <div className="mt-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+                {t.topPercent(percentile)}
+              </div>
+            )}
+          </div>
+          <p className="flex-1 text-sm text-neutral-300">{p.diggingComment}</p>
         </div>
-        <p className="flex-1 text-sm text-neutral-300">{p.diggingComment}</p>
+        {/* Four-axis breakdown (May 2026). Optional — only shown when
+            the profile was generated with the new Gemini prompt that
+            populates axisScores. Old profiles in taste_profiles just
+            fall back to the single-number display above. The hint
+            line under the bars is important — testers were reading
+            the overall number as a grade ("I got 45?!"); the bars
+            make it obvious that being strong on one axis is fine. */}
+        {p.axisScores && (
+          <div className="flex flex-col gap-2 border-t border-white/5 pt-4">
+            <AxisBar label={t.axisGenreBreadth} value={p.axisScores.genreBreadth} hue={200} />
+            <AxisBar label={t.axisAlbumDepth}   value={p.axisScores.albumDepth}   hue={150} />
+            <AxisBar label={t.axisIndieDepth}   value={p.axisScores.indieDepth}   hue={45} />
+            <AxisBar label={t.axisEraBreadth}   value={p.axisScores.eraBreadth}   hue={310} />
+            <p className="mt-1 text-[11px] leading-snug text-neutral-500">{t.axisHint}</p>
+          </div>
+        )}
       </section>
 
       <section className="grid gap-4 sm:grid-cols-3">

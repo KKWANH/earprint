@@ -35,9 +35,32 @@ export interface AiProfile {
   avoidedGenres: string[];
   unexploredGenres: string[];
   moodProfile: string;
+  /** Overall digging score (0-100). Computed as the mean of axisScores
+   *  if those are present; falls back to a Gemini-supplied single value
+   *  for backward compat with profiles generated before the four-axis
+   *  refactor (May 2026). */
   diggingScore: number;
   diggingComment: string;
   improvementTips: string[];
+  /** Four-axis breakdown of the digging score. Optional because old
+   *  profiles in taste_profiles don't have it; new generations always
+   *  populate it and the UI shows the four bars + a derived overall
+   *  number when present.
+   *
+   *  - genreBreadth: how wide the genre vocabulary is (entropy-style).
+   *  - albumDepth:   how much listening sits in deeply-played albums
+   *                  vs. one-off singles.
+   *  - indieDepth:   how far from mainstream the artists trend
+   *                  (Deezer rank distance / niche-genre share).
+   *  - eraBreadth:   how spread-out across decades the library is. */
+  axisScores?: AxisScores;
+}
+
+export interface AxisScores {
+  genreBreadth: number;
+  albumDepth: number;
+  indieDepth: number;
+  eraBreadth: number;
 }
 
 /** Runtime validation of Gemini's JSON. The TS interface above is a *type*
@@ -54,6 +77,12 @@ const PersonaZ = z.object({
   emoji: z.string().min(1).max(8),
   tagline: safeStr(1, 200),
 });
+const AxisScoresZ = z.object({
+  genreBreadth: z.coerce.number().int().min(0).max(100),
+  albumDepth: z.coerce.number().int().min(0).max(100),
+  indieDepth: z.coerce.number().int().min(0).max(100),
+  eraBreadth: z.coerce.number().int().min(0).max(100),
+});
 const AiProfileZ = z.object({
   persona: PersonaZ,
   headline: safeStr(1, 200),
@@ -66,6 +95,10 @@ const AiProfileZ = z.object({
   diggingScore: z.coerce.number().int().min(0).max(100),
   diggingComment: safeStr(1, 800),
   improvementTips: z.array(safeStr(1, 800)).max(8),
+  // Optional so a model that ignores the new prompt section still
+  // parses. Caller computes diggingScore from the four-axis mean
+  // when present (overrides whatever Gemini wrote for it).
+  axisScores: AxisScoresZ.optional(),
 });
 
 const SCHEMA = {
@@ -91,11 +124,21 @@ const SCHEMA = {
     diggingScore: { type: "INTEGER" },
     diggingComment: { type: "STRING" },
     improvementTips: { type: "ARRAY", items: { type: "STRING" } },
+    axisScores: {
+      type: "OBJECT",
+      properties: {
+        genreBreadth: { type: "INTEGER" },
+        albumDepth:   { type: "INTEGER" },
+        indieDepth:   { type: "INTEGER" },
+        eraBreadth:   { type: "INTEGER" },
+      },
+      required: ["genreBreadth", "albumDepth", "indieDepth", "eraBreadth"],
+    },
   },
   required: [
     "persona", "headline", "personality", "traits", "favoriteGenres",
     "avoidedGenres", "unexploredGenres", "moodProfile", "diggingScore",
-    "diggingComment", "improvementTips",
+    "diggingComment", "improvementTips", "axisScores",
   ],
 };
 
@@ -150,8 +193,13 @@ export async function generateProfile(
 - unexploredGenres: 이 취향이면 좋아할 만한데 아직 안 들어본 장르 3~5개.
 - moodProfile: 무드 분포와 오디오 특성(에너지·템포·어쿠스틱)을 엮어 정서적 경향을 1~2문장으로.
 - personality / moodProfile / improvementTips 작성 시, "전 기간 취향"과 "최근 자주 듣는 아티스트"가 명확히 다르면 그 변화를 짚어 주세요 — 예: "예전에는 X 위주였는데 요즘은 Y 쪽으로 옮겨가는 중". 둘이 비슷하면 굳이 언급하지 않아도 됩니다.
-- diggingScore: 0~100 정수. 아티스트 다양성·장르 폭·마이너 장르 비중에 더해 **앨범 몰입도**(한 앨범을 깊게 파는지)도 함께 반영해 '음악 디깅 수준'을 평가. 싱글 위주로 흩어 듣기보다 앨범을 통째로 깊게 파는 사람을 디깅 수준이 높다고 본다.
-- diggingComment: diggingScore 의 근거(다양성·앨범 몰입도 포함) + 점수를 올리려면 무엇이 필요한지 한 문장으로.
+- axisScores: 네 부문 점수 (0-100 정수). 부문별로 독립 평가하고, "모든 축이 높아야 좋은 청자"가 아님을 유의. 부문이 한쪽으로 치우친 청자도 좋은 디깅일 수 있다.
+  · genreBreadth: 장르 다양성. 장르 분포가 얼마나 넓은지 (한 장르 70%↑이면 낮음, 여러 장르 고르게 분포면 높음).
+  · albumDepth: 앨범 몰입도. 한 앨범에서 여러 곡을 좋아하는지(통째로 듣는지) vs. 싱글 위주 흩어 듣기인지. 데이터의 "앨범 몰입도" 수치를 그대로 반영.
+  · indieDepth: 인디 발굴 깊이. 메인스트림 / 유명 아티스트만 듣는지, 덜 알려진 마이너 장르·아티스트 비중이 큰지. 데이터의 장르 분포에서 마이너 / 비주류 비중을 추정.
+  · eraBreadth: 시대 폭. 특정 시대(예: 2020s만)에 갇혀 있는지, 여러 시대(70s~현재)를 가로지르는지. 데이터에 정확한 정보 없으면 60 정도 중립값.
+- diggingScore: axisScores 의 평균 (0~100 정수). 호환을 위해 단일 점수도 제공하지만 axisScores 가 본질.
+- diggingComment: 어떤 축이 강하고 어떤 축이 약한지 + 부족한 축을 어떻게 보강할 수 있는지 1-2문장. "장르 폭은 좁지만 앨범을 깊게 파는 스타일" 같은 식.
 - improvementTips: 이 리스너의 취향에서 '보강하면 좋을 점' 4~6개. 각 항목은 한 문장으로 끝내지 말고 ① 무엇이 부족하거나 편향됐는지 ② 왜 그것을 보강하면 좋은지 ③ 구체적으로 어떤 하위장르·아티스트·곡부터 시작하면 좋은지 를 모두 담아 2~3문장으로 충실히 설명하세요. 막연한 조언이 아니라 실제 데이터(편중된 장르/무드, 낮은 다양성 등)에 근거해서.`;
 
   // High-value, low-frequency call → bump to the better reasoning model.
@@ -168,5 +216,16 @@ export async function generateProfile(
         .join("; ")}`,
     );
   }
-  return parsed.data;
+  const profile = parsed.data;
+  // Override Gemini's single diggingScore with the actual mean of the
+  // four axes when present — the overall number then provably reflects
+  // the per-axis values shown right next to it (no "axes say 70/60/30/40
+  // but the headline says 78" mismatch).
+  if (profile.axisScores) {
+    const { genreBreadth, albumDepth, indieDepth, eraBreadth } = profile.axisScores;
+    profile.diggingScore = Math.round(
+      (genreBreadth + albumDepth + indieDepth + eraBreadth) / 4,
+    );
+  }
+  return profile;
 }
