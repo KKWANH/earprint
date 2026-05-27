@@ -30,6 +30,7 @@ export interface CanvasShareStrings {
   shareDownload: string;
   shareCopyImage: string;
   shareCopyEmbed: string;
+  shareCopyIframe?: string;
   shareCopied: string;
   shareFailed: string;
   shareEmbedHint: string;
@@ -40,7 +41,9 @@ export function CanvasShareMenu({
   strings,
   filename,
   embedAlt,
-  embedHref = "https://earprint.kwanho.dev",
+  embedHref = "https://earprint.kwanho.dev/map",
+  iframeUrl,
+  iframeSize = { width: 640, height: 480 },
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   strings: CanvasShareStrings;
@@ -48,8 +51,20 @@ export function CanvasShareMenu({
   filename: string;
   /** Used as the <img alt> in the HTML embed snippet. */
   embedAlt: string;
-  /** Link the embed image points to. Defaults to the prod landing. */
+  /** Link the static-PNG embed image points to. Defaults to the
+   *  artist map page so a viewer who clicks the static image lands on
+   *  the interactive canvas. Previously defaulted to the marketing
+   *  landing which surfaced as "click does nothing meaningful". */
   embedHref?: string;
+  /** When provided, surfaces a "Copy iframe embed" option that emits
+   *  an `<iframe src=...>` snippet wrapping a fully-interactive page
+   *  (pan / zoom / hover all work in the host blog). The URL should
+   *  point at an embed-friendly route (e.g.
+   *  /map/embed/<shareId>). Omitted = no iframe option shown. */
+  iframeUrl?: string;
+  /** Default iframe dimensions in the snippet. Most blog editors
+   *  resize via CSS anyway; this is just a sensible starting size. */
+  iframeSize?: { width: number; height: number };
 }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -110,11 +125,37 @@ export function CanvasShareMenu({
       const dataUrl = await blobToDataUrl(blob);
       // Wrap in <a> so the image acts as a backlink when pasted into a
       // blog. style="max-width" keeps it from blowing out the post
-      // layout on wide editors.
+      // layout on wide editors. cursor:zoom-in hints to viewers that
+      // clicking the static image opens the interactive map page.
       const html =
-        `<a href="${embedHref}" target="_blank" rel="noopener">` +
+        `<a href="${embedHref}" target="_blank" rel="noopener" ` +
+        `title="Open interactive map">` +
         `<img src="${dataUrl}" alt="${escapeAttr(embedAlt)}" ` +
-        `style="max-width:640px;width:100%;border-radius:12px;display:block"/></a>`;
+        `style="max-width:640px;width:100%;border-radius:12px;` +
+        `display:block;cursor:zoom-in"/></a>`;
+      await navigator.clipboard.writeText(html);
+      setNote(strings.shareCopied);
+    } catch {
+      setNote(strings.shareFailed);
+    }
+    setBusy(false);
+  }
+
+  /** Copy a fully-interactive iframe snippet (pan / zoom / hover all
+   *  work inside the host blog). The embedded page is the same canvas
+   *  the owner sees on /map but stripped of nav chrome. Available only
+   *  when the parent passed `iframeUrl`. */
+  async function copyIframe() {
+    if (!iframeUrl) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      const html =
+        `<iframe src="${iframeUrl}" ` +
+        `width="${iframeSize.width}" height="${iframeSize.height}" ` +
+        `frameborder="0" loading="lazy" ` +
+        `title="${escapeAttr(embedAlt)}" ` +
+        `style="max-width:100%;border:0;border-radius:12px"></iframe>`;
       await navigator.clipboard.writeText(html);
       setNote(strings.shareCopied);
     } catch {
@@ -164,6 +205,15 @@ export function CanvasShareMenu({
           >
             🔗 {strings.shareCopyEmbed}
           </button>
+          {iframeUrl && (
+            <button
+              onClick={() => { void copyIframe(); }}
+              disabled={busy}
+              className="block w-full px-3 py-2 text-left text-neutral-300 hover:bg-white/10 disabled:opacity-50"
+            >
+              🪟 {strings.shareCopyIframe ?? "Copy interactive embed"}
+            </button>
+          )}
           <p className="border-t border-white/10 px-3 py-2 text-[10px] leading-snug text-neutral-500">
             {strings.shareEmbedHint}
           </p>

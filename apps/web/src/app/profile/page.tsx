@@ -13,6 +13,7 @@ import { diggingPercentile, newShareId } from "@/lib/share";
 import { getMusicZodiac, type MusicZodiac } from "@/lib/musicZodiac";
 import { LikesDisclaimer } from "@/components/LikesDisclaimer";
 import { AiPsychologyDisclaimer } from "@/components/AiPsychologyDisclaimer";
+import { TasteDNASections } from "@/components/TasteDNASections";
 import { MusicZodiacCard } from "@/components/MusicZodiacCard";
 import { GenerateButton } from "./GenerateButton";
 import { GenreConstellation } from "./GenreConstellation";
@@ -130,6 +131,14 @@ export default async function ProfilePage() {
         />
       ) : (
         <p className="text-sm text-neutral-500">{t.noProfile}</p>
+      )}
+
+      {/* Taste DNA — imprint + novelty sections that used to live on
+          the standalone /dna page. /dna now redirects here so the
+          user gets the unified insights view the brief asked for
+          ("취향 DNA 랑 심리분석을 합치는건 어떨까"). */}
+      {stats.total > 0 && (
+        <TasteDNASections userId={userId} locale={locale} />
       )}
     </main>
   );

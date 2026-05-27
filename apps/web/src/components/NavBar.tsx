@@ -6,9 +6,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { dicts, type Locale } from "@/lib/i18n";
 import { LocaleToggle } from "./LocaleToggle";
 
+// `dna` entry removed May 2026 — the Taste DNA sections now live
+// inline at the bottom of /profile so navigation has one fewer
+// item and the user mental-model collapses "DNA vs Profile" into
+// one "Insights" surface. /dna URL still redirects → /profile.
 const LINKS = [
   { href: "/library", key: "library" },
-  { href: "/dna", key: "dna" },
   { href: "/map", key: "map" },
   { href: "/recommend", key: "recommend" },
   { href: "/worldcup", key: "worldcup" },
@@ -31,6 +34,14 @@ export function NavBar({
   const path = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
+
+  // Routes that render inside iframes / embeds get no chrome. The
+  // map/embed page is the first one; future community/[id]/embed
+  // will land here too without code changes.
+  const isEmbedded =
+    path.startsWith("/map/embed/") ||
+    path.includes("/worldcup/community/") && path.endsWith("/embed");
+  if (isEmbedded) return null;
 
   // ESC closes the mobile hamburger menu. Without this, a keyboard
   // user who opened the menu (Tab → Enter on the ☰ button) had no

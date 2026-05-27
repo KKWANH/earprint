@@ -34,9 +34,19 @@ export default async function MapPage() {
   }
 
   const { userId } = await requireOnboarded();
-  const data = await getArtistMap(userId);
+  const { getSql } = await import("@/lib/db");
+  const sql = getSql();
+  const [data, shareRow] = await Promise.all([
+    getArtistMap(userId),
+    sql`SELECT share_id FROM taste_profiles WHERE user_id = ${userId}`,
+  ]);
   const ghosts =
     data.artists.length > 0 ? await getGhostArtists(userId, data.artists) : [];
+  // share_id only exists for users who've run an AI analysis. When
+  // present we pass it down so the share menu can offer the iframe-
+  // embed option (which uses the same share_id to load the embed
+  // page anonymously).
+  const shareId = (shareRow[0]?.share_id as string | undefined) ?? null;
 
   return (
     <main className="flex flex-1 flex-col">
@@ -57,7 +67,7 @@ export default async function MapPage() {
           {t.emptyState}
         </div>
       ) : (
-        <ArtistMap data={data} ghosts={ghosts} locale={locale} />
+        <ArtistMap data={data} ghosts={ghosts} locale={locale} shareId={shareId} />
       )}
     </main>
   );

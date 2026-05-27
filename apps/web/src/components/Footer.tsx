@@ -1,9 +1,19 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { dicts, type Locale } from "@/lib/i18n";
 
-/** Site footer — brand mark and links to the legal pages. */
+/** Site footer — brand mark and links to the legal pages.
+ *  Hidden on embed routes (iframe-friendly pages) — same predicate
+ *  as NavBar so the two stay in sync. */
 export function Footer({ locale }: { locale: Locale }) {
   const t = dicts[locale].footer;
+  const path = usePathname() ?? "/";
+  const isEmbedded =
+    path.startsWith("/map/embed/") ||
+    (path.includes("/worldcup/community/") && path.endsWith("/embed"));
+  if (isEmbedded) return null;
   return (
     <footer className="mt-auto border-t border-white/10 px-4 py-6 sm:px-6">
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 text-center sm:flex-row sm:justify-between sm:text-left">

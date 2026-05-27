@@ -44,10 +44,15 @@ export function ArtistMap({
   data,
   ghosts,
   locale,
+  shareId,
 }: {
   data: ArtistMapData;
   ghosts: GhostArtist[];
   locale: Locale;
+  /** Optional public share id. When present, ShareMenu gains the
+   *  "Copy interactive embed" option that emits an iframe pointing
+   *  to /map/embed/<shareId>. */
+  shareId?: string | null;
 }) {
   const t = mapDict(locale);
   const router = useRouter();
@@ -621,7 +626,7 @@ export function ArtistMap({
       </div>
 
       <div className="absolute right-3 top-3 flex flex-col items-end gap-2 sm:right-4 sm:top-4">
-        <ShareMenu canvasRef={canvasRef} locale={locale} />
+        <ShareMenu canvasRef={canvasRef} locale={locale} shareId={shareId ?? null} />
         {data.analyzed < data.artists.length * 0.5 && (
           <div className="max-w-[13rem] rounded-lg border border-amber-500/30 bg-amber-950/70 px-3 py-2 text-[11px] text-amber-200 backdrop-blur">
             {t.fewAnalyzedWarning}
