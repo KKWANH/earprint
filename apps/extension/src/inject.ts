@@ -123,11 +123,30 @@
     return (document.scrollingElement as HTMLElement) || document.documentElement;
   }
 
+  // Manual-stop flag, flipped by a {kind: "stop"} message from content.ts
+  // when the user clicks Stop in the popup. The scroll loop checks this
+  // on every iteration and bails out of every remaining pass; the settle
+  // loop also short-circuits. We deliberately don't tear the scrape
+  // down hard — letting the loop exit naturally means scrapeNow() fires
+  // once more and `endedClean` reads false (truthful: the user
+  // interrupted, the scrape didn't reach the bottom on its own).
+  let stopRequested = false;
+
+  window.addEventListener("message", (e: MessageEvent) => {
+    const stopMsg = e.data as { __pa?: boolean; kind?: string } | undefined;
+    if (e.source === window && stopMsg?.__pa && stopMsg.kind === "stop") {
+      stopRequested = true;
+    }
+  });
+
   window.addEventListener("message", (e: MessageEvent) => {
     const d = e.data as { __pa?: boolean; kind?: string } | undefined;
     if (e.source !== window || !d?.__pa || d.kind !== "scrape") return;
 
     void (async () => {
+      // Reset per-run. Otherwise a second scrape in the same page life
+      // would inherit a stale stop from the previous one.
+      stopRequested = false;
       const seen = new Set<string>();
       let domPeak = 0;
 
@@ -248,6 +267,7 @@
       let totalLastSize = 0;
 
       for (let pass = 0; pass < PASSES; pass++) {
+        if (stopRequested) break;
         post({ kind: "scrapePhase", phase: "scrolling" });
         post({ kind: "scrapePass", pass: pass + 1, total: PASSES });
 
@@ -264,6 +284,7 @@
         let passLastSize = seen.size;
 
         while (Date.now() - passStart < PASS_BAILOUT_MS) {
+          if (stopRequested) break;
           maybeScrape();
           const scroller = findScroller();
           const stepPx = Math.max(360, scroller.clientHeight * 0.7);
@@ -311,6 +332,7 @@
       const SETTLE_MAX_MS = 15_000;
       const settleStart = Date.now();
       while (Date.now() - settleStart < SETTLE_MAX_MS) {
+        if (stopRequested) break;
         const scroller = findScroller();
         scroller.scrollTop = scroller.scrollHeight;
         window.scrollTo(0, document.documentElement.scrollHeight);

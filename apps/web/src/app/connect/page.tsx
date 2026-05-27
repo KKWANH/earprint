@@ -103,17 +103,11 @@ export default async function ConnectPage() {
 
 /**
  * Compact one-liner under the library count summarising the user's last
- * extension sync. Three shapes correspond to the three real outcomes the
- * server distinguishes today (see /api/sync):
- *
- *   • complete     — extension reached the bottom of the liked list and
- *                    matched the playlist header. Library was authorised
- *                    to drop missing tracks; `removed` says how many.
- *   • partial      — capture count came in short of the page header.
- *                    Library was NOT replaced — append-only this round.
- *                    Surfaced as a warning so the user re-runs sync.
- *   • append-only  — extension didn't assert completeness (older build,
- *                    or interrupted scrape). No deletes. Soft notice.
+ * extension sync. Sync is append-only now, so there's no
+ * complete/partial/append-only branching to display — every successful
+ * sync just adds. When the captured count came in short of the playlist
+ * header it's surfaced as a hint to re-run, but never as a warning,
+ * because nothing got destroyed either way.
  */
 function LastSyncBadge({
   status,
@@ -123,42 +117,20 @@ function LastSyncBadge({
   locale: Locale;
 }) {
   const ago = formatRelative(status.at, locale);
-  const isPartial =
-    status.complete === false &&
-    status.expected != null &&
-    status.captured != null &&
-    status.captured < status.expected;
-
-  if (status.complete === true) {
-    const removed = status.removed ?? 0;
-    const removedStr =
-      removed > 0
-        ? locale === "ko"
-          ? ` · ${removed.toLocaleString()}곡 정리됨`
-          : ` · ${removed.toLocaleString()} removed`
-        : "";
-    return (
-      <p className="rounded-md border border-emerald-500/30 bg-emerald-950/30 px-3 py-1.5 text-xs text-emerald-200">
-        {locale === "ko"
-          ? `✓ 완전 동기화 — ${(status.captured ?? 0).toLocaleString()}곡${removedStr} · ${ago}`
-          : `✓ Complete sync — ${(status.captured ?? 0).toLocaleString()} songs${removedStr} · ${ago}`}
-      </p>
-    );
-  }
-  if (isPartial) {
-    return (
-      <p className="rounded-md border border-amber-500/30 bg-amber-950/40 px-3 py-1.5 text-xs text-amber-200">
-        {locale === "ko"
-          ? `⚠ 부분 동기화 — ${(status.captured ?? 0).toLocaleString()} / ${(status.expected ?? 0).toLocaleString()} · 라이브러리는 교체되지 않았습니다. 다시 동기화하세요 · ${ago}`
-          : `⚠ Partial sync — ${(status.captured ?? 0).toLocaleString()} of ${(status.expected ?? 0).toLocaleString()}. Library was NOT replaced. Run sync again · ${ago}`}
-      </p>
-    );
-  }
+  const captured = status.captured ?? 0;
+  const expected = status.expected;
+  const short =
+    expected != null && captured < Math.floor(expected * 0.99);
+  const headerHint = short
+    ? locale === "ko"
+      ? ` · 페이지 헤더는 ${expected!.toLocaleString()}곡 표시 (다시 동기화하면 누락분 추가)`
+      : ` · header showed ${expected!.toLocaleString()} (re-sync to pick up the rest)`
+    : "";
   return (
-    <p className="rounded-md border border-neutral-700 bg-neutral-800/60 px-3 py-1.5 text-xs text-neutral-300">
+    <p className="rounded-md border border-emerald-500/30 bg-emerald-950/30 px-3 py-1.5 text-xs text-emerald-200">
       {locale === "ko"
-        ? `최근 동기화: ${(status.captured ?? 0).toLocaleString()}곡 (추가 전용) · ${ago}`
-        : `Last sync: ${(status.captured ?? 0).toLocaleString()} songs (append-only) · ${ago}`}
+        ? `✓ 마지막 동기화 — ${captured.toLocaleString()}곡 전송됨${headerHint} · ${ago}`
+        : `✓ Last sync — ${captured.toLocaleString()} songs sent${headerHint} · ${ago}`}
     </p>
   );
 }

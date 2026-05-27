@@ -110,16 +110,13 @@ export async function POST(req: Request) {
     );
   }
 
-  // YouTube Data API "Liked Videos" is paged and isn't a strict superset of
-  // YT Music's Liked Music playlist — some Music tracks aren't visible here
-  // and some non-Music videos are. Treat every page as append-only: never
-  // pass complete=true, so the server won't delete tracks that the
-  // extension scraped but this API path didn't see.
+  // sync_liked_tracks is append-only by design (see db/schema.sql);
+  // /api/sync-yt is intrinsically partial (paged + LL isn't a superset
+  // of LM) so the append-only default fits naturally here too.
   const procRows = await sql`
     SELECT * FROM sync_liked_tracks(
       ${userId},
-      ${JSON.stringify(tracks)}::jsonb,
-      ${false}
+      ${JSON.stringify(tracks)}::jsonb
     )`;
 
   return json(

@@ -331,27 +331,35 @@ ON CONFLICT (raw) DO NOTHING;
 -- Tracks are canonical — every videoId of one song (live versions, re-uploads,
 -- repeat likes) maps to a single tracks row; videoIds live in track_sources.
 --
--- p_complete contract:
---   true  → REPLACE mode. The caller asserts the captured list is the FULL
---           liked-music library. Any user_tracks row not in the upload is
---           safely deleted (the user un-liked it elsewhere). Only the
---           extension after a clean scroll-to-bottom should pass true.
---   false → APPEND mode. Insert new tracks, refresh list_position on
---           existing ones, but NEVER delete. Safe for partial uploads
---           (extension stall, manual top-up, Takeout CSV slice, etc.).
+-- APPEND-ONLY model (post-PIVOT-1):
+-- Every successful sync inserts new tracks and refreshes list_position on
+-- existing ones. We NEVER delete user_tracks rows in response to a sync,
+-- even if the user has un-liked the song on YouTube Music since the last
+-- one. Earprint is "everything you've ever liked", not a live mirror of
+-- YT Music's Liked Music page. Reasons:
+--   1. A scrape that stalls mid-list silently destroying the user's
+--      library is the worst possible failure mode. Append-only makes
+--      that class of bug impossible by construction.
+--   2. The "self-bracket" / Worldcup product expects deep historical
+--      library; un-liking a song shouldn't erase it from the user's
+--      Earprint history.
+--   3. Users who want to remove specific tracks can use the Exclude
+--      controls on /library — those filter from stats but keep the
+--      underlying user_tracks row.
 --
--- The old behaviour used `total >= 20` as a proxy for "looks like a full
--- library" — that was unsafe in both directions (a real 8-track library
--- never replaced, a stalled 50/2000 scrape wiped 1950 tracks). The flag
--- replaces that heuristic; the threshold guard is gone.
+-- Signature kept at 3 args (with p_complete defaulted) for compatibility
+-- with the previous deploy, but the flag is now ignored. Document the
+-- deprecation; a follow-up will drop it.
 --
--- DROP first because adding a parameter changes the function signature
--- (CREATE OR REPLACE only edits the body, not the arglist).
+-- DROP first because the old function had an INT-only return; we're
+-- staying compatible with the 4-column shape (removed always 0) so the
+-- /api/sync code that destructures `removed` doesn't crash mid-deploy.
+DROP FUNCTION IF EXISTS sync_liked_tracks(uuid, jsonb, boolean);
 DROP FUNCTION IF EXISTS sync_liked_tracks(uuid, jsonb);
 CREATE OR REPLACE FUNCTION sync_liked_tracks(
   p_user_id  uuid,
   p_tracks   jsonb,
-  p_complete boolean DEFAULT false
+  p_complete boolean DEFAULT false  -- IGNORED; kept for arg-shape stability
 )
 RETURNS TABLE(new_tracks int, new_likes int, total int, removed int) AS $$
 DECLARE
@@ -359,8 +367,6 @@ DECLARE
   v_pos      int;
   v_ck       text;
   v_track_id uuid;
-  v_ids      uuid[] := '{}';
-  v_removed  int := 0;
 BEGIN
   new_tracks := 0;
   new_likes  := 0;
@@ -414,17 +420,11 @@ BEGIN
       UPDATE user_tracks SET list_position = v_pos
         WHERE user_id = p_user_id AND track_id = v_track_id;
     END IF;
-    v_ids := array_append(v_ids, v_track_id);
   END LOOP;
 
-  -- Replace mode: drop likes the user no longer has. ONLY when the caller
-  -- asserts a complete capture — never on partial uploads.
-  IF p_complete THEN
-    DELETE FROM user_tracks
-    WHERE user_id = p_user_id AND source = 'ytmusic' AND track_id <> ALL(v_ids);
-    GET DIAGNOSTICS v_removed = ROW_COUNT;
-  END IF;
-  removed := v_removed;
+  -- Append-only: no DELETE branch. `removed` always 0; column kept in
+  -- the return shape for caller-side compatibility.
+  removed := 0;
 
   RETURN NEXT;
 END;

@@ -56,26 +56,38 @@ export default async function WorldcupHome() {
       CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
       WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL`,
   ]);
-  const counts: Record<WorldcupCategory, number> = {
-    liked: lib[0].n as number,
-    discover: rec[0].n as number,
-    mix: (lib[0].n as number) + (rec[0].n as number),
-    genre: gen[0].n as number,
+  const libN = lib[0].n as number;
+  // `forgotten` draws from the older half of the library, so it
+  // effectively halves the available pool — gate it at 2× the smallest
+  // bracket so the picker doesn't offer something that will return
+  // fewer cards than required.
+  const counts: Record<Exclude<WorldcupCategory, "liked">, number> = {
+    library:   libN,
+    recent:    libN,
+    forgotten: Math.floor(libN / 2),
+    discover:  rec[0].n as number,
+    mix:       libN + (rec[0].n as number),
+    genre:     gen[0].n as number,
   };
 
+  // Order: self-bracket modes first (the product purpose), then
+  // discovery-style modes. `library` is the headline default and is
+  // listed top-left so a first-time visitor lands on it.
   const categories: {
-    id: WorldcupCategory;
+    id: Exclude<WorldcupCategory, "liked">;
     emoji: string;
     label: string;
     hint: string;
     disabled: boolean;
   }[] = [
-    { id: "liked",    emoji: "❤️", label: t.catLikedLabel,    hint: t.catLikedHint,    disabled: counts.liked < 4 },
-    { id: "discover", emoji: "🧭", label: t.catDiscoverLabel, hint: t.catDiscoverHint, disabled: counts.discover < 4 },
-    { id: "mix",      emoji: "🔀", label: t.catMixLabel,      hint: t.catMixHint,      disabled: counts.mix < 4 },
+    { id: "library",   emoji: "🎲", label: t.catLibraryLabel,   hint: t.catLibraryHint,   disabled: counts.library < 4 },
+    { id: "recent",    emoji: "⚡", label: t.catRecentLabel,    hint: t.catRecentHint,    disabled: counts.recent < 4 },
+    { id: "forgotten", emoji: "🕰", label: t.catForgottenLabel, hint: t.catForgottenHint, disabled: counts.forgotten < 4 },
     // Genre tournaments need ≥4 distinct genres (smallest bracket size).
     // Big libraries comfortably clear 16-32; very narrow taste might not.
-    { id: "genre",    emoji: "🎼", label: t.catGenreLabel,    hint: t.catGenreHint,    disabled: counts.genre < 4 },
+    { id: "genre",     emoji: "🎼", label: t.catGenreLabel,     hint: t.catGenreHint,     disabled: counts.genre < 4 },
+    { id: "discover",  emoji: "🧭", label: t.catDiscoverLabel,  hint: t.catDiscoverHint,  disabled: counts.discover < 4 },
+    { id: "mix",       emoji: "🔀", label: t.catMixLabel,       hint: t.catMixHint,       disabled: counts.mix < 4 },
   ];
 
   return (
@@ -119,13 +131,13 @@ function CategoryCard({
   notEnoughFn,
 }: {
   cat: {
-    id: WorldcupCategory;
+    id: Exclude<WorldcupCategory, "liked">;
     emoji: string;
     label: string;
     hint: string;
     disabled: boolean;
   };
-  counts: Record<WorldcupCategory, number>;
+  counts: Record<Exclude<WorldcupCategory, "liked">, number>;
   locale: string;
   comingSoonText: string;
   sizeTitle: string;

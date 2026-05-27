@@ -29,9 +29,11 @@ export interface CapturedTrack {
   position?: number;
 }
 
-/** Telemetry from the extension's scrape pass so the server can judge
- *  whether the captured list is a faithful snapshot of the user's
- *  YouTube Music Liked Music page or a partial sample. */
+/** Telemetry from the extension's scrape pass — purely informational
+ *  now that sync is append-only. The server stores `expected` and
+ *  `captured` on users.last_sync_* so /connect can render a "last sync:
+ *  1,417 captured (header said 1,420)" line. None of these gate any
+ *  destructive action. */
 export interface SyncDiagnostics {
   /** Total count parsed from the playlist header ("2,353곡 · ..."). null
    *  when the header wasn't readable (older YT Music UI, language mismatch). */
@@ -39,9 +41,7 @@ export interface SyncDiagnostics {
   /** How many distinct tracks the extension collected this run. */
   captured: number;
   /** True when the scroller hit the end of the rendered list cleanly
-   *  (saw the trailing sentinel, no spinner stuck). The single most
-   *  load-bearing flag — the server uses it to decide whether deletes
-   *  are allowed in the same transaction as the upserts. */
+   *  (saw the trailing sentinel, no spinner stuck). Informational. */
   endedClean: boolean;
   /** Peak DOM row count seen during the scrape — lets us spot the case
    *  where YT Music virtualises older rows out of the DOM mid-scroll. */
@@ -51,29 +51,33 @@ export interface SyncDiagnostics {
   spinnerSeen?: boolean;
   /** Title of the last captured row, for log-only "we got up to X". */
   lastTitle?: string | null;
+  /** True when the user manually stopped the scrape via the popup's
+   *  "Stop now" button. Distinguishes "I'm done, save what we have"
+   *  from a stall / crash. */
+  manualStop?: boolean;
 }
 
-/** Extension → backend sync payload. */
+/** Extension → backend sync payload.
+ *
+ * Earprint sync is APPEND-ONLY. Every upload inserts new tracks and
+ * refreshes list_position on existing ones; nothing is ever deleted
+ * server-side in response to a sync, even if the user has un-liked the
+ * song on YouTube Music. Earprint is a permanent history of "everything
+ * you've ever liked" — users wanting to drop a track from stats use the
+ * per-artist Exclude controls on /library, which filter from aggregates
+ * without touching the underlying user_tracks row.
+ *
+ * The earlier `complete` flag (which permitted a destructive
+ * replace-mode delete) was removed: a scrape that stalled mid-list and
+ * then asserted complete=true silently destroyed thousands of liked
+ * tracks, and the upside (auto-clearing un-liked songs) was not worth
+ * that failure mode.
+ */
 export interface SyncRequest {
   source: "ytmusic";
   tracks: CapturedTrack[];
-  /**
-   * True ONLY when the extension is confident the captured list is the
-   * full liked-music library. When false / missing, the server treats
-   * the upload as an append-only refresh — it inserts new tracks and
-   * touches list_position, but never deletes tracks the user still has
-   * liked but that didn't appear this round.
-   *
-   * Default-false-on-missing is intentional: older extension builds
-   * predate this field, and the safe interpretation is "may be partial".
-   * The 20-track threshold previously used as a proxy was unsafe — a
-   * legitimate small library wouldn't get the replace-mode behaviour it
-   * needed, and a large library that scrolled to 50 tracks before
-   * stalling would silently wipe everything from 51 onward.
-   */
-  complete?: boolean;
-  /** Optional telemetry — strictly for server-side decisioning + logs;
-   *  never displayed to other users. */
+  /** Optional telemetry — strictly for server-side metrics + logs;
+   *  never displayed to other users and never gates a delete. */
   diagnostics?: SyncDiagnostics;
 }
 

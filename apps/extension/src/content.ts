@@ -60,6 +60,12 @@ window.addEventListener("message", (e: MessageEvent) => {
   }
 });
 
+// "User clicked Stop in the popup mid-scrape." Toggled true on the
+// PA_STOP_SYNC message; runSync checks it after the scrape resolves to
+// stamp diagnostics.manualStop. The actual scroll-loop interrupt is in
+// inject.ts — we postMessage stop so the MAIN-world loop can see it.
+let manuallyStopped = false;
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const type = (message as { type?: string })?.type;
   if (type === "PA_SYNC") {
@@ -75,6 +81,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ ok: false, error: String(err) }),
       );
     return true;
+  }
+  if (type === "PA_STOP_SYNC") {
+    manuallyStopped = true;
+    // Signal inject.ts's MAIN-world scrape loop to bail early. The
+    // scroll loop polls its own stop flag at each iteration; once set,
+    // it skips remaining passes and posts scrapeDone with the
+    // captured-so-far list.
+    window.postMessage({ __pa: true, kind: "stop" }, "*");
+    sendResponse({ ok: true });
+    return false;
   }
   if (type === "PA_PROGRESS") {
     sendResponse({ count: tracks.size });
@@ -127,6 +143,7 @@ async function runSync(): Promise<unknown> {
   diag.spinnerSeen = false;
   diag.endedClean = false;
   diag.lastTitle = "";
+  manuallyStopped = false;
 
   runStartedAt = Date.now();
   currentPhase = "scrolling";
@@ -224,7 +241,7 @@ async function runSync(): Promise<unknown> {
       expected: expectedCount(),
     });
     const expected = expectedCount();
-    const result = await uploadDirect(list);
+    const result = await uploadDirect(list, { manualStop: manuallyStopped });
     const full: Record<string, unknown> = {
       ...result,
       captured: list.length,
@@ -233,6 +250,7 @@ async function runSync(): Promise<unknown> {
       spinnerSeen: diag.spinnerSeen,
       endedClean: diag.endedClean,
       lastTitle: diag.lastTitle,
+      manualStop: manuallyStopped,
     };
     await writeStatus({ state: "done", updatedAt: Date.now(), result: full });
     return full;
@@ -253,13 +271,12 @@ const BACKEND: string =
 
 /** Direct backend upload from the content script. Replaces the previous
  *  background-SW hop that was prone to MV3 service-worker suspension.
- *  `opts.partial=true` forces complete=false even when the scrape would
- *  otherwise look done — used by the in-flight periodic uploader so a
- *  mid-scrape snapshot can never trigger the server's destructive
- *  replace-mode delete branch. */
+ *  Server is append-only now (see db/schema.sql), so there's no
+ *  "complete" flag to compute — every upload is strictly additive,
+ *  whether it's a mid-scrape partial or the end-of-scrape final. */
 async function uploadDirect(
   list: CapturedTrack[],
-  opts: { partial?: boolean } = {},
+  opts: { partial?: boolean; manualStop?: boolean } = {},
 ): Promise<Record<string, unknown>> {
   const { syncToken } = await chrome.storage.sync.get(["syncToken"]);
   if (!syncToken) {
@@ -268,30 +285,22 @@ async function uploadDirect(
       error: 'Extension not connected — click "Connect" in the popup',
     };
   }
-  // Completeness is the single decision the server uses to allow
-  // delete-on-replace. Be strict: require BOTH the scroller's own
-  // "I reached the bottom" assertion AND the captured count to be
-  // within 1% of the playlist header's expected count. A stalled
-  // scrape that THINKS it ended cleanly but is short by 30% should
-  // not authorise the server to drop the missing tracks.
-  // For partial periodic uploads, force false unconditionally — the
-  // scrape isn't finished, the snapshot is a subset by definition.
   const expected = expectedCount();
   const captured = list.length;
-  const headerSatisfied =
-    expected === null || captured >= Math.floor(expected * 0.99);
-  const complete = !opts.partial && diag.endedClean && headerSatisfied;
   const body = {
     source: "ytmusic" as const,
     tracks: list,
-    complete,
     diagnostics: {
       expected,
       captured,
+      // `endedClean` reflects what the scroller saw, not what kind of
+      // upload this is. Partial periodic uploads always report false
+      // because by definition the scrape isn't done yet.
       endedClean: !opts.partial && diag.endedClean,
       domPeak: diag.domPeak,
       spinnerSeen: diag.spinnerSeen,
       lastTitle: diag.lastTitle || null,
+      manualStop: opts.manualStop === true,
     },
   };
   let res: Response;

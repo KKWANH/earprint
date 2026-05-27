@@ -20,6 +20,7 @@ const stepConnect = document.getElementById("step-connect") as HTMLDivElement;
 const stepSync = document.getElementById("step-sync") as HTMLDivElement;
 const connectBtn = document.getElementById("connect") as HTMLButtonElement;
 const syncBtn = document.getElementById("sync") as HTMLButtonElement;
+const stopBtn = document.getElementById("stop-sync") as HTMLButtonElement;
 const syncHint = document.getElementById("sync-hint") as HTMLDivElement;
 const msgEl = document.getElementById("msg") as HTMLParagraphElement;
 const guideLink = document.getElementById("guide-link") as HTMLAnchorElement;
@@ -118,7 +119,14 @@ connectBtn.addEventListener("click", () => {
 
 /** Renders the sync result regardless of where it came from (sendMessage
  *  response or chrome.storage.local poll). Centralised so both code paths
- *  show identical UX. */
+ *  show identical UX.
+ *
+ *  Sync is append-only server-side now — there's no complete / partial
+ *  distinction to surface. Every successful upload adds new captures and
+ *  refreshes existing positions; nothing is ever removed. The message
+ *  just reports how many landed and (if relevant) how many were sliced
+ *  off by the free-tier cap before save.
+ */
 function renderSyncResult(res: {
   ok?: boolean;
   error?: string;
@@ -126,53 +134,32 @@ function renderSyncResult(res: {
   total?: number;
   captured?: number;
   expected?: number | null;
-  endedClean?: boolean;
-  lastTitle?: string;
-  /** New server fields. `complete` reflects whether the server treated
-   *  the upload as a full-library replace (allowed to delete missing
-   *  tracks) or append-only. `removed` is the count actually deleted
-   *  in this round — non-zero only when complete=true. */
-  complete?: boolean;
-  removed?: number;
+  new_likes?: number;
+  new_tracks?: number;
   plan_dropped?: number;
   plan_cap?: number;
 }) {
   syncBtn.disabled = false;
+  hideStopButton();
   if (res.ok) {
     const cap = res.captured ?? 0;
+    const newLikes = res.new_likes ?? 0;
     const expected = res.expected ?? null;
-    const removed = res.removed ?? 0;
 
-    // Differentiate three success shapes so the user knows what actually
-    // landed on the backend:
-    //
-    //   • Complete & matched header → "✓ Saved N (complete)"
-    //   • Server saw an append-only round (extension didn't reach bottom,
-    //     or the header expected more than we captured) → warn so the
-    //     user runs another sync rather than assuming this was full.
-    //   • Free-tier slice happened (plan_dropped > 0) → say it was
-    //     capped and how many were dropped before the slice.
-    let msg: string;
-    let kind: "info" | "error" | "success" = "success";
-    if (res.complete === true) {
-      const removedSuffix = removed > 0 ? ` · ${removed.toLocaleString()} removed` : "";
-      msg = `✓ Saved ${cap.toLocaleString()} songs (complete)${removedSuffix}`;
-    } else if (expected != null && cap < expected) {
-      msg =
-        `⚠ Partial sync — saved ${cap.toLocaleString()} of ${expected.toLocaleString()}.\n` +
-        `Library was NOT replaced. Run sync again to capture the rest.`;
-      kind = "error";
-    } else {
-      msg =
-        `✓ Saved ${cap.toLocaleString()} songs (append-only — full-library replace not authorised this round)`;
-      kind = "info";
-    }
+    // "Sent 1,417 songs (12 new this run)" — communicates both that
+    // the data landed and how much of it was new since last sync.
+    // append-only is the only mode now, so no warning about partial vs
+    // complete needed.
+    const headerHint =
+      expected != null && cap < expected
+        ? ` · header showed ${expected.toLocaleString()}`
+        : "";
+    let msg = `✓ Sent ${cap.toLocaleString()} songs${headerHint}`;
+    if (newLikes > 0) msg += ` · ${newLikes.toLocaleString()} new`;
     if (res.plan_dropped && res.plan_dropped > 0) {
       msg += `\n📦 Free-tier cap: ${res.plan_dropped.toLocaleString()} extra tracks were dropped before save (limit ${(res.plan_cap ?? 0).toLocaleString()}).`;
     }
-    showMsg(msg, kind);
-    // Stay on step 2 so re-syncing is one click away — the user's likes
-    // change over time and this is the primary loop of the popup.
+    showMsg(msg, "success");
     return;
   }
 
@@ -197,6 +184,34 @@ function renderSyncResult(res: {
   );
 }
 
+/** Stop-button visibility helpers. The button is hidden in the HTML by
+ *  default; we surface it only while a scrape is actively running. */
+function showStopButton() {
+  stopBtn.hidden = false;
+  stopBtn.disabled = false;
+}
+function hideStopButton() {
+  stopBtn.hidden = true;
+}
+
+// Manual stop — fires a one-way "PA_STOP_SYNC" to the active tab. The
+// content script intercepts the message, marks its inject scrape's exit
+// flag, and uploads whatever's been captured so far with
+// diagnostics.manualStop=true. The popup keeps watching paSyncStatus
+// for the "done" / "failed" transition like any other end-of-scrape.
+stopBtn.addEventListener("click", async () => {
+  stopBtn.disabled = true;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+  void chrome.tabs
+    .sendMessage(tab.id, { type: "PA_STOP_SYNC" })
+    .catch(() => {
+      /* channel may have died — content script will still see the
+       * paSyncStatus tick and bail at the next opportunity. */
+    });
+  showMsg(t("msgStopRequested"));
+});
+
 syncBtn.addEventListener("click", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id || !tab.url?.includes("music.youtube.com")) {
@@ -208,6 +223,7 @@ syncBtn.addEventListener("click", async () => {
   }
   const tabId = tab.id;
   syncBtn.disabled = true;
+  showStopButton();
   showMsg(t("msgSyncing"));
 
   // Clear any stale status from a prior run so we don't immediately resolve
@@ -310,6 +326,7 @@ syncBtn.addEventListener("click", async () => {
       clearInterval(poll);
       clearInterval(ticker);
       syncBtn.disabled = false;
+      hideStopButton();
       showMsg(t("msgError", ["sync timed out"]), "error");
     }
   }, 600000);

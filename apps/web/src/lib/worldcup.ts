@@ -1,25 +1,49 @@
 /**
  * Candidate fetchers for the /worldcup bracket page.
  *
- * Each category produces a `BracketCandidate[]` shaped exactly like the
- * one in `app/worldcup/Bracket.tsx`. The bracket doesn't care which
- * source they came from — it just runs pairs to a champion. Sources:
+ * Worldcup's product purpose is the "self-bracket" — let the user rank
+ * pieces of their OWN library against each other. The previous default
+ * (`liked` = top-N by recency-weight) surfaced only the newest likes
+ * regardless of bracket size, so a user with 5k tracks running a 32-cup
+ * was bracketing the same 32 newest songs every time, which defeats the
+ * whole point. The category set below replaces that with three honest
+ * "self-bracket" modes against the library plus the two "vs-the-world"
+ * modes (discover / mix) that already existed:
  *
- *   • liked     — user's library, top N by recency-weighted likes
- *   • discover  — recommendations table, top N by score
- *   • mix       — interleaved 50/50 of the two
+ *   • library   — uniform-random sample across the WHOLE library. The
+ *                 every-corner-represented bracket. Default for /worldcup.
+ *   • recent    — top N by recency-weight. The old `liked` behaviour —
+ *                 kept because "rank the last few months" is its own
+ *                 valid mode.
+ *   • forgotten — random sample drawn from the oldest portion of the
+ *                 library (high list_position). Surfaces tracks the user
+ *                 hasn't seen in their own brackets in ages.
+ *   • discover  — recommendations table, top N by score.
+ *   • mix       — interleaved 50/50 of library + discover.
+ *   • genre     — separate runner with its own card UI (see below).
  *
  * "최애 장르" (favorite genre) has a different card UI (genre name +
  * sample tracks instead of cover/artist/title), so it lives in its own
  * runner at /worldcup/genre/[size]/page.tsx and uses getGenreCandidates
- * directly. `getCandidates("genre", …)` returns [] for that reason —
- * if you ever route a genre request through the generic dispatcher
- * you'll get an empty bracket, by design.
+ * directly. `getCandidates("genre", …)` returns [] for that reason.
+ *
+ * Backward-compat: the legacy `liked` path resolves to `library`
+ * semantics (the new sensible default) so any deep link bookmarked
+ * before this rebuild still works rather than 404ing.
  */
 
 import { getSql } from "./db";
 
-export type WorldcupCategory = "liked" | "discover" | "mix" | "genre";
+export type WorldcupCategory =
+  | "library"
+  | "recent"
+  | "forgotten"
+  | "discover"
+  | "mix"
+  | "genre"
+  /** Legacy alias — keeps pre-rebuild /worldcup/liked/N links working.
+   *  Dispatcher routes it to library semantics. */
+  | "liked";
 
 // 256강 = 255 picks = ~12 min of clicking. The big-bracket users
 // (~1500-song libraries) explicitly asked for it; smaller libraries
@@ -67,10 +91,13 @@ export async function getCandidates(
   size: WorldcupSize,
 ): Promise<BracketCandidate[]> {
   switch (category) {
-    case "liked":   return getLikedCandidates(userId, size);
-    case "discover": return getDiscoverCandidates(userId, size);
-    case "mix":     return getMixedCandidates(userId, size);
-    case "genre":   return []; // Genre uses its own runner — call getGenreCandidates directly
+    case "library":   return getLibraryRandomCandidates(userId, size);
+    case "recent":    return getRecentCandidates(userId, size);
+    case "forgotten": return getForgottenCandidates(userId, size);
+    case "discover":  return getDiscoverCandidates(userId, size);
+    case "mix":       return getMixedCandidates(userId, size);
+    case "liked":     return getLibraryRandomCandidates(userId, size); // legacy alias
+    case "genre":     return []; // Genre uses its own runner — call getGenreCandidates directly
   }
 }
 
@@ -138,9 +165,44 @@ export async function getGenreCandidates(
   }));
 }
 
-/** Top-N liked tracks by recency-weighted score. Caps at the requested
- *  bracket size; smaller libraries return everything they have. */
-async function getLikedCandidates(
+/** Uniform-random sample across the user's FULL library.
+ *  The default-and-most-useful bracket mode: a 32-cup on a 5,000-track
+ *  library actually represents the library, not just its latest 32
+ *  likes. ORDER BY random() is the right tool here — for libraries up
+ *  to ~10k it costs a sort that takes single-digit ms, and the result
+ *  reshuffles every visit which is exactly what the user wants for
+ *  re-running the same bracket size. */
+async function getLibraryRandomCandidates(
+  userId: string,
+  size: number,
+): Promise<BracketCandidate[]> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT t.id::text  AS id,
+           t.artist    AS artist,
+           t.title     AS title,
+           t.deezer_id AS deezer_id
+    FROM user_tracks ut
+    JOIN tracks t ON t.id = ut.track_id
+    WHERE ut.user_id = ${userId}
+    ORDER BY random()
+    LIMIT ${size}`;
+  return rows.map((r) => ({
+    id: r.id as string,
+    artist: r.artist as string,
+    title: r.title as string,
+    coverUrl: null,
+    deezerId: (r.deezer_id as number) ?? null,
+    score: null,
+    recType: "library",
+  }));
+}
+
+/** Top-N liked tracks by recency-weighted score. The previous default;
+ *  kept as `recent` for users who specifically want a "rank the last
+ *  few months" bracket. Caps at the requested bracket size; smaller
+ *  libraries return everything they have. */
+async function getRecentCandidates(
   userId: string,
   size: number,
 ): Promise<BracketCandidate[]> {
@@ -164,10 +226,52 @@ async function getLikedCandidates(
     id: r.id as string,
     artist: r.artist as string,
     title: r.title as string,
-    coverUrl: null, // tracks table doesn't carry a cover; Deezer fills it lazily on the card
+    coverUrl: null,
     deezerId: (r.deezer_id as number) ?? null,
     score: (r.score as number) ?? null,
-    recType: "liked",
+    recType: "recent",
+  }));
+}
+
+/** Random sample from the oldest 50% of the user's library by
+ *  list_position. The "rediscovery" / "forgotten gems" mode — tracks
+ *  the user liked long ago that haven't surfaced in any recent
+ *  bracket. Returns nothing meaningful on libraries that all share
+ *  the same / NULL list_position (older sync data); caller should
+ *  fall back to library mode for those users. */
+async function getForgottenCandidates(
+  userId: string,
+  size: number,
+): Promise<BracketCandidate[]> {
+  const sql = getSql();
+  // Threshold = median list_position; sampling from rows with position
+  // > median catches "older half of the library" without needing a
+  // fixed magic number that breaks at different library sizes.
+  const rows = await sql`
+    WITH lib AS (
+      SELECT ut.track_id, ut.list_position,
+             percentile_cont(0.5) WITHIN GROUP (ORDER BY ut.list_position)
+               OVER () AS median_pos
+      FROM user_tracks ut
+      WHERE ut.user_id = ${userId} AND ut.list_position IS NOT NULL
+    )
+    SELECT t.id::text  AS id,
+           t.artist    AS artist,
+           t.title     AS title,
+           t.deezer_id AS deezer_id
+    FROM lib
+    JOIN tracks t ON t.id = lib.track_id
+    WHERE lib.list_position >= lib.median_pos
+    ORDER BY random()
+    LIMIT ${size}`;
+  return rows.map((r) => ({
+    id: r.id as string,
+    artist: r.artist as string,
+    title: r.title as string,
+    coverUrl: null,
+    deezerId: (r.deezer_id as number) ?? null,
+    score: null,
+    recType: "forgotten",
   }));
 }
 
@@ -201,20 +305,23 @@ async function getDiscoverCandidates(
   }));
 }
 
-/** 50/50 mix of liked + discover, interleaved so the bracket's first
- *  round naturally pits "old favorite vs. new pick". */
+/** 50/50 mix of random library + discover, interleaved so the bracket's
+ *  first round naturally pits "familiar pick vs. new suggestion". Uses
+ *  the random library sampler (not recent) so the bracket spans more
+ *  of the user's actual taste — mixing "newest 32 likes vs. discover"
+ *  is the worst of both worlds: small + already-seen. */
 async function getMixedCandidates(
   userId: string,
   size: number,
 ): Promise<BracketCandidate[]> {
   const half = Math.ceil(size / 2);
-  const [liked, discover] = await Promise.all([
-    getLikedCandidates(userId, half),
+  const [library, discover] = await Promise.all([
+    getLibraryRandomCandidates(userId, half),
     getDiscoverCandidates(userId, half),
   ]);
   const out: BracketCandidate[] = [];
   for (let i = 0; i < half; i++) {
-    if (liked[i]) out.push(liked[i]!);
+    if (library[i]) out.push(library[i]!);
     if (discover[i]) out.push(discover[i]!);
   }
   return out.slice(0, size);

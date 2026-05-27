@@ -177,6 +177,13 @@
       <div class="body">
         <div class="hint" id="sync-hint" data-i18n="step2HintDefault"></div>
         <button id="sync" class="btn-primary" disabled data-i18n="step2Button"></button>
+        <!-- Hidden until a scrape is actively running; lets the user end
+             the run early ("I've got enough, stop scrolling") instead of
+             waiting for YT Music's stall/timeout machinery. Uploads
+             whatever's been captured so far + marks manualStop in the
+             diagnostics so the server can distinguish "user said done"
+             from "extension crashed". -->
+        <button id="stop-sync" class="btn-secondary" hidden data-i18n="step2StopButton"></button>
         <a id="open-lm" class="lm-link" target="_blank" rel="noopener noreferrer" data-i18n="step2OpenLm"></a>
         <a id="dashboard-link" class="lm-link" target="_blank" rel="noopener noreferrer">Open Earprint dashboard ↗</a>
         <p class="note" data-i18n="step2TipDontTouch"></p>

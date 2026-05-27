@@ -12,6 +12,11 @@ import {
 } from "@/lib/worldcup";
 import { GenreBracket } from "../../GenreBracket";
 
+// getGenreCandidates draws 3 random sample tracks per genre — pin the
+// route to per-request rendering so a re-roll actually re-samples
+// instead of serving Next's cached response.
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({
   params,
 }: {

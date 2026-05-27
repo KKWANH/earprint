@@ -37,6 +37,12 @@
   "step2Button": {
     "message": "Sync liked songs"
   },
+  "step2StopButton": {
+    "message": "Stop now (save what we've got)"
+  },
+  "msgStopRequested": {
+    "message": "Stopping… current capture will be uploaded."
+  },
   "step2OpenLm": {
     "message": "Open Liked Music ↗"
   },
