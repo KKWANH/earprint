@@ -30,6 +30,7 @@ export function GenerateButton({
     setNeedsCredit(false);
     setNeedsAiConsent(false);
     setRegionUnavailable(false);
+    let succeeded = false;
     try {
       const res = await fetch("/api/profile", { method: "POST" });
       const d = (await res.json()) as {
@@ -45,11 +46,25 @@ export function GenerateButton({
       else if (d.capped) setCapped(true);
       else if (d.regionUnavailable) setRegionUnavailable(true);
       else if (!d.ok) setError(d.error ?? `${t.errorStatus} ${res.status}`);
+      else succeeded = true;
     } catch (e) {
       setError(String(e));
     } finally {
       setBusy(false);
-      router.refresh();
+      if (succeeded) {
+        // Hard reload on success — tester reported router.refresh() not
+        // surfacing the new axisScores card / persona / etc. on the
+        // re-rendered profile page. router.refresh re-fetches the RSC
+        // but the OpenNext-on-Cloudflare cache layer + the page's
+        // mount state sometimes hold onto stale data. window.location
+        // .reload() is the bulletproof "give me the new analysis" path
+        // — slow (~200ms) but visibly correct.
+        window.location.reload();
+      } else {
+        // Non-success: a soft refresh is enough (lets credit-state UI
+        // re-render etc.).
+        router.refresh();
+      }
     }
   }
 

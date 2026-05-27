@@ -6,6 +6,7 @@ import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { worldcupDict } from "@/lib/i18n/worldcup";
 import { WORLDCUP_SIZES, type WorldcupCategory } from "@/lib/worldcup";
+import { InProgressCard } from "./InProgressCard";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = worldcupDict(await getLocale());
@@ -96,6 +97,28 @@ export default async function WorldcupHome() {
         <h1 className="text-2xl font-bold sm:text-3xl">{t.pageTitle}</h1>
         <p className="mt-2 text-sm text-neutral-400">{t.pageIntro}</p>
       </header>
+
+      {/* "Continue where you left off" — scans localStorage for any
+          saved-in-progress brackets and surfaces them as amber resume
+          cards. Renders nothing when there's nothing saved. */}
+      <InProgressCard
+        labels={{
+          title: t.inProgressTitle,
+          resume: t.inProgressResume,
+          dismiss: t.inProgressDismiss,
+          roundLabel: t.inProgressRoundLabel,
+          pairLabel: t.inProgressPairLabel,
+          catLabels: {
+            library: t.catLibraryLabel,
+            recent: t.catRecentLabel,
+            forgotten: t.catForgottenLabel,
+            genre: t.catGenreLabel,
+            discover: t.catDiscoverLabel,
+            mix: t.catMixLabel,
+            liked: t.catLikedLabel,
+          },
+        }}
+      />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">

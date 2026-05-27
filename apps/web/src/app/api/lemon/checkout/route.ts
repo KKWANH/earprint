@@ -29,9 +29,11 @@ export async function GET(req: NextRequest) {
   const variantId =
     variantParam === "analysis"
       ? process.env.LEMON_VARIANT_ANALYSIS
-      : variantParam === "monthly"
-        ? process.env.LEMON_VARIANT_MONTHLY
-        : undefined;
+      : variantParam === "triple"
+        ? process.env.LEMON_VARIANT_TRIPLE
+        : variantParam === "monthly"
+          ? process.env.LEMON_VARIANT_MONTHLY
+          : undefined;
   if (!variantId) {
     return NextResponse.json(
       { error: `unknown or unconfigured variant: ${variantParam}` },

@@ -52,7 +52,9 @@ export default async function PricingPage() {
         )}
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      {/* 3 plans now (Free / Single / 3-pack). On small screens they
+          stack; on tablet they go 2-up wrapping, on desktop 3-up. */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* Free */}
         <div className="flex flex-col gap-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-5 sm:p-7">
           <div>
@@ -78,7 +80,7 @@ export default async function PricingPage() {
           </button>
         </div>
 
-        {/* Single Analysis — one-shot credit, headline SKU */}
+        {/* Single Analysis — one-shot credit */}
         <div className="relative flex flex-col gap-4 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/30 via-neutral-950 to-neutral-900 p-5 sm:p-7">
           <div>
             <h2 className="text-xl font-bold">{t.analysis.name}</h2>
@@ -104,6 +106,39 @@ export default async function PricingPage() {
               className="mt-auto rounded-md bg-emerald-500/40 px-4 py-2 text-sm font-semibold text-black/70"
             >
               {t.analysis.cta}
+            </button>
+          )}
+        </div>
+
+        {/* 3-pack — bundle, headline value play */}
+        <div className="relative flex flex-col gap-4 rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-950/30 via-neutral-950 to-neutral-900 p-5 sm:p-7">
+          <span className="absolute -top-3 right-4 rounded-full bg-amber-400 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-black">
+            {t.triple.saveLabel}
+          </span>
+          <div>
+            <h2 className="text-xl font-bold">{t.triple.name}</h2>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-extrabold text-amber-200">
+                {t.triple.price}
+              </span>
+              <span className="text-sm text-neutral-500">/ {t.triple.period}</span>
+            </div>
+          </div>
+          <p className="text-sm leading-relaxed text-neutral-300">{t.triple.desc}</p>
+          {PAYMENTS_ENABLED ? (
+            <UpgradeButton
+              href="/api/lemon/checkout?variant=triple"
+              primary
+              signedIn={signedIn}
+            >
+              {t.triple.cta}
+            </UpgradeButton>
+          ) : (
+            <button
+              disabled
+              className="mt-auto rounded-md bg-amber-400/40 px-4 py-2 text-sm font-semibold text-black/70"
+            >
+              {t.triple.cta}
             </button>
           )}
         </div>

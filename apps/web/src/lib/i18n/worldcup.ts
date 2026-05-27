@@ -41,6 +41,14 @@ const en = {
   notEnough: (have: number, need: number) =>
     `Need at least ${need} candidates for this size — you have ${have}. Try a smaller bracket or sync more songs.`,
   backToCategories: "← Categories",
+
+  inProgressTitle: "Continue where you left off",
+  inProgressResume: "Resume",
+  inProgressDismiss: "Discard",
+  inProgressRoundLabel: (round: number, total: number) =>
+    `Round ${round} / ${total}`,
+  inProgressPairLabel: (idx: number, of: number) =>
+    `Pair ${idx} / ${of}`,
 };
 
 const ko: typeof en = {
@@ -80,6 +88,14 @@ const ko: typeof en = {
   notEnough: (have: number, need: number) =>
     `이 크기로 진행하려면 최소 ${need}곡 필요 — 현재 ${have}곡. 더 작은 크기를 고르거나 좋아요를 더 sync 하세요.`,
   backToCategories: "← 카테고리로",
+
+  inProgressTitle: "이어서 하기",
+  inProgressResume: "이어하기",
+  inProgressDismiss: "버리기",
+  inProgressRoundLabel: (round: number, total: number) =>
+    `${total}라운드 중 ${round}라운드`,
+  inProgressPairLabel: (idx: number, of: number) =>
+    `${of}쌍 중 ${idx}쌍째`,
 };
 
 export function worldcupDict(locale: Locale) {

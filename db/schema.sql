@@ -618,6 +618,28 @@ BEGIN
       updated_at         = now()
     WHERE id = (rec->>'trackId')::uuid;
 
+    -- Auto-populate artist_aliases when Deezer normalised the artist
+    -- string to a canonical name that differs from the raw input
+    -- (May 2026). Replaces the manual seed-row maintenance pattern —
+    -- every "크라잉넛" track that gets enriched against Deezer's
+    -- "Crying Nut" automatically writes that pair, so the next user
+    -- with the same raw spelling gets it canonicalised without any
+    -- human curation. Confidence threshold matches the stats filter
+    -- (0.65) — sub-threshold matches are probably wrong artist and
+    -- would pollute the alias table with garbage pairs. Read the raw
+    -- name from the existing tracks row so we never alias a track
+    -- whose own raw value got renamed mid-enrichment.
+    INSERT INTO artist_aliases (raw, canonical, source)
+    SELECT lower(t.artist),
+           rec->>'deezerArtistName',
+           'auto:deezer'
+    FROM tracks t
+    WHERE t.id = (rec->>'trackId')::uuid
+      AND NULLIF(rec->>'deezerArtistName', '') IS NOT NULL
+      AND lower(t.artist) <> lower(rec->>'deezerArtistName')
+      AND COALESCE(NULLIF(rec->>'matchConfidence', '')::real, 0) >= 0.65
+    ON CONFLICT (raw) DO NOTHING;
+
     INSERT INTO analysis (track_id, analysis_version, bpm, genres, moods, source_flags)
     VALUES (
       (rec->>'trackId')::uuid, 1,

@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
   const attrs = payload.data.attributes;
   const customerId = attrs.customer_id ? String(attrs.customer_id) : null;
   const analysisVariantId = process.env.LEMON_VARIANT_ANALYSIS;
+  const tripleVariantId = process.env.LEMON_VARIANT_TRIPLE;
 
   // Try the custom_data user_id first; fall back to looking up by stored
   // customer_id (set on first order). The fallback covers later events
@@ -55,27 +56,33 @@ export async function POST(req: NextRequest) {
     return json({ ok: true, ignored: true }, 200);
   }
 
-  // Variant ID lets us tell monthly vs lifetime purchases apart.
+  // Variant ID lets us tell what kind of one-shot purchase it was —
+  // a single analysis vs. the 3-pack vs. a (paused) subscription.
   const variantId = String(
     attrs.variant_id ?? attrs.first_order_item?.variant_id ?? "",
   );
   const isAnalysisPurchase =
     !!analysisVariantId && variantId === analysisVariantId;
+  const isTriplePurchase =
+    !!tripleVariantId && variantId === tripleVariantId;
   const subscriptionId = payload.data.type === "subscriptions"
     ? payload.data.id
     : null;
 
   switch (event) {
     case "order_created": {
-      // One-shot purchase. Two SKUs flow through here:
-      //   • Single Analysis ($2)   → credits += 1
-      //   • Pro subscription initial order → subscription_created handles
-      //                                       plan + plan_until separately,
-      //                                       we only stash ls_customer_id here.
-      if (isAnalysisPurchase) {
+      // One-shot purchase. Three SKUs flow through here:
+      //   • Single Analysis (₩2,500) → credits += 1
+      //   • 3-pack (₩5,000)          → credits += 3
+      //   • Pro subscription initial order → subscription_created
+      //                                      handles plan + plan_until
+      //                                      separately; here we only
+      //                                      stash ls_customer_id.
+      const creditAdd = isAnalysisPurchase ? 1 : isTriplePurchase ? 3 : 0;
+      if (creditAdd > 0) {
         await sql`
           UPDATE users
-             SET credits        = credits + 1,
+             SET credits        = credits + ${creditAdd},
                  ls_customer_id = COALESCE(${customerId}, ls_customer_id),
                  updated_at     = now()
            WHERE id = ${resolvedUserId}`;

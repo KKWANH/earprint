@@ -63,6 +63,22 @@ export const PLAN_PRICES = {
     USD: { amount: 1.99, label: "$1.99" },
     EUR: { amount: 1.99, label: "€1.99" },
   },
+  /** Three-pack — bundle of 3 analyses for ~33% off vs. buying singles.
+   *  Per-analysis cost: ₩1,667 / $1.33 / €1.33. The discount nudges
+   *  users toward a bigger one-time spend (better margin given the
+   *  Lemon Squeezy flat-fee component) while staying clearly cheap. */
+  triple: {
+    KRW: { amount: 5000, label: "₩5,000" },
+    USD: { amount: 3.99, label: "$3.99" },
+    EUR: { amount: 3.99, label: "€3.99" },
+  },
+} as const;
+
+/** Number of credits granted per SKU purchase. Read by the Lemon
+ *  webhook to credit the user's account. */
+export const PLAN_CREDITS = {
+  analysis: 1,
+  triple: 3,
 } as const;
 
 /** Pick the display variant for the current locale. KR → KRW, default
@@ -73,6 +89,13 @@ export function priceForLocale(
   locale: "ko" | "en",
 ): (typeof PLAN_PRICES.analysis)[keyof typeof PLAN_PRICES.analysis] {
   return locale === "ko" ? PLAN_PRICES.analysis.KRW : PLAN_PRICES.analysis.USD;
+}
+
+/** Same as priceForLocale() but for the 3-pack SKU. */
+export function triplePriceForLocale(
+  locale: "ko" | "en",
+): (typeof PLAN_PRICES.triple)[keyof typeof PLAN_PRICES.triple] {
+  return locale === "ko" ? PLAN_PRICES.triple.KRW : PLAN_PRICES.triple.USD;
 }
 
 /** Email allowlist for `/admin` and any operator-only API. Keep this
