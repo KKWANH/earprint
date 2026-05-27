@@ -570,7 +570,7 @@ function ChampionView({
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
         {t.bracketChampionTitle}
       </p>
-      <div className="relative aspect-square w-48 overflow-hidden rounded-2xl border border-amber-400/40 bg-neutral-800">
+      <div className="relative aspect-square w-36 overflow-hidden rounded-2xl border border-amber-400/40 bg-neutral-800 sm:w-48">
         {champion.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

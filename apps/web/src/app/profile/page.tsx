@@ -146,7 +146,7 @@ function StatsSection({ stats, t }: { stats: LibraryStats; t: ProfileT }) {
         <h2 className="font-semibold">{t.statsTitle}</h2>
         <p className="text-sm text-neutral-400">{t.statsDesc}</p>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <Stat label={t.statSongs} value={stats.total.toLocaleString()} />
         <Stat label={t.statArtists} value={stats.distinctArtists.toLocaleString()} />
         <Stat label={t.statAnalyzed} value={stats.enriched.toLocaleString()} />
@@ -256,7 +256,7 @@ function ProfileView({
       <section className="flex flex-col gap-4 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
         <div className="flex items-center gap-5">
           <div className="flex flex-col items-center">
-            <div className="text-4xl font-bold text-emerald-400">{p.diggingScore}</div>
+            <div className="text-3xl font-bold text-emerald-400 sm:text-4xl">{p.diggingScore}</div>
             <div className="text-xs text-neutral-500">{t.diggingScore}</div>
             {percentile != null && (
               <div className="mt-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">

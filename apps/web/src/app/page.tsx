@@ -73,7 +73,7 @@ export default async function LandingPage() {
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-400">
           🎧 YouTube Music · taste analytics
         </span>
-        <h1 className="mt-5 bg-gradient-to-br from-white to-emerald-300 bg-clip-text text-5xl font-extrabold leading-tight text-transparent sm:text-6xl">
+        <h1 className="mt-5 bg-gradient-to-br from-white to-emerald-300 bg-clip-text text-4xl font-extrabold leading-tight text-transparent sm:text-5xl lg:text-6xl">
           Earprint
         </h1>
         <p className="mt-4 max-w-xl text-lg font-medium text-neutral-200 sm:text-xl">

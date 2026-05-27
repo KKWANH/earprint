@@ -94,7 +94,10 @@ export default async function LibraryPage({
         t={t}
       />
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Mobile: 2-up (full grid would feel claustrophobic on 360px),
+          sm+: 4-up. The four stats are short numbers, so 2 columns
+          works on phones. */}
+      <section className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <Stat label={t.statLikedTracks} value={stats.total.toLocaleString()} />
         <Stat label={t.statAnalyzed} value={stats.enriched.toLocaleString()} />
         <Stat label={t.statArtists} value={stats.distinctArtists.toLocaleString()} />
@@ -231,49 +234,97 @@ export default async function LibraryPage({
             </Link>
           )}
         </form>
-        <div className="overflow-x-auto">
-          {tracksPage.tracks.length === 0 ? (
-            <p className="py-6 text-center text-sm text-neutral-500">
-              {t.searchNoMatch}
-            </p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-neutral-800 text-left text-neutral-500">
-                  <th className="py-2 pr-3 font-medium">{t.thTitle}</th>
-                  <th className="py-2 pr-3 font-medium">{t.thArtist}</th>
-                  <th className="hidden py-2 pr-3 font-medium sm:table-cell">{t.thGenre}</th>
-                  <th className="hidden py-2 pr-3 font-medium sm:table-cell">{t.thMood}</th>
-                  <th className="py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {tracksPage.tracks.map((tr, i) => (
-                  <tr key={i} className="border-b border-neutral-800/60 last:border-0">
-                    <td className="max-w-[14rem] truncate py-1.5 pr-3">{tr.title}</td>
-                    <td className="max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400">
-                      <Link
-                        href={`/artist/${encodeURIComponent(tr.artist)}`}
-                        className="hover:text-white hover:underline"
-                      >
-                        {tr.artist}
-                      </Link>
-                    </td>
-                    <td className="hidden max-w-[11rem] truncate py-1.5 pr-3 text-neutral-400 sm:table-cell">
-                      {tr.genres?.slice(0, 2).join(", ") ?? "—"}
-                    </td>
-                    <td className="hidden max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400 sm:table-cell">
-                      {tr.moods?.slice(0, 2).join(", ") ?? "—"}
-                    </td>
-                    <td className="py-1.5 text-right">
-                      <PreviewButton deezerId={tr.deezerId} locale={locale} />
-                    </td>
+        {tracksPage.tracks.length === 0 ? (
+          <p className="py-6 text-center text-sm text-neutral-500">
+            {t.searchNoMatch}
+          </p>
+        ) : (
+          <>
+            {/* Mobile: stacked card list. Each track gets its own row
+                with title + artist + genre/mood chips inline +
+                preview button. No horizontal scroll, every column
+                visible at 320px. Hidden on sm+ in favour of the
+                table below. */}
+            <ul className="flex flex-col divide-y divide-neutral-800/60 sm:hidden">
+              {tracksPage.tracks.map((tr, i) => (
+                <li key={i} className="flex items-start gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{tr.title}</p>
+                    <Link
+                      href={`/artist/${encodeURIComponent(tr.artist)}`}
+                      className="block truncate text-xs text-neutral-400 hover:text-white hover:underline"
+                    >
+                      {tr.artist}
+                    </Link>
+                    {(tr.genres?.length || tr.moods?.length) ? (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {tr.genres?.slice(0, 2).map((g) => (
+                          <span
+                            key={`g-${g}`}
+                            className="rounded-full bg-indigo-900/40 px-1.5 py-0.5 text-[10px] text-indigo-200"
+                          >
+                            {g}
+                          </span>
+                        ))}
+                        {tr.moods?.slice(0, 2).map((m) => (
+                          <span
+                            key={`m-${m}`}
+                            className="rounded-full bg-rose-900/40 px-1.5 py-0.5 text-[10px] text-rose-200"
+                          >
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="shrink-0 pt-0.5">
+                    <PreviewButton deezerId={tr.deezerId} locale={locale} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {/* Desktop: classic table. Wider screens benefit from the
+                column alignment, especially for scanning artist names
+                against a column of titles. */}
+            <div className="hidden sm:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-800 text-left text-neutral-500">
+                    <th className="py-2 pr-3 font-medium">{t.thTitle}</th>
+                    <th className="py-2 pr-3 font-medium">{t.thArtist}</th>
+                    <th className="py-2 pr-3 font-medium">{t.thGenre}</th>
+                    <th className="py-2 pr-3 font-medium">{t.thMood}</th>
+                    <th className="py-2 font-medium" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                </thead>
+                <tbody>
+                  {tracksPage.tracks.map((tr, i) => (
+                    <tr key={i} className="border-b border-neutral-800/60 last:border-0">
+                      <td className="max-w-[14rem] truncate py-1.5 pr-3">{tr.title}</td>
+                      <td className="max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400">
+                        <Link
+                          href={`/artist/${encodeURIComponent(tr.artist)}`}
+                          className="hover:text-white hover:underline"
+                        >
+                          {tr.artist}
+                        </Link>
+                      </td>
+                      <td className="max-w-[11rem] truncate py-1.5 pr-3 text-neutral-400">
+                        {tr.genres?.slice(0, 2).join(", ") ?? "—"}
+                      </td>
+                      <td className="max-w-[9rem] truncate py-1.5 pr-3 text-neutral-400">
+                        {tr.moods?.slice(0, 2).join(", ") ?? "—"}
+                      </td>
+                      <td className="py-1.5 text-right">
+                        <PreviewButton deezerId={tr.deezerId} locale={locale} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
         {/* Pagination — hidden on single-page results. Links carry the
             current q so the user stays inside their search while flipping
             pages. */}
