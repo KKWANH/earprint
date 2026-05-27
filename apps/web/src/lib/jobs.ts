@@ -10,13 +10,18 @@ export type Phase = "enrich" | "ai" | "done";
 // subrequests. Each enrichTrack can fire up to 4 (cache SELECT + advanced
 // search + fallback search + track detail + cache INSERT), so we keep the
 // batch comfortably under: 8 × 4 = 32, plus ~7 housekeeping SQL → ~39.
-// Bumping past 10 here will start tripping HTTP 500s on uncached tracks.
-const ENRICH_BATCH = 8;
+//
+// On Workers PAID ($5/mo) the cap rises to 1,000 subrequests, so the
+// batch can comfortably go to ~16–32 for a 2–4× wallclock speedup.
+// Flip via ENRICH_BATCH=16 (or higher) once the plan upgrade lands.
+const ENRICH_BATCH = Number(process.env.ENRICH_BATCH ?? 8);
+
 // AI batch is NOT bound by the subrequest cap — one Gemini call covers the
 // whole batch, regardless of size. Bigger batch = fewer round-trips =
-// shorter total wallclock. 30 tracks gives ~3,000 output tokens, well
-// within the model's 8K cap, and Gemini's quality holds at this size.
-const AI_BATCH = 30;
+// shorter total wallclock. 50 tracks gives ~5,000 output tokens, well
+// within the model's 8K cap; quality holds. (Bumped from the original 30
+// once we observed the response budget was being under-used.)
+const AI_BATCH = Number(process.env.AI_BATCH ?? 50);
 
 /** Phase 1 — Deezer + Last.fm enrichment. Returns tracks processed. */
 export async function runEnrichBatch(userId: string): Promise<number> {

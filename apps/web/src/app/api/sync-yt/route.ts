@@ -96,12 +96,12 @@ export async function POST(req: Request) {
       {
         ok: true,
         captured: 0,
-        // `rawCount` reflects items returned by playlistItems.list this
-        // page BEFORE the music-category filter. expected (totalResults)
-        // counts everything in the user's LL playlist (incl. non-music).
-        // Surfacing both lets the client say "0 music in this batch of
-        // 250 liked videos" instead of just "0 captured — try again".
+        // rawCount / skippedCount let the UI explain "0 music in this
+        // batch of 250 liked videos" with concrete reasons instead of
+        // a blank "0 captured — try again".
         rawCount: result.rawCount,
+        skippedCount: result.skippedCount,
+        skippedSamples: result.skippedSamples,
         expected: result.total,
         nextAfter: result.nextPageToken,
         note: "empty",
@@ -124,6 +124,8 @@ export async function POST(req: Request) {
       ok: true,
       captured: tracks.length,
       rawCount: result.rawCount,
+      skippedCount: result.skippedCount,
+      skippedSamples: result.skippedSamples,
       expected: result.total,
       nextAfter: result.nextPageToken,
       ...procRows[0],

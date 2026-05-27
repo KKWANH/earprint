@@ -9,6 +9,12 @@ import type { CapturedTrack } from "@playlist-analyzer/shared";
  * YouTube Music's "Liked Songs". The two overlap heavily for users whose
  * likes are music videos with proper YT video equivalents, but pure-audio
  * YT Music likes (artist-uploaded only-music with no MV) may be absent.
+ *
+ * Music filtering: LL mixes vlogs / gaming / cooking / interviews /
+ * podcasts in with the music. We score each item from several signals
+ * before sync — see scoreMusicLikelihood() — so a user with 5k liked
+ * videos but only 500 songs doesn't get 4,500 random YouTube videos
+ * poisoning their Earprint library.
  */
 
 interface YtPlaylistItem {
@@ -29,53 +35,168 @@ interface YtListResponse {
 
 interface YtVideoMeta {
   id: string;
-  snippet?: { categoryId?: string };
+  snippet?: {
+    title?: string;
+    categoryId?: string;
+    channelTitle?: string;
+  };
+  contentDetails?: { duration?: string };
+  topicDetails?: { topicCategories?: string[] };
 }
 interface YtVideosResponse {
   items?: YtVideoMeta[];
 }
 
+/** Tracks that look like music but the parser didn't recognise — returned
+ *  to the caller so the UI can show "we skipped 392 of your 1,234 likes
+ *  because they didn't look like songs" + a sample list for verification. */
+export interface SkippedSample {
+  videoId: string;
+  title: string;
+  /** Best-guess single-word reason ("short", "long", "non-music", "vlog"). */
+  reason: string;
+}
+
 /**
- * Filters a batch of videoIds down to ones in YouTube's "Music" category
- * (categoryId = "10"). The LL ("Liked Videos") playlist mixes music with
- * vlogs, gaming clips, tutorials, etc. — without this filter, a user with
- * 5k liked YouTube videos but only 500 actual songs would get all 5k
- * dumped into their Earprint library as "tracks".
- *
- * One videos.list call per 50 IDs (the API max). Quota cost is the same
- * as playlistItems.list (1 unit), so this roughly doubles the per-page
- * quota — still trivially within the 10k/day default project quota.
+ * Parse an ISO 8601 duration (PT3M45S → 225 seconds). Used for the
+ * duration-based filtering — too short = Short, too long = compilation
+ * / podcast / livestream. Returns 0 on parse failure (= treat as
+ * neutral).
  */
-async function filterMusicCategory(
+function parseIsoDuration(d?: string): number {
+  if (!d) return 0;
+  const m = d.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0);
+}
+
+/** Wikipedia URL slugs YouTube uses for music-genre topics. Hitting any
+ *  of these is a strong "this video is music" signal — much more
+ *  reliable than category=10 alone because uploads frequently mis-tag
+ *  category (Comedy / Entertainment) while still carrying the right
+ *  topic. URL-decoded compare so R%26B etc. match. */
+const MUSIC_TOPIC_RE =
+  /\/(Music|Pop_music|Rock_music|Hip_hop_music|Electronic_music|Classical_music|Jazz|Country_music|Reggae|Folk_music|Soul_music|Rhythm_and_blues|Heavy_metal|Independent_music|Christian_music)$/i;
+
+/**
+ * Composite music-likelihood score for one YouTube video.
+ *
+ * Signals (additive):
+ *   +3   categoryId = 10 (Music)
+ *   +2   topicDetails matches a music-genre Wikipedia category
+ *   +2   channelTitle ends with " - Topic" (YT auto-music channel)
+ *   +2   channelTitle ends with "VEVO" (VEVO official)
+ *   +1   title has the "Official Music Video / MV / Lyric Video" tells
+ *   -3   duration < 30s (Short)
+ *   -2   duration > 15 min (compilation / interview / podcast / livestream)
+ *   -3   title matches reaction / interview / tutorial / vlog / podcast etc.
+ *
+ * Threshold to keep: score ≥ 2. The intent is "either category+anything,
+ * or topic match alone, or strong channel signal alone, qualifies".
+ * Below threshold the item becomes a SkippedSample with the highest-
+ * weight negative reason as the explanation.
+ */
+function scoreItem(item: YtVideoMeta): { score: number; reason: string } {
+  let score = 0;
+  let primaryNegative = "";
+
+  if (item.snippet?.categoryId === "10") score += 3;
+
+  const topics = item.topicDetails?.topicCategories ?? [];
+  if (topics.some((t) => MUSIC_TOPIC_RE.test(t))) score += 2;
+
+  const dur = parseIsoDuration(item.contentDetails?.duration);
+  if (dur > 0 && dur < 30) {
+    score -= 3;
+    primaryNegative ||= "short";
+  } else if (dur > 900) {
+    score -= 2;
+    primaryNegative ||= "long";
+  }
+
+  const title = item.snippet?.title ?? "";
+  if (
+    /\b(official\s+(?:music\s+)?video|official\s+audio|m\/v|\bmv\b|lyric\s+video|visualizer|topic)\b/i.test(
+      title,
+    )
+  ) {
+    score += 1;
+  }
+  if (
+    /\b(interview|reaction|tutorial|review|gameplay|vlog|podcast|reading|asmr|news|recipe|cooking|let'?s\s+play|how\s+to|montage|trailer|highlight|unboxing|q&a|q\s*and\s*a|press\s+conference|behind\s+the\s+scenes|bts\s+footage|press\s+tour)\b/i.test(
+      title,
+    )
+  ) {
+    score -= 3;
+    primaryNegative ||= "non-music";
+  }
+
+  const channel = item.snippet?.channelTitle ?? "";
+  if (/\s-\sTopic$/i.test(channel)) score += 2;
+  if (/VEVO$/i.test(channel)) score += 2;
+
+  // The "reason" makes sense only when we're rejecting — fall back to
+  // a generic "low-score" when nothing specific tripped.
+  const reason = primaryNegative || "low-score";
+  return { score, reason };
+}
+
+/**
+ * Multi-signal music filter for a batch of videoIds. Fetches snippet +
+ * topicDetails + contentDetails in one videos.list call per 50 IDs,
+ * then scores each item via scoreItem(). Returns:
+ *   - musicIds: items that scored ≥ KEEP_THRESHOLD
+ *   - excludedSamples: the first ~12 below-threshold items with a
+ *     human reason, so the UI can show why we skipped them
+ *
+ * Quota: one videos.list call per 50 IDs (1 unit each) — same cost as
+ * the old category-only filter, with much higher signal density.
+ */
+const KEEP_THRESHOLD = 2;
+
+async function scoreMusicLikelihood(
   accessToken: string,
   videoIds: string[],
-): Promise<Set<string>> {
-  if (videoIds.length === 0) return new Set();
+): Promise<{ musicIds: Set<string>; excludedSamples: SkippedSample[] }> {
+  if (videoIds.length === 0) {
+    return { musicIds: new Set(), excludedSamples: [] };
+  }
   const musicIds = new Set<string>();
-  // 50 IDs per call — the videos.list cap. A typical chunk of 250
-  // playlist items takes 5 of these calls.
+  const excludedSamples: SkippedSample[] = [];
+
   for (let i = 0; i < videoIds.length; i += 50) {
     const batch = videoIds.slice(i, i + 50);
     const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-    url.searchParams.set("part", "snippet");
+    url.searchParams.set("part", "snippet,topicDetails,contentDetails");
     url.searchParams.set("id", batch.join(","));
     url.searchParams.set("maxResults", "50");
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!res.ok) {
-      // Don't throw — a partial-quality filter is better than zero
-      // music tracks captured. Worst case we accept some non-music
-      // and let the user delete from their library; the alternative
-      // is an opaque "0 tracks captured" message.
+      // Soft-fail: keep everything in this batch on filter error rather
+      // than dropping it. The downstream Deezer matcher will weed out
+      // pure-noise items via low confidence; we'd rather over-include
+      // than silently lose a user's library.
+      for (const id of batch) musicIds.add(id);
       continue;
     }
     const json = (await res.json()) as YtVideosResponse;
     for (const v of json.items ?? []) {
-      if (v.snippet?.categoryId === "10" && v.id) musicIds.add(v.id);
+      if (!v.id) continue;
+      const { score, reason } = scoreItem(v);
+      if (score >= KEEP_THRESHOLD) {
+        musicIds.add(v.id);
+      } else if (excludedSamples.length < 12) {
+        excludedSamples.push({
+          videoId: v.id,
+          title: v.snippet?.title ?? "(no title)",
+          reason,
+        });
+      }
     }
   }
-  return musicIds;
+  return { musicIds, excludedSamples };
 }
 
 /**
@@ -95,9 +216,14 @@ export async function fetchLikedVideos(
   total: number;
   nextPageToken: string | null;
   /** How many items came back from playlistItems.list before the music
-   *  filter. Surfaced in the API response so /connect can show
-   *  "captured 47 music tracks (filtered from 250 liked videos)". */
+   *  filter — surfaced so /connect can show "captured 47 music tracks
+   *  from 250 liked videos". */
   rawCount: number;
+  /** How many of those rawCount items the multi-signal filter rejected. */
+  skippedCount: number;
+  /** Up to ~12 representative rejected items so the UX can show
+   *  "we skipped these — was that right?". */
+  skippedSamples: SkippedSample[];
 }> {
   const maxPages = opts.maxPages ?? 5;
   const raw: YtPlaylistItem[] = [];
@@ -125,17 +251,23 @@ export async function fetchLikedVideos(
     if (!pageToken) break;
   }
 
-  // Filter to YouTube category 10 (Music) — see filterMusicCategory note.
-  // Without this the LL playlist dumps movies, vlogs, gaming, recipes,
-  // anything the user has ever liked into their music library, which
-  // poisons every downstream feature (Zodiac, genre analysis, recs).
   const videoIds = raw
     .map((it) => it.contentDetails?.videoId)
     .filter((v): v is string => typeof v === "string" && v.length > 0);
-  const musicIds = await filterMusicCategory(accessToken, videoIds);
+  const { musicIds, excludedSamples } = await scoreMusicLikelihood(
+    accessToken,
+    videoIds,
+  );
   const items = raw.filter((it) => musicIds.has(it.contentDetails?.videoId ?? ""));
 
-  return { items, total, nextPageToken: pageToken ?? null, rawCount: raw.length };
+  return {
+    items,
+    total,
+    nextPageToken: pageToken ?? null,
+    rawCount: raw.length,
+    skippedCount: raw.length - items.length,
+    skippedSamples: excludedSamples,
+  };
 }
 
 /** Typed error so callers can react to 401 (expired token) vs everything else. */
@@ -151,6 +283,12 @@ export class YouTubeApiError extends Error {
  * music videos are most often "Artist - Song" or "Artist - Song (Official…)".
  * Falls back to the uploader channel as the artist when the dash form is
  * absent.
+ *
+ * Channel signals:
+ *   - "X - Topic" → X is the canonical artist (YT auto-music channel)
+ *   - "XVEVO" → X is the canonical artist (VEVO upload)
+ *   - any other channel: only used when the title doesn't already contain
+ *     an explicit Artist - Song split
  */
 export function parseTitle(
   rawTitle: string,
@@ -158,12 +296,25 @@ export function parseTitle(
 ): { title: string; artist: string } {
   const cleaned = rawTitle
     // Strip noisy parentheticals that aren't part of the actual title.
+    // The list catches the common YT music-video tag patterns; missing
+    // any specific noise tag just means a slightly dirtier title, not a
+    // wrong match.
     .replace(
-      /\s*[([](?:official|official\s+(?:video|music\s+video|audio|mv|m\/v)|m\/v|mv|audio|lyrics?|lyric\s+video|hd|4k|live|performance|visualizer|color\s+coded|eng\s+sub)[^)\]]*[)\]]/gi,
+      /\s*[([](?:official|official\s+(?:video|music\s+video|audio|mv|m\/v)|m\/v|mv|audio|lyrics?|lyric\s+video|hd|4k|live|performance|visualizer|color\s+coded|eng\s+sub|color\s+coded\s+lyrics|color\s+coded\s+han\/rom\/eng)[^)\]]*[)\]]/gi,
       "",
     )
     .replace(/\s+\|\s+.*$/, "") // " | Featured on …" tail
     .trim();
+
+  // Topic / VEVO channels: artist is the channel prefix, title is the
+  // already-cleaned video title. These are higher-confidence signals
+  // than parsing the title for a dash, so they take precedence.
+  if (channel) {
+    const topicMatch = channel.match(/^(.+?)\s+-\s+Topic$/i);
+    if (topicMatch) return { artist: topicMatch[1]!.trim(), title: cleaned };
+    const vevoMatch = channel.match(/^(.+?)VEVO$/i);
+    if (vevoMatch) return { artist: vevoMatch[1]!.trim(), title: cleaned };
+  }
 
   // "Artist - Song" — the dominant YT music-video format.
   const dashMatch = cleaned.match(/^(.+?)\s+[-–—]\s+(.+)$/);
@@ -179,12 +330,9 @@ export function parseTitle(
     return { artist: byMatch[2]!.trim(), title: byMatch[1]!.trim() };
   }
 
-  // Channels named "X - Topic" are YouTube's auto-generated music channels —
-  // the prefix is the actual artist.
-  const fallbackArtist = (channel ?? "")
-    .replace(/\s+-\s+Topic$/i, "")
-    .trim() || "Unknown";
-
+  // Channels named "X - Topic" handled above; remaining channels fall
+  // through as the artist guess.
+  const fallbackArtist = (channel ?? "").trim() || "Unknown";
   return { artist: fallbackArtist, title: cleaned };
 }
 
