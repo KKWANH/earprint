@@ -190,7 +190,10 @@ function renderSyncResult(res: {
     if (newLikes > 0) msg += `\n${newLikes.toLocaleString()} new this run`;
     if (res.manualStop) msg += "\n■ Stopped early by you.";
     if (res.plan_dropped && res.plan_dropped > 0) {
-      msg += `\n📦 Free-tier cap: ${res.plan_dropped.toLocaleString()} extra tracks were dropped before save (limit ${(res.plan_cap ?? 0).toLocaleString()}).`;
+      // Sync cap notification — kept actionable (pricing link in the
+      // popup hint below the message) so the user knows the drop is
+      // fixable, not just informational noise.
+      msg += `\n📦 Free-tier cap: ${res.plan_dropped.toLocaleString()} extra tracks were dropped before save (limit ${(res.plan_cap ?? 0).toLocaleString()}). Upgrade at ${WEB_ORIGIN}/pricing to sync your full library.`;
     }
     showMsg(msg, "success");
     return;

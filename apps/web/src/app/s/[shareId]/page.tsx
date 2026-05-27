@@ -161,6 +161,28 @@ export default async function SharePage({
           {t.shareCtaButton}
         </Link>
       </section>
+      {/* Spacer so the sticky bar below doesn't cover the page CTA on
+          short viewports. */}
+      <div className="h-16" aria-hidden="true" />
+      {/* Sticky bottom bar — viral loop hook. Shared profiles get
+          shown to people who landed here via the OG image or a friend's
+          link; without this, ~half the audience never scrolls to the
+          page-end CTA. The bar is full-width on mobile, centred and
+          narrower on desktop. Backdrop blur so it doesn't fight the
+          content underneath. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-emerald-900/50 bg-neutral-950/85 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
+          <p className="line-clamp-2 text-xs text-neutral-300 sm:text-sm">
+            {t.shareCtaLine}
+          </p>
+          <Link
+            href="/"
+            className="shrink-0 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 sm:px-4 sm:py-2 sm:text-sm"
+          >
+            {t.shareCtaButton}
+          </Link>
+        </div>
+      </div>
     </main>
   );
 }

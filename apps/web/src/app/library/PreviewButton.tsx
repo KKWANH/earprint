@@ -30,13 +30,24 @@ export function PreviewButton({
     );
   }
 
+  // aria-label tracks the actual state (loading / playing / paused) so
+  // screen readers announce the change when toggle fires — `title` alone
+  // is static and stops the state transition from reaching assistive tech.
+  const ariaLabel = loading
+    ? "Loading preview"
+    : playing
+      ? "Pause preview"
+      : "Play preview";
+
   return (
     <button
       onClick={() => {
         void toggle();
       }}
-      className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-sm text-neutral-300 hover:border-emerald-500/50 hover:text-white"
+      className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-sm text-neutral-300 hover:border-emerald-500/50 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
       title={t.previewTitle}
+      aria-label={ariaLabel}
+      aria-busy={loading}
     >
       {loading ? "…" : playing ? "⏸" : "▶"}
     </button>

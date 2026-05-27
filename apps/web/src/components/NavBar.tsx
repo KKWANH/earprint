@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { dicts, type Locale } from "@/lib/i18n";
 import { LocaleToggle } from "./LocaleToggle";
 
@@ -31,6 +31,19 @@ export function NavBar({
   const path = usePathname() ?? "/";
   const [open, setOpen] = useState(false);
   const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
+
+  // ESC closes the mobile hamburger menu. Without this, a keyboard
+  // user who opened the menu (Tab → Enter on the ☰ button) had no
+  // way to dismiss it from the keyboard — Tab kept cycling through
+  // the still-open dropdown items.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-neutral-950/95 backdrop-blur">

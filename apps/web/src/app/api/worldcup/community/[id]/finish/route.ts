@@ -2,6 +2,33 @@ import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { json, readJsonBody } from "@/lib/http";
 
+// Simple in-memory rate limit per IP for the unauthenticated stats
+// bump endpoint. 20 finishes per IP per hour is generous for real
+// usage (a human playing back-to-back brackets) and blocks the easy
+// "curl in a loop" stat-spoofing path. NOT a substitute for proper
+// edge rate-limiting (Cloudflare Turnstile + KV would be the
+// production-grade answer); enough to deter casual abuse pre-launch.
+const RL_WINDOW_MS = 60 * 60_000; // 1h
+const RL_MAX = 20;
+const ipHits = new Map<string, number[]>();
+
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const arr = (ipHits.get(ip) ?? []).filter((t) => now - t < RL_WINDOW_MS);
+  if (arr.length >= RL_MAX) {
+    ipHits.set(ip, arr);
+    return true;
+  }
+  arr.push(now);
+  ipHits.set(ip, arr);
+  // Best-effort cleanup so the map doesn't grow unbounded on a
+  // long-running worker. Keep only the most recently active 5k IPs.
+  if (ipHits.size > 5000) {
+    for (const k of [...ipHits.keys()].slice(0, 1000)) ipHits.delete(k);
+  }
+  return false;
+}
+
 /**
  * POST /api/worldcup/community/[id]/finish
  *
@@ -34,6 +61,19 @@ const Body = z.object({
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "bad id" }, 400);
+
+  // Per-IP rate limit. Anonymous-friendly by design (anyone can
+  // play a community worldcup), so we don't auth-gate this — but
+  // we cap the stat-bump frequency. Cloudflare's `cf-connecting-ip`
+  // is the trustable header inside the Worker; fall back to
+  // x-forwarded-for / direct peer for local dev.
+  const ip =
+    req.headers.get("cf-connecting-ip") ||
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
+  if (rateLimited(ip)) {
+    return json({ error: "rate limited" }, 429);
+  }
 
   const parsed = await readJsonBody<unknown>(req, 8 * 1024);
   if (!parsed.ok) return parsed.response;

@@ -566,7 +566,7 @@ function PatternPicker({
             key={it.id}
             onClick={() => onChange(it.id)}
             disabled={disabled || active === it.id}
-            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+            className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50 focus-visible:ring-offset-1 focus-visible:ring-offset-neutral-950 ${
               active === it.id
                 ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-200"
                 : "border-white/10 bg-black/30 text-neutral-400 hover:border-emerald-500/40 hover:text-white"
@@ -787,7 +787,7 @@ function BracketCard({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onPick();
       }}
-      className={`group flex cursor-pointer flex-col gap-3 rounded-2xl border bg-neutral-900 p-4 transition-all duration-150 ${
+      className={`group flex cursor-pointer flex-col gap-3 rounded-2xl border bg-neutral-900 p-4 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
         finalRound
           ? hover
             ? "border-amber-400/70 bg-amber-500/10 ring-2 ring-amber-400/30 scale-[1.02]"
@@ -808,14 +808,31 @@ function BracketCard({
           card has a cover image or just the ♪ placeholder. */}
       <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-neutral-800">
         {showVideo && videoId ? (
-          <iframe
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1`}
-            title={`${rec.artist} — ${rec.title}`}
-            allow="autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
-            onClick={(e) => e.stopPropagation()}
-            className="h-full w-full"
-          />
+          <>
+            <iframe
+              src={`https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1`}
+              title={`${rec.artist} — ${rec.title}`}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              allowFullScreen
+              onClick={(e) => e.stopPropagation()}
+              className="h-full w-full"
+            />
+            {/* Explicit "close player" affordance — keyboard users
+                can't escape the YouTube iframe focus trap otherwise.
+                Mouse users get it as a fallback when they want to
+                see the cover image again or stop playback. */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowVideo(false);
+              }}
+              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-xs text-white backdrop-blur transition-colors hover:bg-black/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              aria-label="Close player"
+            >
+              ×
+            </button>
+          </>
         ) : rec.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -846,8 +863,8 @@ function BracketCard({
               }
               window.open(ytLink, "_blank", "noopener");
             }}
-            className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/30 focus:bg-black/30 focus:outline-none"
-            aria-label="Play"
+            className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors hover:bg-black/30 focus-visible:bg-black/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60"
+            aria-label={playing ? "Pause preview" : "Play preview"}
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/65 text-2xl text-white shadow-lg backdrop-blur-sm transition-transform group-hover:scale-110 sm:h-16 sm:w-16">
               {playing ? "⏸" : "▶"}

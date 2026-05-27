@@ -35,6 +35,10 @@ export function GenreCard({
   const [activeSample, setActiveSample] = useState<number | null>(null);
   const [videoIds, setVideoIds] = useState<Record<number, string | null>>({});
   const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
+  // Surfaces "couldn't load preview" so the user knows the click did
+  // something — previously the spinner just turned off with no signal
+  // when /api/recommend/yt-search returned null or threw.
+  const [playError, setPlayError] = useState<string | null>(null);
 
   const hue = genreHue(rec.id);
   const samples = rec.samples ?? [];
@@ -53,6 +57,7 @@ export function GenreCard({
     }
     // First click for this sample → fetch then show.
     setLoadingIdx(i);
+    setPlayError(null);
     try {
       const res = await fetch("/api/recommend/yt-search", {
         method: "POST",
@@ -62,9 +67,18 @@ export function GenreCard({
       const data: { videoId?: string | null } = res.ok ? await res.json() : {};
       const id = data.videoId ?? null;
       setVideoIds((m) => ({ ...m, [i]: id }));
-      if (id) setActiveSample(i);
+      if (id) {
+        setActiveSample(i);
+      } else {
+        // Resolved but no videoId — YT search came back empty or the
+        // API key/quota is exhausted. Surface so the user understands
+        // why the inline embed didn't appear. The row falls back to
+        // the external YT-search link on next click (see failedLookup).
+        setPlayError("No matching YouTube video found — opens search instead.");
+      }
     } catch {
       setVideoIds((m) => ({ ...m, [i]: null }));
+      setPlayError("Preview lookup failed.");
     } finally {
       setLoadingIdx(null);
     }
@@ -83,7 +97,7 @@ export function GenreCard({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onPick();
       }}
-      className={`group flex cursor-pointer flex-col gap-3 rounded-2xl border p-5 transition-all ${
+      className={`group flex cursor-pointer flex-col gap-3 rounded-2xl border p-5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
         hover
           ? "border-emerald-500/60 bg-emerald-500/5"
           : "border-white/10 bg-neutral-900"
@@ -190,6 +204,14 @@ export function GenreCard({
         </ul>
       ) : (
         <p className="text-xs text-white/50">No sample tracks in this genre yet.</p>
+      )}
+      {playError && (
+        <p
+          role="status"
+          className="rounded-md border border-amber-500/30 bg-amber-950/30 px-2 py-1 text-[10px] text-amber-200"
+        >
+          {playError}
+        </p>
       )}
     </div>
   );

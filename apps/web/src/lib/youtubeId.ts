@@ -74,7 +74,14 @@ export async function fetchYouTubeOEmbed(videoId: string): Promise<OEmbedMeta | 
     const author = typeof d.author_name === "string" ? d.author_name : "";
     const thumb = typeof d.thumbnail_url === "string" ? d.thumbnail_url : "";
     if (!title) return null;
-    return { title, author, thumbnail: thumb };
+    // thumbnail_url goes straight into the page as <img src>. React
+    // escapes text fine but accepts whatever string we put into src,
+    // so a malicious response (compromised CDN, MITM) could land a
+    // `javascript:` URL or a data: URL here. Hard-restrict to YouTube's
+    // own static CDNs to slam that vector shut.
+    const SAFE_THUMB_HOSTS = /^https:\/\/(i\.ytimg\.com|img\.youtube\.com)\//;
+    const safeThumb = thumb && SAFE_THUMB_HOSTS.test(thumb) ? thumb : "";
+    return { title, author, thumbnail: safeThumb };
   } catch {
     return null;
   }
