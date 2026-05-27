@@ -46,3 +46,7 @@ coverage/
 
 # built extension packages (any version)
 apps/extension/earprint-extension*.zip
+
+# scratch / clipboard-test files
+tmp.*
+scratch.*
