@@ -75,7 +75,17 @@ export default async function WorldcupRunner({
   }
   const { userId } = await requireOnboarded();
 
-  const candidates = await getCandidates(userId, cat, size);
+  // getCandidates touches several user-data tables and the new
+  // multi-label columns; wrap so a partial-migration deploy doesn't
+  // turn into a 500 — the page falls through to the "not enough
+  // candidates" friendly screen below.
+  let candidates: Awaited<ReturnType<typeof getCandidates>>;
+  try {
+    candidates = await getCandidates(userId, cat, size);
+  } catch (e) {
+    console.error("[worldcup/cat/size] getCandidates failed:", e);
+    candidates = [];
+  }
   if (candidates.length < 4) {
     return (
       <main className="mx-auto flex max-w-2xl flex-col gap-4 px-6 py-12">

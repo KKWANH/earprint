@@ -139,6 +139,19 @@ export async function getLibraryTracks(
           JOIN tracks t ON t.id = ut.track_id
           WHERE ut.user_id = ${userId}
             AND t.artist <> ALL(${excluded}::text[])`,
+    // Order = "newest LIKE first", not "newest CAPTURE first". YT Music
+    // serves the Liked Music list with newest likes at position 0, so
+    // `list_position ASC` walks from "just liked" downwards. Earlier
+    // we sorted by `captured_at DESC` — that's "Earprint first saw
+    // this track on date X", which only changes on first sync; once
+    // a track is in the table, captured_at is stale forever. So a
+    // track liked 6 months ago but synced today showed up BEFORE
+    // one liked yesterday but synced a month ago. Tester report
+    // "최신이라는데 최신이 아님" was exactly this drift.
+    //
+    // NULLS LAST handles pre-list_position legacy rows: they fall to
+    // the bottom of the page, ordered by capture time as a fallback,
+    // so they're still browsable.
     hasQ
       ? sql`
           SELECT t.title, t.artist, t.album, a.genres, a.moods, t.deezer_id
@@ -148,7 +161,7 @@ export async function getLibraryTracks(
           WHERE ut.user_id = ${userId}
             AND t.artist <> ALL(${excluded}::text[])
             AND (t.title ILIKE ${pat} OR t.artist ILIKE ${pat})
-          ORDER BY ut.captured_at DESC
+          ORDER BY ut.list_position ASC NULLS LAST, ut.captured_at DESC
           LIMIT ${pageSize} OFFSET ${offset}`
       : sql`
           SELECT t.title, t.artist, t.album, a.genres, a.moods, t.deezer_id
@@ -156,7 +169,7 @@ export async function getLibraryTracks(
           JOIN tracks t ON t.id = ut.track_id
           LEFT JOIN analysis a ON a.track_id = t.id AND a.analysis_version = 1
           WHERE ut.user_id = ${userId} AND t.artist <> ALL(${excluded}::text[])
-          ORDER BY ut.captured_at DESC
+          ORDER BY ut.list_position ASC NULLS LAST, ut.captured_at DESC
           LIMIT ${pageSize} OFFSET ${offset}`,
   ]);
 
@@ -474,7 +487,7 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
         JOIN tracks t ON t.id = ut.track_id
         LEFT JOIN analysis a ON a.track_id = t.id AND a.analysis_version = 1
         WHERE ut.user_id = ${userId} AND t.artist <> ALL(${excluded}::text[])
-        ORDER BY ut.captured_at DESC
+        ORDER BY ut.list_position ASC NULLS LAST, ut.captured_at DESC
         LIMIT 100`,
       // Raw per-key genre counts (NOT LIMITed) — TS aggregates these into
       // the 18 families. We can't bucket in SQL because the family map

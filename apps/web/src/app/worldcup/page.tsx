@@ -43,21 +43,51 @@ export default async function WorldcupHome() {
 
   // How many candidates each category has, so the size buttons can grey
   // out anything that would fail with "not enough songs".
+  // Each of the three counts queries has its own .catch so a missing
+  // table (recommendations on a fresh install, analysis on a not-yet-
+  // analyzed library) doesn't 500 the entire worldcup home — the
+  // affected card just greys out as "not enough candidates". Log the
+  // failure so Cloudflare logs surface which query is unhappy.
+  // Each of the three counts queries has its own .catch so a missing
+  // table (recommendations on a fresh install, analysis on a not-yet-
+  // analyzed library) doesn't 500 the entire worldcup home — the
+  // affected card just greys out as "not enough candidates". Log the
+  // failure so Cloudflare logs surface which query is unhappy.
   const sql = getSql();
-  const [lib, rec, gen] = await Promise.all([
-    sql`SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}`,
-    sql`SELECT count(*)::int AS n FROM recommendations WHERE user_id = ${userId}`,
+  const safeCount = async (
+    label: string,
+    p: Promise<Array<Record<string, unknown>>>,
+  ): Promise<number> => {
+    try {
+      const rows = await p;
+      return Number((rows[0] as { n?: number } | undefined)?.n ?? 0);
+    } catch (e) {
+      console.error(`[worldcup] ${label} count failed:`, e);
+      return 0;
+    }
+  };
+  const [libN, recN, genN] = await Promise.all([
+    safeCount(
+      "user_tracks",
+      sql`SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}`,
+    ),
+    safeCount(
+      "recommendations",
+      sql`SELECT count(*)::int AS n FROM recommendations WHERE user_id = ${userId}`,
+    ),
     // Genre count = distinct genre keys present in this user's analysed
     // tracks. Some users will only have ~5 genres at first; the
     // category card greys 16강+ until enough land in their library.
-    sql`
-      SELECT count(DISTINCT k.key)::int AS n
-      FROM analysis a
-      JOIN user_tracks ut ON ut.track_id = a.track_id
-      CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
-      WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL`,
+    safeCount(
+      "genre",
+      sql`
+        SELECT count(DISTINCT k.key)::int AS n
+        FROM analysis a
+        JOIN user_tracks ut ON ut.track_id = a.track_id
+        CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
+        WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL`,
+    ),
   ]);
-  const libN = lib[0].n as number;
   // `forgotten` draws from the older half of the library, so it
   // effectively halves the available pool — gate it at 2× the smallest
   // bracket so the picker doesn't offer something that will return
@@ -66,9 +96,9 @@ export default async function WorldcupHome() {
     library:   libN,
     recent:    libN,
     forgotten: Math.floor(libN / 2),
-    discover:  rec[0].n as number,
-    mix:       libN + (rec[0].n as number),
-    genre:     gen[0].n as number,
+    discover:  recN,
+    mix:       libN + recN,
+    genre:     genN,
   };
 
   // Order: self-bracket modes first (the product purpose), then

@@ -94,8 +94,18 @@ export default async function CommunityList({
   let rows: Row[];
   try {
     rows = await fetchWithTags();
-  } catch {
-    rows = await fetchWithoutTags();
+  } catch (e1) {
+    console.error("[community-list] tags query failed; falling back:", e1);
+    try {
+      rows = await fetchWithoutTags();
+    } catch (e2) {
+      // Final fallback: the community_worldcups table itself probably
+      // doesn't exist on this deploy (schema migration not run yet).
+      // Surface an empty list instead of 500'ing the page so the
+      // create CTA still works.
+      console.error("[community-list] base query also failed:", e2);
+      rows = [];
+    }
   }
 
   // Sample of the most-used tags across the listed brackets — surfaces
