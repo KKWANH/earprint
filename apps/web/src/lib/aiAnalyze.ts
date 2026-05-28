@@ -193,7 +193,9 @@ ${list}`;
   // Per-track workhorse — flash-lite is materially cheaper than flash (~25%)
   // and the output is structured JSON, so the quality gap doesn't show.
   // Override via GEMINI_MODEL_ANALYZE if needed.
-  const model = process.env.GEMINI_MODEL_ANALYZE ?? "gemini-2.0-flash-lite";
+  // Bumped 2.0 → 2.5 in R25b after Google deprecated the 2.0 line for
+  // new API keys (returns 404 NOT_FOUND on freshly-issued keys).
+  const model = process.env.GEMINI_MODEL_ANALYZE ?? "gemini-2.5-flash-lite";
   let raw: unknown;
   try {
     raw = await aiJson<unknown>(prompt, SCHEMA, { bypassCap, model, userId });

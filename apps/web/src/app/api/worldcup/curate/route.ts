@@ -122,7 +122,8 @@ Rules:
 
 ${numbered}`;
 
-  const model = process.env.GEMINI_MODEL_CURATE ?? "gemini-2.0-flash-lite";
+  // Bumped 2.0 → 2.5 in R25b — same reason as aiAnalyze (deprecation).
+  const model = process.env.GEMINI_MODEL_CURATE ?? "gemini-2.5-flash-lite";
   let raw: unknown;
   try {
     raw = await aiJson<unknown>(prompt, SCHEMA, { model, userId });

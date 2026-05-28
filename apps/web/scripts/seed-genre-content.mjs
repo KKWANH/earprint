@@ -144,8 +144,13 @@ async function gemini(genre) {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { responseMimeType: "application/json", responseSchema: SCHEMA },
   };
+  // gemini-2.0-flash-lite was deprecated for new API keys in 2026;
+  // 2.5-flash-lite is the drop-in replacement (same JSON-mode shape,
+  // same throughput tier). Override via env if you have an older
+  // grandfathered key + want to pin to 2.0.
+  const model = process.env.GEMINI_MODEL_SEED ?? "gemini-2.5-flash-lite";
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

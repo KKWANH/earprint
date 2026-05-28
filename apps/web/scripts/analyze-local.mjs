@@ -176,7 +176,8 @@ async function callGemini(list) {
   if (!key) throw new Error("no GEMINI_API_KEY");
   // flash-lite is the cheapest tier — track analysis is structured JSON
   // for 6 tracks per call, the quality gap vs flash is negligible.
-  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite";
+  // Bumped 2.0 → 2.5 in R25b — 2.0 line deprecated for new API keys.
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
     {

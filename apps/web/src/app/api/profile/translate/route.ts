@@ -105,7 +105,8 @@ export async function POST(req: Request) {
   let translated: AiProfile;
   try {
     const raw = (await aiJson<{ profile?: AiProfile }>(prompt, SCHEMA, {
-      model: process.env.GEMINI_MODEL_TRANSLATE ?? "gemini-2.0-flash-lite",
+      // Bumped 2.0 → 2.5 in R25b (Google deprecated 2.0 for new keys).
+      model: process.env.GEMINI_MODEL_TRANSLATE ?? "gemini-2.5-flash-lite",
       userId,
     })) as { profile?: AiProfile };
     if (!raw.profile) throw new Error("missing profile field");

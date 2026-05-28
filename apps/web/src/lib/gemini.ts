@@ -26,16 +26,20 @@ export const GEMINI_REGION_ERROR = "GEMINI_REGION_UNSUPPORTED";
 
 /**
  * Default model — used by callers that don't pass an override.
- * `gemini-2.0-flash` is the cheap workhorse; the music-psychology
- * profile bumps to `gemini-2.5-pro` via the `model` argument because
- * that single high-value generation is worth the price difference
- * (~$0.014 vs $0.0007 per call).
+ * Bumped from gemini-2.0-flash → gemini-2.5-flash (R25b, 2026-05-29)
+ * because Google deprecated the 2.0 line for *new* API keys; existing
+ * keys retained access, but a freshly-issued key returns 404 NOT_FOUND
+ * for the 2.0 models. The 2.5 line is API-compatible (same request
+ * shape, same JSON-mode behaviour) so this is a drop-in bump.
+ * The music-psychology profile still bumps to `gemini-2.5-pro` via
+ * the `model` argument for that single high-value generation
+ * (~$0.014 vs ~$0.0007 per call).
  */
-const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
 /**
  * Fallback model used when the primary call returns the region-
- * restriction 400. `gemini-2.0-flash-lite` has the widest country
+ * restriction 400. `gemini-2.5-flash-lite` has the widest country
  * coverage on the free tier — when billing hasn't propagated to the
  * project yet (or the user happens to live somewhere a heavier model
  * isn't yet enabled), at least flash-lite usually works. Output quality
@@ -45,7 +49,7 @@ const DEFAULT_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
  * just throw GEMINI_REGION_ERROR for the UI to surface.
  */
 const REGION_FALLBACK_MODEL =
-  process.env.GEMINI_REGION_FALLBACK ?? "gemini-2.0-flash-lite";
+  process.env.GEMINI_REGION_FALLBACK ?? "gemini-2.5-flash-lite";
 
 /** Inner fetch — one call to one model. Surfaces region errors as the
  *  sentinel + cost-tracks success-only. */
