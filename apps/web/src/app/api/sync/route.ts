@@ -13,8 +13,15 @@ import { hashSyncToken } from "@/lib/tokens";
  * back-fills the hash so the next request takes the fast path.
  * Returns the userId or null.
  *
- * Drop the fallback once every active row has a populated
- * sync_token_hash (see schema.sql comment on the migration plan).
+ * Phase 2 (May 2026, in progress): the legacy plaintext fallback is
+ * now logged whenever it fires, and the operator-driven admin
+ * backfill endpoint (/api/admin/backfill-token-hashes) actively
+ * empties the un-hashed pool. Once `remaining` from that endpoint
+ * hits zero and stays there for a deploy cycle, drop:
+ *   1. the legacy fallback branch below,
+ *   2. `users.sync_token` column in the SQL migration,
+ *   3. the plaintext-write in `lib/connection.ts` + the rotate
+ *      action in `app/account/sync-token-actions.ts`.
  */
 async function resolveUserIdByToken(token: string): Promise<string | null> {
   if (!token) return null;
@@ -24,13 +31,20 @@ async function resolveUserIdByToken(token: string): Promise<string | null> {
   const byHash = await sql`
     SELECT id FROM users WHERE sync_token_hash = ${hash} LIMIT 1`;
   if (byHash.length > 0) return byHash[0].id as string;
-  // Legacy plaintext fallback. If found, lazily back-fill the hash so
-  // future calls hit the fast path. UNIQUE index on sync_token_hash
-  // protects against races (concurrent back-fills throw, we swallow).
+  // Legacy plaintext fallback. Surface this via console so the
+  // operator can monitor "is anyone still on plaintext?" via Cloudflare
+  // logs and time the drop. On hit, fire-and-forget UPDATE that
+  // back-fills the hash — UNIQUE index on sync_token_hash protects
+  // against races (concurrent back-fills throw, we swallow).
   const byPlain = await sql`
     SELECT id FROM users WHERE sync_token = ${token} LIMIT 1`;
   if (byPlain.length === 0) return null;
   const userId = byPlain[0].id as string;
+  if (typeof console !== "undefined") {
+    console.info("[tokens] legacy plaintext fallback hit; backfilling hash", {
+      userId,
+    });
+  }
   void sql`
     UPDATE users
        SET sync_token_hash = ${hash}, updated_at = now()

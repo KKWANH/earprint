@@ -56,9 +56,15 @@ export async function ensureConnection(): Promise<Connection> {
 
   // First sign-in: create the row, but leave consent fields NULL — the
   // middleware will redirect the user to /onboarding before anything else.
-  // Hash is computed and stored alongside the plaintext for the
-  // duration of the transition; the plaintext column will be dropped
-  // in a follow-up commit once every active row has a hash.
+  //
+  // Token-storage migration phase 2 (May 2026): we still write the
+  // plaintext to `sync_token` for the duration of the legacy-fallback
+  // window so existing extension installs that authenticate against
+  // /api/sync via plaintext lookup keep working. The PRIMARY storage
+  // is now `sync_token_hash` — that's what verification reads first.
+  // Plaintext write goes away in the same commit that DROPs the
+  // column (operator runs admin/backfill-token-hashes first, confirms
+  // remaining == 0, then runs ALTER TABLE DROP COLUMN sync_token).
   const newToken = generateSyncToken();
   const newHash = await hashSyncToken(newToken);
   const created = await sql`

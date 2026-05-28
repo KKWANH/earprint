@@ -8,24 +8,59 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * /worldcup/community — list public UGC worldcups ordered by play
- * count. Each row shows title / item count / play count. Sign-in
- * not required to browse or play; only the create link gates on
- * sign-in.
+ * /worldcup/community — list public UGC worldcups. Three sort modes:
+ *
+ *   ?sort=popular  (default) — play_count DESC, all-time. Established
+ *                              hits first.
+ *   ?sort=trending           — plays-per-day-since-creation. Newer
+ *                              brackets with traction surface above
+ *                              old long-tail favourites. Pure
+ *                              expression, no snapshot table needed.
+ *   ?sort=new                — created_at DESC. For people scrolling
+ *                              for stuff they haven't seen yet.
+ *
+ * Anonymous-friendly (no sign-in gate) — only the Create CTA gates.
  */
-export default async function CommunityList() {
+export default async function CommunityList({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string }>;
+}) {
   const locale = await getLocale();
   const ko = locale === "ko";
   const sql = getSql();
+  const { sort } = await searchParams;
+  const mode = sort === "trending" ? "trending" : sort === "new" ? "new" : "popular";
 
-  const rows = await sql`
-    SELECT w.id, w.title, w.description, w.play_count, w.created_at,
-           (SELECT count(*)::int FROM community_worldcup_items i
-              WHERE i.worldcup_id = w.id) AS item_count
-    FROM community_worldcups w
-    WHERE w.visibility = 'public'
-    ORDER BY w.play_count DESC, w.created_at DESC
-    LIMIT 100`;
+  const rows =
+    mode === "trending"
+      ? await sql`
+          SELECT w.id, w.title, w.description, w.play_count, w.created_at,
+                 (SELECT count(*)::int FROM community_worldcup_items i
+                    WHERE i.worldcup_id = w.id) AS item_count
+          FROM community_worldcups w
+          WHERE w.visibility = 'public'
+          ORDER BY (w.play_count::real /
+                    greatest(1, extract(epoch from (now() - w.created_at)) / 86400.0)) DESC,
+                   w.created_at DESC
+          LIMIT 100`
+      : mode === "new"
+      ? await sql`
+          SELECT w.id, w.title, w.description, w.play_count, w.created_at,
+                 (SELECT count(*)::int FROM community_worldcup_items i
+                    WHERE i.worldcup_id = w.id) AS item_count
+          FROM community_worldcups w
+          WHERE w.visibility = 'public'
+          ORDER BY w.created_at DESC
+          LIMIT 100`
+      : await sql`
+          SELECT w.id, w.title, w.description, w.play_count, w.created_at,
+                 (SELECT count(*)::int FROM community_worldcup_items i
+                    WHERE i.worldcup_id = w.id) AS item_count
+          FROM community_worldcups w
+          WHERE w.visibility = 'public'
+          ORDER BY w.play_count DESC, w.created_at DESC
+          LIMIT 100`;
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-10">
@@ -48,11 +83,44 @@ export default async function CommunityList() {
         </div>
         <Link
           href="/worldcup/community/create"
-          className="shrink-0 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400"
+          className="shrink-0 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
         >
           {ko ? "+ 만들기" : "+ Create"}
         </Link>
       </header>
+
+      {/* Sort tab strip. Three modes ride the same query param so a
+          bookmarked tab survives refresh. Active state is the one
+          whose querystring matches `mode`; others link to themselves
+          via a small `<Link>`. */}
+      <nav className="flex gap-1.5 text-xs">
+        {(
+          [
+            { id: "popular", label: ko ? "🏆 인기" : "🏆 Popular" },
+            { id: "trending", label: ko ? "📈 트렌딩" : "📈 Trending" },
+            { id: "new", label: ko ? "🆕 새로 나온" : "🆕 New" },
+          ] as const
+        ).map((tab) => {
+          const href =
+            tab.id === "popular"
+              ? "/worldcup/community"
+              : `/worldcup/community?sort=${tab.id}`;
+          const active = mode === tab.id;
+          return (
+            <Link
+              key={tab.id}
+              href={href}
+              className={`rounded-full border px-3 py-1 transition-colors ${
+                active
+                  ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-200"
+                  : "border-white/10 bg-black/30 text-neutral-400 hover:border-emerald-500/40 hover:text-white"
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40`}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
+      </nav>
 
       {rows.length === 0 ? (
         <p className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-8 text-center text-sm text-neutral-500">

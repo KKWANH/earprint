@@ -103,6 +103,14 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS purchases_count INT NOT NULL DEFAULT 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sync_token_hash TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_users_sync_token_hash
   ON users(sync_token_hash) WHERE sync_token_hash IS NOT NULL;
+-- Phase 2 drop (operator runs MANUALLY after admin/backfill-token-hashes
+-- reports `{ remaining: 0 }` and Cloudflare logs show no plaintext-
+-- fallback hits for ≥1 deploy cycle). Don't add UNCOMMENTED here — it
+-- would break in-flight extension installs that still authenticate via
+-- the plaintext column.
+--
+--   ALTER TABLE users DROP COLUMN IF EXISTS sync_token;
+--   DROP INDEX IF EXISTS users_sync_token_key;
 
 -- Per-user, per-day counters for paywalled features (free tier daily caps).
 CREATE TABLE IF NOT EXISTS user_usage (

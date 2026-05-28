@@ -647,7 +647,15 @@ function ChampionView({
         <p className="text-sm text-neutral-400">{champion.artist}</p>
       </div>
       <p className="max-w-md text-xs text-neutral-500">{t.bracketChampionSub}</p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
+        {/* "Like in YT Music ↗" — closes the loop between Earprint
+            picking the winner and the user actually saving it in
+            YouTube Music. No YT Music API exists for write
+            operations, so we deep-link to its search results page
+            (the heart icon is one tap away). For genre champions
+            (`artist` empty) this falls back to the music-home
+            search of the genre name itself. */}
+        <LikeInYtMusicButton champion={champion} locale={locale} />
         <ShareChampionButton
           champion={champion}
           championId={championId}
@@ -655,12 +663,40 @@ function ChampionView({
         />
         <button
           onClick={onRestart}
-          className="rounded-md bg-emerald-500 px-5 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
+          className="rounded-md bg-emerald-500 px-5 py-2 text-sm font-semibold text-black hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
         >
           {t.bracketRestart}
         </button>
       </div>
     </div>
+  );
+}
+
+/** "♥ Like in YT Music ↗" — deep-links the champion's artist+title
+ *  into YouTube Music's search. There's no YT Music write API; this
+ *  gets the user one tap away from clicking the heart icon
+ *  themselves. Across A/B/C tracks (built-in, discover, community)
+ *  the affordance reads the same. */
+function LikeInYtMusicButton({
+  champion,
+  locale,
+}: {
+  champion: Rec;
+  locale: Locale;
+}) {
+  const q = champion.artist
+    ? `${champion.artist} ${champion.title}`
+    : champion.title;
+  const href = `https://music.youtube.com/search?q=${encodeURIComponent(q)}`;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded-md border border-rose-400/40 bg-rose-500/15 px-5 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/60"
+    >
+      ♥ {locale === "ko" ? "YT Music에서 좋아요" : "Like in YT Music ↗"}
+    </a>
   );
 }
 

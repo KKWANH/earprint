@@ -7,7 +7,7 @@
 > the community schema, or the BracketCard / GenreCard runners must
 > revisit the "Status" column below.
 >
-> Last updated: 2026-05-28
+> Last updated: 2026-05-28 (R19a)
 
 ## Vision
 
@@ -47,12 +47,13 @@ When a bracket reaches its winner, the champion view should give
 the user a one-tap path back into YouTube Music so they can "like
 it for real". No YT Music API exists, so:
 
-- **Today (live):** champion view has "watch on YouTube" only.
-- **Next:** add an explicit "♥ Like in YouTube Music ↗" button
-  that opens `music.youtube.com/search?q=<artist>+<title>` in a
-  new tab. The user lands on YT Music's search results with their
-  cursor on the matched song, taps the heart icon. One extra tap
-  beats no path at all.
+- **R19a (shipped):** champion view now has both "watch on YouTube"
+  AND an explicit "♥ Like in YT Music ↗" button. The button deep-
+  links to `music.youtube.com/search?q=<artist>+<title>` in a new
+  tab — the user lands on the search result, one tap to the heart
+  icon. Same affordance fires for both song champions (Tracks A/B)
+  and genre champions (Track C); genre champions search by genre
+  name alone.
 - **Future (if usage warrants):** the existing Chrome extension
   already runs on `music.youtube.com`; could auto-inject a
   "Like via Earprint" affordance that detects the search target
@@ -206,8 +207,8 @@ embeddable on Reddit / DC Inside / Twitter.
 | Keyboard ← → vote, ESC close player | ✅ | `Bracket.tsx` keydown listener |
 | Resume in-progress brackets | ✅ | `/worldcup/InProgressCard.tsx` |
 | Per-bracket stats (UGC) | ✅ | `/worldcup/community/[id]/stats` |
-| **Champion → YT Music deep-link** | ❌ | TODO across A/B/C |
-| **Trending / time-windowed lists** | ❌ | TODO for community list |
+| **Champion → YT Music deep-link** | ✅ | `LikeInYtMusicButton` in Bracket.tsx |
+| **Trending / time-windowed lists** | ✅ | `/worldcup/community?sort=trending\|popular\|new` |
 | **AI-curated bracket lens** | ❌ | TODO for Track A |
 | **Native share on result** | ❌ | TODO for built-in + community |
 | **Embeddable iframe** | ❌ | TODO for community |
