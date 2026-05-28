@@ -6,6 +6,7 @@ import { getSql } from "@/lib/db";
 import { getExcludedArtists } from "@/lib/library";
 import { getLocale } from "@/lib/i18n-server";
 import { genresIndexDict } from "@/lib/i18n/genresIndex";
+import { RequestForm } from "./RequestForm";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = genresIndexDict(await getLocale());
@@ -99,6 +100,11 @@ export default async function GenresIndexPage() {
           ))}
         </section>
       )}
+
+      {/* Genre feedback form — collapsed by default. Two-branch:
+          "add to catalogue" vs "rerun analysis on my tracks". Rate
+          limited to 3 submissions / user / day in the API. */}
+      <RequestForm locale={locale} />
     </main>
   );
 }

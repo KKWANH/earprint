@@ -1146,6 +1146,40 @@ CREATE TABLE IF NOT EXISTS genre_info (
   generated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ── Genre requests (R23d) — two-purpose user feedback queue ──────────
+-- Users can flag two distinct situations from /genres:
+--   kind='catalog'    — "I expected genre X to exist as a tag but it
+--                        doesn't appear anywhere in the platform yet."
+--                        Accepted → blank row inserted into genre_info,
+--                        which lazy-warms description on first visit.
+--   kind='reanalysis' — "My liked tracks by artist Y don't have any
+--                        genres tagged." Accepted → operator triggers
+--                        the analysis pipeline rerun for that artist.
+-- Either way the lifecycle is: user submits → admin queues → admin
+-- decides (accepted / rejected / duplicate). Per-user rate limit is
+-- enforced at the API level; the table itself is just a journal.
+CREATE TABLE IF NOT EXISTS genre_requests (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id      UUID REFERENCES users(id) ON DELETE SET NULL,
+  kind         TEXT NOT NULL CHECK (kind IN ('catalog', 'reanalysis')),
+  -- For 'catalog' the suggested genre name; for 'reanalysis' the
+  -- artist name. Lower-cased on insert so dedup queries work.
+  subject      TEXT NOT NULL,
+  -- Optional free-form note from the user (max 500 chars enforced
+  -- at the API level). Could be "Tatsuro Yamashita, city pop missing"
+  -- or "vaporwave should be its own tag, not just 'electronic'".
+  note         TEXT,
+  status       TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'accepted', 'rejected', 'duplicate')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  decided_at   TIMESTAMPTZ,
+  decided_by   UUID REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_genre_requests_pending
+  ON genre_requests (created_at DESC) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_genre_requests_user
+  ON genre_requests (user_id, created_at DESC);
+
 -- ── Community-created worldcups (May 2026) ───────────────────────────
 -- User-generated tournaments: anyone signed in can compose a 4-32-slot
 -- bracket from YouTube video URLs, publish it under their account, and
