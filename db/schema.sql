@@ -129,6 +129,34 @@ CREATE TABLE IF NOT EXISTS cron_state (
   last_run TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- ── Spotify OAuth connections (R25) ──────────────────
+-- One row per user who has linked a Spotify account on top of their
+-- existing Google sign-in. The PRIMARY KEY (user_id) means a single
+-- Google identity can attach exactly one Spotify identity — keeping
+-- the model simple. If a user wants to switch Spotify accounts they
+-- disconnect + reconnect (handler deletes + reinserts).
+--
+-- Token storage: plaintext. Bearer tokens have to be sent verbatim
+-- on every Spotify API call; we can't hash them. Threat surface is
+-- "DB dump → attacker has read access to every linked user's Spotify
+-- library + listening history" — acceptable because (a) the scopes
+-- we request are READ-only (no playlist modification, no playback
+-- control), and (b) Neon connections are TLS + the column is never
+-- logged. If we ever request write scopes, revisit with KMS-style
+-- column encryption.
+CREATE TABLE IF NOT EXISTS spotify_connections (
+  user_id          UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  spotify_user_id  TEXT NOT NULL,         -- Spotify's account id; useful for debug
+  access_token     TEXT NOT NULL,         -- short-lived (1h); refresh on expiry
+  refresh_token    TEXT NOT NULL,         -- long-lived; the keys to the kingdom
+  scope            TEXT NOT NULL,         -- granted scopes, space-separated
+  expires_at       TIMESTAMPTZ NOT NULL,  -- access_token's death time
+  connected_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_synced_at   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_connections_synced
+  ON spotify_connections (last_synced_at DESC NULLS LAST);
+
 -- ── Tracks (globally shared canonical) ────────────────
 CREATE TABLE IF NOT EXISTS tracks (
   id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

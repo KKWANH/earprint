@@ -35,6 +35,22 @@ if (!url || !apiKey) {
   );
   process.exit(1);
 }
+// Same placeholder guard as apply-schema.mjs — turns the otherwise
+// opaque WebSocket ErrorEvent into something actionable.
+if (url.includes("...") || url.includes("<") || !url.startsWith("postgres")) {
+  console.error(
+    "❌ DATABASE_URL looks like a placeholder, not a real URL.",
+    "\n   Got:", url.slice(0, 80),
+    "\n   Get the actual URL from Neon dashboard → Connection Details → Pooled connection.",
+  );
+  process.exit(1);
+}
+if (apiKey.includes("...") || apiKey.startsWith("<") || apiKey.length < 20) {
+  console.error(
+    "❌ GEMINI_API_KEY looks like a placeholder. Get a real key at aistudio.google.com → API keys.",
+  );
+  process.exit(1);
+}
 const topN = Number.parseInt(process.argv[2] ?? "50", 10);
 if (!Number.isFinite(topN) || topN < 1 || topN > 500) {
   console.error("topN out of range (1-500)");

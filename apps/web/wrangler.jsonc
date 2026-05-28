@@ -18,6 +18,8 @@
   //   wrangler secret put LASTFM_API_KEY
   //   wrangler secret put GEMINI_API_KEY
   //   wrangler secret put YT_DATA_API_KEY  (public-data only; HTTP-referrer restricted)
+  //   wrangler secret put SPOTIFY_CLIENT_ID
+  //   wrangler secret put SPOTIFY_CLIENT_SECRET
   // Only non-sensitive values belong in vars.
   "vars": {
     "AUTH_URL": "https://earprint.kwanho.dev",

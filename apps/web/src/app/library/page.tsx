@@ -12,6 +12,7 @@ import {
   type FamilyCount,
 } from "@/lib/library";
 import { AnalyzePanel } from "./AnalyzePanel";
+import { SpotifyConnectCard } from "./SpotifyConnectCard";
 import { PreviewButton } from "./PreviewButton";
 import { ExcludeButton } from "./ExcludeButton";
 import { ShareButton } from "../profile/ShareButton";
@@ -75,9 +76,10 @@ export default async function LibraryPage({
   // Brand-new user (synced=0) — short-circuit the entire stats wall.
   // Otherwise the page renders 8+ empty cards saying "no data yet"
   // which is more discouraging than helpful. Surface a single hero
-  // pointing them at the Chrome extension (the only way to sync) and
-  // a link to /guide for the longer walkthrough. AnalyzePanel and
-  // the stats grid only return once at least one track lands.
+  // pointing them at the Chrome extension (the primary sync path)
+  // AND a Spotify connect card (the alternative for users without
+  // YT Music). AnalyzePanel and the stats grid only return once at
+  // least one track lands.
   if (stats.total === 0) {
     return (
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-12 sm:px-6 sm:py-20">
@@ -107,6 +109,12 @@ export default async function LibraryPage({
             </Link>
           </div>
         </section>
+        {/* Spotify-only users (no YT Music account) can onboard by
+            connecting Spotify here without ever installing the
+            extension. After connecting + first sync, stats.total > 0
+            and they fall through to the regular layout below on
+            next visit. */}
+        <SpotifyConnectCard locale={locale} />
       </main>
     );
   }
@@ -119,6 +127,13 @@ export default async function LibraryPage({
       </header>
 
       <AnalyzePanel locale={locale} />
+
+      {/* Spotify connect / sync card — same shell as YT Music
+          extension equivalent. Shows below AnalyzePanel so users who
+          already have a YT Music library see the analyze CTA first,
+          but the Spotify path is still discoverable for cross-source
+          users. */}
+      <SpotifyConnectCard locale={locale} />
 
       {shareId ? (
         <section className="flex flex-col gap-3 rounded-xl border border-emerald-900/50 bg-neutral-900 p-6">

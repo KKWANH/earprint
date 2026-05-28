@@ -1,0 +1,115 @@
+import { auth } from "@/auth";
+import { ensureConnection } from "@/lib/connection";
+import { getSql } from "@/lib/db";
+import {
+  exchangeSpotifyCode,
+  spotifyFetch,
+} from "@/lib/spotify";
+
+/**
+ * GET /api/auth/spotify/callback?code=...&state=...
+ *
+ * The user has just consented at Spotify. We:
+ *   1. Verify the `state` value matches the cookie we set in /start
+ *      (CSRF defence).
+ *   2. Exchange the auth `code` for an access + refresh token pair.
+ *   3. Hit /me to grab the Spotify user id (useful for debugging
+ *      — "did the user link the wrong account?").
+ *   4. Upsert into spotify_connections keyed by our user_id; an
+ *      existing row gets replaced (= reconnect with a different
+ *      Spotify account).
+ *   5. Redirect back to /library with ?spotify=connected so the page
+ *      can render a success toast.
+ *
+ * Failure modes redirect back with ?spotify=error&reason=...; we
+ * don't expose the underlying error message to keep the URL clean
+ * and avoid leaking provider internals.
+ */
+function redirectBack(reason?: string): Response {
+  const base = process.env.AUTH_URL?.replace(/\/$/, "") ?? "";
+  const qp = new URLSearchParams();
+  qp.set("spotify", reason ? "error" : "connected");
+  if (reason) qp.set("reason", reason);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `${base}/library?${qp.toString()}`,
+      // Always clear the state cookie when we leave the callback —
+      // success or failure. Prevents replay if the URL is shared.
+      "Set-Cookie": `spotify_oauth_state=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`,
+    },
+  });
+}
+
+export async function GET(req: Request) {
+  const session = await auth();
+  if (!session?.user?.email) return redirectBack("not-signed-in");
+
+  const url = new URL(req.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const oauthError = url.searchParams.get("error");
+  if (oauthError) return redirectBack(`spotify-${oauthError}`);
+  if (!code || !state) return redirectBack("missing-params");
+
+  // Cookie verification — the value Spotify echoed back must equal
+  // the one we set in /start. Header parsing is manual; Next 15
+  // doesn't expose a cookies() helper inside Route Handlers in CF
+  // runtime in a way that matches our test setup.
+  const cookieHeader = req.headers.get("cookie") ?? "";
+  const stateCookie = cookieHeader
+    .split(";")
+    .map((s) => s.trim())
+    .find((s) => s.startsWith("spotify_oauth_state="))
+    ?.slice("spotify_oauth_state=".length);
+  if (!stateCookie || stateCookie !== state) return redirectBack("bad-state");
+
+  // Bind to our internal user_id.
+  const { userId } = await ensureConnection();
+
+  // Exchange + identify.
+  let tokenResp;
+  try {
+    tokenResp = await exchangeSpotifyCode(code);
+  } catch (e) {
+    console.error("[spotify-callback] token exchange failed:", e);
+    return redirectBack("token-exchange");
+  }
+  let meResp: { id?: string };
+  try {
+    meResp = await spotifyFetch<{ id?: string }>(tokenResp.access_token, "/me");
+  } catch (e) {
+    console.error("[spotify-callback] /me failed:", e);
+    return redirectBack("identify");
+  }
+  const spotifyUserId = meResp.id ?? "";
+  if (!spotifyUserId) return redirectBack("identify");
+
+  const expiresAt = new Date(Date.now() + tokenResp.expires_in * 1000);
+  // refresh_token usually present on first exchange. Spotify guarantees
+  // it on authorization_code flow.
+  const refreshToken = tokenResp.refresh_token ?? "";
+  if (!refreshToken) return redirectBack("no-refresh-token");
+
+  // Upsert. ON CONFLICT (user_id) DO UPDATE replaces every field —
+  // intentional, supports the "disconnect + reconnect with another
+  // Spotify account" path without an explicit delete step.
+  const sql = getSql();
+  await sql`
+    INSERT INTO spotify_connections
+      (user_id, spotify_user_id, access_token, refresh_token, scope, expires_at)
+    VALUES (
+      ${userId}::uuid, ${spotifyUserId},
+      ${tokenResp.access_token}, ${refreshToken}, ${tokenResp.scope},
+      ${expiresAt.toISOString()}::timestamptz
+    )
+    ON CONFLICT (user_id) DO UPDATE
+      SET spotify_user_id = EXCLUDED.spotify_user_id,
+          access_token = EXCLUDED.access_token,
+          refresh_token = EXCLUDED.refresh_token,
+          scope = EXCLUDED.scope,
+          expires_at = EXCLUDED.expires_at,
+          connected_at = now()`;
+
+  return redirectBack();
+}
