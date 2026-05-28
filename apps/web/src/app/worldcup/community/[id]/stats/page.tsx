@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { EmbedCodeButton } from "./EmbedCodeButton";
 
 export async function generateMetadata({
   params,
@@ -58,6 +59,7 @@ export default async function CommunityStats({
         <p className="text-xs text-neutral-500">
           {totalPlays.toLocaleString()} {ko ? "회 진행됨" : "plays so far"}
         </p>
+        <EmbedCodeButton worldcupId={id} locale={locale} />
       </header>
 
       {totalPlays === 0 ? (

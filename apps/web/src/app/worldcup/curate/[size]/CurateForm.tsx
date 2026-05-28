@@ -1,0 +1,171 @@
+"use client";
+
+import { useState } from "react";
+import type { Locale } from "@/lib/i18n";
+import { Bracket, type Rec } from "../../Bracket";
+
+/**
+ * Lens picker → Gemini curation call → Bracket runner.
+ *
+ * Lens chips are pre-baked. The textarea lets the user pass an
+ * arbitrary prompt ("songs that remind me of train rides", "stuff I
+ * used to obsess over in 2018"). The form submits to /api/worldcup
+ * /curate and slots the returned candidates into a Bracket.
+ */
+const LENS_EN = [
+  { id: "favourites", emoji: "✨", label: "All-time favourites" },
+  { id: "recent", emoji: "🌱", label: "Recent obsessions" },
+  { id: "forgotten", emoji: "📼", label: "Forgotten gems" },
+  { id: "sad", emoji: "💔", label: "Sad / melancholic" },
+  { id: "pumpup", emoji: "🔥", label: "Pump-up energy" },
+  { id: "latenight", emoji: "🌙", label: "Late-night chill" },
+  { id: "guilty", emoji: "🤫", label: "Guilty pleasures" },
+];
+const LENS_KO = [
+  { id: "favourites", emoji: "✨", label: "최애 / 올타임 베스트" },
+  { id: "recent", emoji: "🌱", label: "요즘 빠진 곡" },
+  { id: "forgotten", emoji: "📼", label: "잊고있던 명곡" },
+  { id: "sad", emoji: "💔", label: "슬픈 / 우울한" },
+  { id: "pumpup", emoji: "🔥", label: "기운 차리는" },
+  { id: "latenight", emoji: "🌙", label: "심야 청취" },
+  { id: "guilty", emoji: "🤫", label: "남몰래 좋아하는" },
+];
+
+export function CurateForm({
+  size,
+  locale,
+}: {
+  size: 4 | 8 | 16 | 32;
+  locale: Locale;
+}) {
+  const ko = locale === "ko";
+  const lenses = ko ? LENS_KO : LENS_EN;
+  const [chosenLens, setChosenLens] = useState<string | null>(null);
+  const [customLens, setCustomLens] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<Rec[] | null>(null);
+
+  const activeLensLabel =
+    chosenLens === "_custom"
+      ? customLens.trim()
+      : chosenLens
+        ? lenses.find((l) => l.id === chosenLens)?.label ?? ""
+        : "";
+
+  async function curate() {
+    if (!activeLensLabel) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/worldcup/curate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lens: activeLensLabel, size }),
+      });
+      const d = (await res.json()) as {
+        ok?: boolean;
+        candidates?: Rec[];
+        error?: string;
+      };
+      if (!res.ok || !d.ok || !Array.isArray(d.candidates)) {
+        setError(d.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      setCandidates(d.candidates);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (candidates) {
+    return (
+      <>
+        <div className="flex items-center gap-2 text-xs text-neutral-500">
+          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-200">
+            {ko ? "렌즈" : "Lens"}
+          </span>
+          <span className="line-clamp-1">{activeLensLabel}</span>
+          <button
+            onClick={() => setCandidates(null)}
+            className="ml-auto rounded-md border border-white/10 px-2 py-0.5 text-[10px] hover:bg-white/10"
+          >
+            {ko ? "렌즈 바꾸기" : "Change lens"}
+          </button>
+        </div>
+        <Bracket
+          initial={candidates}
+          rated={0}
+          likes={0}
+          dislikes={0}
+          locale={locale}
+        />
+      </>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap gap-2">
+        {lenses.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            onClick={() => setChosenLens(l.id)}
+            disabled={busy}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40 ${
+              chosenLens === l.id
+                ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-200"
+                : "border-white/10 bg-black/30 text-neutral-400 hover:border-emerald-500/40 hover:text-white"
+            } disabled:opacity-50`}
+          >
+            {l.emoji} {l.label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setChosenLens("_custom")}
+          disabled={busy}
+          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40 ${
+            chosenLens === "_custom"
+              ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-200"
+              : "border-white/10 bg-black/30 text-neutral-400 hover:border-emerald-500/40 hover:text-white"
+          }`}
+        >
+          ✍ {ko ? "직접 입력" : "Custom"}
+        </button>
+      </div>
+      {chosenLens === "_custom" && (
+        <textarea
+          value={customLens}
+          onChange={(e) => setCustomLens(e.target.value)}
+          rows={2}
+          maxLength={300}
+          placeholder={
+            ko
+              ? "예: 비 오는 날 듣고 싶은 곡 / 운전할 때 트는 노래"
+              : "e.g. songs for rainy afternoons / songs I drove around with in 2019"
+          }
+          className="resize-none rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+        />
+      )}
+      {error && (
+        <p className="rounded-md border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-xs text-rose-300">
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={() => void curate()}
+        disabled={busy || !activeLensLabel}
+        className="self-start rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
+      >
+        {busy
+          ? ko ? "AI 가 고르는 중…" : "Curating…"
+          : ko ? `${size}곡 토너먼트 만들기` : `Build ${size}-bracket`}
+      </button>
+    </div>
+  );
+}

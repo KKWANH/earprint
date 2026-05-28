@@ -7,7 +7,7 @@
 > the community schema, or the BracketCard / GenreCard runners must
 > revisit the "Status" column below.
 >
-> Last updated: 2026-05-28 (R19a)
+> Last updated: 2026-05-28 (R19b)
 
 ## Vision
 
@@ -98,8 +98,14 @@ candidates within a pre-picked set.
    per-user Gemini cap.
 
 ### Status
-- ❌ not started
-- Owner: TBD (next agent picking up worldcup work)
+- ✅ shipped (R19b)
+- Route: `/worldcup/curate/[size]` — lens picker (7 pre-baked
+  chips + a custom textarea) → calls `POST /api/worldcup/curate`
+  → Gemini picks `size` track-indexes from a 200-track recency-
+  weighted candidate pool → hands off to the existing Bracket
+  runner. Worldcup home gets a top-row 3-card hero highlighting
+  the new Track A entry alongside Track B (Discover) + Track C
+  (Community).
 
 ## Track B — Discovery bracket  *(partially shipped)*
 
@@ -209,9 +215,9 @@ embeddable on Reddit / DC Inside / Twitter.
 | Per-bracket stats (UGC) | ✅ | `/worldcup/community/[id]/stats` |
 | **Champion → YT Music deep-link** | ✅ | `LikeInYtMusicButton` in Bracket.tsx |
 | **Trending / time-windowed lists** | ✅ | `/worldcup/community?sort=trending\|popular\|new` |
-| **AI-curated bracket lens** | ❌ | TODO for Track A |
-| **Native share on result** | ❌ | TODO for built-in + community |
-| **Embeddable iframe** | ❌ | TODO for community |
+| **AI-curated bracket lens** | ✅ | `/worldcup/curate/[size]` + `/api/worldcup/curate` |
+| **Native share on result** | ✅ | `ShareChampionButton` (was shipped earlier; verified) |
+| **Embeddable iframe** | ✅ | `/worldcup/community/[id]/embed` + EmbedCodeButton |
 | **Bulk-import from YT playlist** | ❌ | TODO for community |
 
 ## Anti-goals (deliberately NOT doing)
