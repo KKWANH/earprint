@@ -7,7 +7,7 @@
 > the community schema, or the BracketCard / GenreCard runners must
 > revisit the "Status" column below.
 >
-> Last updated: 2026-05-28 (R23a)
+> Last updated: 2026-05-28 (R23b)
 
 ## Vision
 
@@ -199,8 +199,8 @@ embeddable on Reddit / DC Inside / Twitter.
 
 ### Status
 - ✅ MVP shipped (commits 88a8122)
-- ❌ trending sort, share button, YT Music hand-off,
-  playlist bulk-import, embed mode
+- ✅ trending sort, share button, YT Music hand-off,
+  playlist bulk-import (R23b), embed mode
 
 ## Common UX patterns (piku-inspired)
 
@@ -222,7 +222,7 @@ embeddable on Reddit / DC Inside / Twitter.
 | **Embeddable iframe** | ✅ | `/worldcup/community/[id]/embed` + EmbedCodeButton |
 | **Community pulse on home (totals + top champions)** | ✅ | `/worldcup` `CommunityStatsBar` (R23a) |
 | **Inline trending row on home** | ✅ | `/worldcup` `TrendingCommunityRow` (R23a) |
-| **Bulk-import from YT playlist** | ❌ | TODO for community — needs YT Data API key |
+| **Bulk-import from YT playlist** | ✅ | `/api/worldcup/community/resolve-playlist` + import panel in CreateForm (R23b) |
 
 ## Anti-goals (deliberately NOT doing)
 

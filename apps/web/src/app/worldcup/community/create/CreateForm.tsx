@@ -34,6 +34,97 @@ export function CreateForm({ locale }: { locale: Locale }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ── YT playlist bulk-import panel ─────────────────────────────────
+  // Optional UI: paste a playlist URL → POST /api/.../resolve-playlist
+  // → render the resolved items inline as a checkboxed preview → user
+  // clicks "Fill into rows" to copy the picked videoIds into `rows`
+  // (and oEmbed thumbnails into `covers`, since the playlist API gives
+  // us thumbnails for free and we'd otherwise re-fetch them server-
+  // side at create time). Kept collapsed by default so the basic path
+  // (paste 16 URLs by hand) stays uncluttered.
+  const [importOpen, setImportOpen] = useState(false);
+  const [importUrl, setImportUrl] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  interface ImportItem {
+    videoId: string;
+    title: string;
+    channelTitle: string | null;
+    thumbnailUrl: string | null;
+  }
+  const [importItems, setImportItems] = useState<ImportItem[]>([]);
+  const [importPicked, setImportPicked] = useState<Set<string>>(new Set());
+
+  async function runImport() {
+    if (!importUrl.trim() || importBusy) return;
+    setImportBusy(true);
+    setImportError(null);
+    setImportItems([]);
+    setImportPicked(new Set());
+    try {
+      const res = await fetch("/api/worldcup/community/resolve-playlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      });
+      const d = (await res.json()) as {
+        ok?: boolean;
+        items?: ImportItem[];
+        error?: string;
+      };
+      if (!res.ok || !d.ok || !Array.isArray(d.items)) {
+        setImportError(d.error ?? `HTTP ${res.status}`);
+        setImportBusy(false);
+        return;
+      }
+      setImportItems(d.items);
+      // Pre-pick the first `size` items so the user can hit "Fill" in
+      // one click for the common "use the top N from this playlist"
+      // case. They can still toggle individual checkboxes after.
+      const preset = new Set<string>();
+      for (const it of d.items.slice(0, size)) preset.add(it.videoId);
+      setImportPicked(preset);
+    } catch (e) {
+      setImportError(String(e));
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  function fillFromImport() {
+    if (importItems.length === 0) return;
+    // Maintain the playlist's original order; drop unpicked items.
+    const picked = importItems.filter((it) => importPicked.has(it.videoId));
+    if (picked.length === 0) {
+      setImportError(ko ? "1개 이상 골라 주세요." : "Pick at least one.");
+      return;
+    }
+    // Snap bracket size to the largest power-of-2 ≤ picked count so
+    // the user doesn't see "12 / 16" after import. If the user picked
+    // more than 32 we truncate to 32 (the form's max).
+    const POW2 = [4, 8, 16, 32] as const;
+    let nextSize: (typeof POW2)[number] = 4;
+    for (const s of POW2) if (picked.length >= s) nextSize = s;
+    // Apply size first so the row arrays resize, then fill them.
+    setSize(nextSize);
+    const usedRows = Array(nextSize).fill("") as string[];
+    const usedCovers = Array(nextSize).fill("") as string[];
+    for (let i = 0; i < nextSize; i++) {
+      const it = picked[i];
+      if (!it) break;
+      usedRows[i] = `https://www.youtube.com/watch?v=${it.videoId}`;
+      // Forward the thumbnail too — saves one oEmbed roundtrip per
+      // item on the server side at create time.
+      if (it.thumbnailUrl) usedCovers[i] = it.thumbnailUrl;
+    }
+    setRows(usedRows);
+    setCovers(usedCovers);
+    // If thumbnails came through, flip on advanced mode so the user
+    // can see they've been pre-filled (and can still wipe them).
+    if (usedCovers.some(Boolean)) setAdvanced(true);
+    setImportOpen(false);
+  }
+
   function setSizeAndResize(n: (typeof SIZES)[number]) {
     setSize(n);
     setRows((cur) => {
@@ -196,6 +287,140 @@ export function CreateForm({ locale }: { locale: Locale }) {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* YT playlist bulk-import — collapsed by default; opens an
+          inline panel where the user can paste a playlist URL, see
+          the resolved videos with checkboxes, and copy the selection
+          into the URL rows in one click. */}
+      <div className="flex flex-col gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-3">
+        <button
+          type="button"
+          onClick={() => setImportOpen((v) => !v)}
+          className="flex items-center justify-between gap-2 text-left text-xs"
+        >
+          <span className="font-semibold text-emerald-200">
+            {ko ? "📋 유튜브 플리에서 가져오기" : "📋 Import from YouTube playlist"}
+          </span>
+          <span className="text-neutral-500">{importOpen ? "▾" : "▸"}</span>
+        </button>
+        {importOpen && (
+          <div className="flex flex-col gap-2">
+            <p className="text-[11px] leading-snug text-neutral-400">
+              {ko
+                ? "공개 / 미공개(unlisted) 플리만 가능. 개인 '좋아요'·'나중에 볼 동영상'은 YouTube가 외부 API로 못 열어요."
+                : "Public or unlisted playlists only. Your personal Liked / Watch Later lists are off-limits to third-party API access."}
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                placeholder="https://www.youtube.com/playlist?list=…"
+                className="flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 py-1.5 text-xs focus:border-emerald-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => void runImport()}
+                disabled={!importUrl.trim() || importBusy}
+                className="shrink-0 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {importBusy
+                  ? ko ? "가져오는 중…" : "Loading…"
+                  : ko ? "불러오기" : "Load"}
+              </button>
+            </div>
+            {importError && (
+              <p className="rounded-md border border-rose-500/30 bg-rose-950/30 px-2 py-1.5 text-[11px] text-rose-200">
+                {importError}
+              </p>
+            )}
+            {importItems.length > 0 && (
+              <>
+                <div className="flex flex-wrap items-baseline justify-between gap-2 text-[11px]">
+                  <span className="text-neutral-400">
+                    {ko
+                      ? `총 ${importItems.length}개 · ${importPicked.size}개 선택됨`
+                      : `${importItems.length} videos · ${importPicked.size} picked`}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImportPicked(
+                          new Set(importItems.map((it) => it.videoId)),
+                        )
+                      }
+                      className="text-neutral-500 hover:text-emerald-300"
+                    >
+                      {ko ? "전체 선택" : "Select all"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportPicked(new Set())}
+                      className="text-neutral-500 hover:text-rose-300"
+                    >
+                      {ko ? "전체 해제" : "Clear"}
+                    </button>
+                  </div>
+                </div>
+                <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto rounded-md border border-neutral-800 bg-black/30 p-1">
+                  {importItems.map((it) => {
+                    const picked = importPicked.has(it.videoId);
+                    return (
+                      <li key={it.videoId}>
+                        <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 hover:bg-white/5">
+                          <input
+                            type="checkbox"
+                            checked={picked}
+                            onChange={() => {
+                              setImportPicked((cur) => {
+                                const next = new Set(cur);
+                                if (next.has(it.videoId)) next.delete(it.videoId);
+                                else next.add(it.videoId);
+                                return next;
+                              });
+                            }}
+                            className="accent-emerald-500"
+                          />
+                          {it.thumbnailUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={it.thumbnailUrl}
+                              alt=""
+                              className="h-8 w-12 shrink-0 rounded object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="h-8 w-12 shrink-0 rounded bg-neutral-800" />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[11px] text-neutral-100">
+                              {it.title}
+                            </span>
+                            {it.channelTitle && (
+                              <span className="block truncate text-[10px] text-neutral-500">
+                                {it.channelTitle}
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <button
+                  type="button"
+                  onClick={fillFromImport}
+                  disabled={importPicked.size === 0}
+                  className="self-start rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {ko ? "URL 칸에 채우기" : "Fill into rows"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* YT URL rows */}

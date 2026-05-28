@@ -17,6 +17,7 @@
   //   wrangler secret put AUTH_GOOGLE_SECRET
   //   wrangler secret put LASTFM_API_KEY
   //   wrangler secret put GEMINI_API_KEY
+  //   wrangler secret put YT_DATA_API_KEY  (public-data only; HTTP-referrer restricted)
   // Only non-sensitive values belong in vars.
   "vars": {
     "AUTH_URL": "https://earprint.kwanho.dev",
