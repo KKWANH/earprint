@@ -78,6 +78,29 @@ export default async function GenrePage({
         </Link>
       </div>
 
+      {/* Cover image (when curated) — full-bleed 16:9 panel above
+          the gradient hero. Uses a hand-picked representative shot
+          (Wikimedia Commons / press kit) rather than an API-fed
+          stock image, so the page feels editorial rather than
+          algorithmic. Credit renders below the image. Hidden
+          completely when content.coverImage is absent. */}
+      {content?.coverImage && (
+        <figure className="flex flex-col gap-1.5">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-neutral-900">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={content.coverImage.url}
+              alt={content.coverImage.alt}
+              className="aspect-[16/9] w-full object-cover"
+              loading="lazy"
+            />
+          </div>
+          <figcaption className="text-right text-[10px] text-neutral-600">
+            {content.coverImage.credit}
+          </figcaption>
+        </figure>
+      )}
+
       {/* Coloured genre banner. When pre-baked content is available
           we use its emoji as a big "cover" and surface era/origin
           chips alongside the library count — gives the page an

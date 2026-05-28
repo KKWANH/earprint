@@ -42,6 +42,27 @@ export interface GenreContent {
    *  banner gradient. Set when the auto-hashed colour for the genre
    *  name happens to clash with the emoji or feels off. */
   accentHue?: number;
+  /** Optional cover image — rendered as a full-bleed 16:9 panel
+   *  above the gradient hero. Use stable hosts (Wikimedia Commons,
+   *  flickr CC, the artist's own band camp / press kit) so the URL
+   *  doesn't rot. NEVER upload to our own storage; we don't want to
+   *  become an image host.
+   *
+   *  Curation rule of thumb: pick a representative *moment* in the
+   *  genre, not a generic stock photo. K-pop = a defining stage shot;
+   *  jazz = Coltrane / Davis at the mic; city pop = an actual 12"
+   *  jacket. The image should make a fan nod, not bore them.
+   *
+   *  Licensing: ONLY images that are CC-licensed, Public Domain, or
+   *  explicit press-kit "OK to use with credit" sources. The `credit`
+   *  string is required and rendered below the image. */
+  coverImage?: {
+    url: string;
+    /** Short descriptive alt text for screen readers + image search. */
+    alt: string;
+    /** "Photo: <author>, CC BY-SA 4.0" or similar. Rendered below the image. */
+    credit: string;
+  };
 }
 
 export const GENRE_CONTENT: Record<string, GenreContent> = {
@@ -56,6 +77,13 @@ export const GENRE_CONTENT: Record<string, GenreContent> = {
     historyKo:
       "1992년 서태지와 아이들이 힙합·록·발라드를 한꺼번에 깨부수며 시작. SM이 만든 아이돌 시스템과 보아 일본 진출, 2세대 소녀시대·원더걸스의 해외 진출, BTS의 글로벌 폭발까지 — 빡센 트레이닝, 칼군무, SNS 활용까지 다 묶은 수출형 산업으로 자리잡음.",
     accentHue: 330,
+    // TODO(cover image): paste a Wikimedia Commons / CC-licensed URL.
+    // Example shape:
+    //   coverImage: {
+    //     url: "https://upload.wikimedia.org/wikipedia/commons/…",
+    //     alt: "BTS performing at the 63rd Annual Grammy Awards",
+    //     credit: "Photo: Recording Academy, CC BY-SA 4.0",
+    //   },
   },
   "j-pop": {
     emoji: "🌸",
