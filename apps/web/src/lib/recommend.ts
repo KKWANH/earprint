@@ -331,25 +331,29 @@ export async function generateRecommendations(
   }
 
   // ── resolve Deezer in small chunks (cover, preview, rank) ──
-  // Chunked + spaced so we stay well under Deezer's rate limit AND
-  // Cloudflare Workers' per-invocation subrequest cap (50 free / 1000 paid).
-  // Each cold-cache searchDeezer burns 3-4 subrequests (cache SELECT +
-  // 1-2 HTTP searches + cache INSERT); the previous slice of 20-50 could
-  // exhaust the budget on a first-time user before save_recommendations
-  // ever ran. Numbers below intentionally fit inside ~30 subrequests of
-  // Deezer work so the rest of the invocation (Last.fm pool + final
-  // save_recommendations) has headroom.
-  const TARGET = 8;
+  // Chunked + spaced so we stay under Deezer's rate limit AND
+  // Cloudflare Workers' per-invocation subrequest cap. Free tier
+  // is 50/invocation; Workers Paid (our current plan) is 1000 —
+  // headroom for the cold-cache worst case (~20 candidates × 4
+  // subreq each = 80, plus the Last.fm + initial query subrequests
+  // = still well under 1000).
+  //
+  // Numbers below were aggressively cut in R22c when we were tripping
+  // the 50 cap; restored in R24a now that paid is on. The graceful
+  // break on subrequest exhaustion is KEPT — even on paid we want
+  // to fail soft instead of bubbling 500s on the off chance we
+  // touch the ceiling.
+  const TARGET = 12;
   // "indie" (hidden gems) discards most candidates to the popularity filter,
-  // so it needs a slightly larger pool to resolve — but still capped.
-  const slice = filtered.slice(0, mode === "indie" ? 18 : 12);
+  // so it needs a much larger pool to resolve.
+  const slice = filtered.slice(0, mode === "indie" ? 30 : 20);
   const rows: RecRow[] = [];
   const isSubreqError = (e: unknown): boolean => {
     const s = String((e as { message?: string })?.message ?? e ?? "");
     return /too many subrequests/i.test(s) || /subrequest/i.test(s);
   };
-  outer: for (let i = 0; i < slice.length && rows.length < TARGET; i += 4) {
-    const chunk = slice.slice(i, i + 4);
+  outer: for (let i = 0; i < slice.length && rows.length < TARGET; i += 6) {
+    const chunk = slice.slice(i, i + 6);
     let matches: Awaited<ReturnType<typeof searchDeezer>>[];
     try {
       matches = await Promise.all(
@@ -380,7 +384,7 @@ export async function generateRecommendations(
         recType: mode === "indie" ? "indie" : c.recType,
       });
     });
-    if (rows.length < TARGET && i + 4 < slice.length) await sleep(250);
+    if (rows.length < TARGET && i + 6 < slice.length) await sleep(350);
   }
   return rows;
 }
