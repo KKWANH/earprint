@@ -7,27 +7,27 @@ import { getActiveSpotifyConnection, spotifyFetch } from "@/lib/spotify";
 /**
  * POST /api/spotify/sync
  *
- * Pulls the user's Spotify Liked Songs (`/me/tracks`) and appends any
- * new ones into our `tracks` + `user_tracks` tables, mirroring the
- * shape the YT Music extension uses (source='spotify'). Append-only:
- * NEVER deletes a user_tracks row in response to a sync — Earprint
- * is meant to be a permanent listening history, and a Spotify
- * "unlike" doesn't mean the user wants the song to disappear from
- * their Earprint analytics.
+ * Bulk sync entry point. Runs all four Spotify ingestion paths in
+ * sequence inside a single CF Workers invocation:
  *
- * Pagination: /me/tracks returns at most 50 per page. We follow
- * `next` until exhaustion OR until we hit MAX_PAGES (to avoid
- * burning subrequests on a user with 100k+ saved tracks on the
- * first sync — they can re-run to keep going). Subsequent syncs
- * stop early when we encounter a `added_at` we already imported.
+ *   1. /me/tracks                      → user_tracks (source='spotify')
+ *   2. /me/top/tracks (×3 time-ranges) → user_tracks (source='spotify-top')
+ *   3. /me/player/recently-played      → user_plays (source='spotify-recent')
+ *   4. /me/playlists                   → list refresh in spotify_synced_playlists
  *
- * Dedup: per-track uniqueness uses the (artist, title) normalised
- * key already enforced by our tracks table's lower(artist) +
- * lower(title) index. Spotify track ID is stored in track_sources
- * so future endpoints (e.g. "preview Spotify track") can find the
- * canonical row.
+ * Each path is independently try/catch'd so a single failure (e.g.
+ * the user revoked the user-top-read scope) doesn't poison the whole
+ * sync. The summary returned to the client breaks down what worked
+ * vs. what didn't so the UI can surface partial results honestly.
+ *
+ * Append-only across the board. We NEVER delete user_tracks or
+ * user_plays in response to a sync — Earprint is a permanent
+ * listening history; a Spotify unlike doesn't retroactively erase
+ * the fact that the song was once in the user's library.
  */
-const MAX_PAGES = 20; // 50 × 20 = 1000 tracks per sync. Re-run for more.
+const MAX_LIKED_PAGES = 20;     // 50 × 20 = 1000 tracks per sync
+const TOP_TRACKS_LIMIT = 50;    // Max per time-range; 3 ranges × 50 = 150 calls
+const RECENT_LIMIT = 50;        // Spotify hard-caps at 50
 
 interface SpotifyTrack {
   id?: string;
@@ -41,6 +41,75 @@ interface SpotifyTracksPage {
   items?: { added_at?: string; track?: SpotifyTrack | null }[];
   next?: string | null;
   total?: number;
+}
+interface SpotifyTopPage {
+  items?: SpotifyTrack[];
+}
+interface SpotifyRecentlyPlayedPage {
+  items?: { played_at?: string; track?: SpotifyTrack | null }[];
+}
+interface SpotifyPlaylistsPage {
+  items?: {
+    id?: string;
+    name?: string;
+    snapshot_id?: string;
+    tracks?: { total?: number };
+  }[];
+  next?: string | null;
+}
+
+/**
+ * Find-or-create a canonical track row from a Spotify track payload.
+ * Strategy:
+ *   - ISRC match first (cross-platform key)
+ *   - lower(artist) + lower(title) match
+ *   - INSERT if neither
+ * Also records the spotify-side ID in track_sources, so future
+ * sync ticks can short-circuit via the source_id set.
+ *
+ * Returns null when the track payload is invalid (deleted track,
+ * podcast, missing artist).
+ */
+async function resolveOrCreateTrack(
+  sql: ReturnType<typeof getSql>,
+  tr: SpotifyTrack | null | undefined,
+): Promise<string | null> {
+  if (!tr || !tr.id || !tr.name) return null;
+  const artist = tr.artists?.[0]?.name?.trim();
+  if (!artist) return null;
+  let trackId: string | null = null;
+  if (tr.external_ids?.isrc) {
+    const r = await sql`
+      SELECT id::text AS id FROM tracks WHERE isrc = ${tr.external_ids.isrc} LIMIT 1`;
+    if (r.length > 0) trackId = r[0]!.id as string;
+  }
+  if (!trackId) {
+    const r = await sql`
+      SELECT id::text AS id FROM tracks
+      WHERE lower(artist) = ${artist.toLowerCase()}
+        AND lower(title) = ${tr.name.toLowerCase()}
+      LIMIT 1`;
+    if (r.length > 0) trackId = r[0]!.id as string;
+  }
+  if (!trackId) {
+    const r = await sql`
+      INSERT INTO tracks (title, artist, album, duration_ms, isrc)
+      VALUES (
+        ${tr.name},
+        ${artist},
+        ${tr.album?.name ?? null},
+        ${tr.duration_ms ?? null},
+        ${tr.external_ids?.isrc ?? null}
+      )
+      RETURNING id::text AS id`;
+    trackId = r[0]!.id as string;
+  }
+  // Idempotent source mapping.
+  await sql`
+    INSERT INTO track_sources (track_id, source, source_id, raw_title, raw_artist)
+    VALUES (${trackId}::uuid, 'spotify', ${tr.id}, ${tr.name}, ${artist})
+    ON CONFLICT (source, source_id) DO NOTHING`;
+  return trackId;
 }
 
 export async function POST() {
@@ -57,134 +126,136 @@ export async function POST() {
   }
 
   const sql = getSql();
-  // Pull the set of Spotify source_ids already imported for this user
-  // so we can skip them quickly. This is a single read; for a 1k-track
-  // library it's a few KB over the wire.
-  let alreadyHaveSpotifyIds: Set<string>;
+  const result = {
+    liked:        { added: 0, scanned: 0, more: false, error: null as string | null },
+    top:          { added: 0, scanned: 0, error: null as string | null },
+    recent:       { added: 0, scanned: 0, error: null as string | null },
+    playlists:    { count: 0, error: null as string | null },
+  };
+
+  // ── 1. Liked Songs ──────────────────────────────────────────────
   try {
     const existing = await sql`
       SELECT ts.source_id
       FROM user_tracks ut
       JOIN track_sources ts ON ts.track_id = ut.track_id
-      WHERE ut.user_id = ${userId}::uuid
-        AND ts.source = 'spotify'`;
-    alreadyHaveSpotifyIds = new Set(
-      existing.map((r) => r.source_id as string),
-    );
-  } catch (e) {
-    console.error("[spotify-sync] dedup query failed:", e);
-    alreadyHaveSpotifyIds = new Set();
-  }
-
-  let added = 0;
-  let skipped = 0;
-  let scanned = 0;
-  let nextUrl: string | null = "/me/tracks?limit=50";
-  let pages = 0;
-
-  try {
-    while (nextUrl && pages < MAX_PAGES) {
+      WHERE ut.user_id = ${userId}::uuid AND ts.source = 'spotify'`;
+    const seen = new Set(existing.map((r) => r.source_id as string));
+    let nextUrl: string | null = "/me/tracks?limit=50";
+    let pages = 0;
+    while (nextUrl && pages < MAX_LIKED_PAGES) {
       const page: SpotifyTracksPage = await spotifyFetch(conn.accessToken, nextUrl);
       const items = page.items ?? [];
       for (const it of items) {
-        scanned++;
+        result.liked.scanned++;
         const tr = it.track;
-        if (!tr || !tr.id || !tr.name) continue;
-        const artist = tr.artists?.[0]?.name?.trim();
-        if (!artist) continue;
-        if (alreadyHaveSpotifyIds.has(tr.id)) {
-          skipped++;
-          continue;
-        }
-
-        // Find-or-create the canonical track row. Match strategy: ISRC
-        // first (most reliable cross-platform key), fall back to a
-        // case-insensitive (artist, title) lookup (matches how the
-        // YT Music extension's tracks get deduplicated).
-        let trackId: string | null = null;
-        if (tr.external_ids?.isrc) {
-          const r = await sql`
-            SELECT id::text AS id FROM tracks
-            WHERE isrc = ${tr.external_ids.isrc}
-            LIMIT 1`;
-          if (r.length > 0) trackId = r[0]!.id as string;
-        }
-        if (!trackId) {
-          const r = await sql`
-            SELECT id::text AS id FROM tracks
-            WHERE lower(artist) = ${artist.toLowerCase()}
-              AND lower(title) = ${tr.name.toLowerCase()}
-            LIMIT 1`;
-          if (r.length > 0) trackId = r[0]!.id as string;
-        }
-        if (!trackId) {
-          const r = await sql`
-            INSERT INTO tracks (title, artist, album, duration_ms, isrc)
-            VALUES (
-              ${tr.name},
-              ${artist},
-              ${tr.album?.name ?? null},
-              ${tr.duration_ms ?? null},
-              ${tr.external_ids?.isrc ?? null}
-            )
-            RETURNING id::text AS id`;
-          trackId = r[0]!.id as string;
-        }
-
-        // Record the Spotify source_id mapping. ON CONFLICT (source,
-        // source_id) DO NOTHING handles the race where two parallel
-        // syncs see the same id (unlikely; sync is single-button).
-        await sql`
-          INSERT INTO track_sources (track_id, source, source_id, raw_title, raw_artist)
-          VALUES (${trackId}::uuid, 'spotify', ${tr.id}, ${tr.name}, ${artist})
-          ON CONFLICT (source, source_id) DO NOTHING`;
-
-        // Like-row. PRIMARY KEY (user_id, track_id) means a track
-        // already liked via YT Music doesn't double-insert — we just
-        // skip. liked_at is added_at from Spotify (when they hit
-        // ❤ in Spotify); captured_at is now() (when WE saw it).
-        const addedAtIso = it.added_at ?? null;
+        if (!tr?.id || seen.has(tr.id)) continue;
+        const trackId = await resolveOrCreateTrack(sql, tr);
+        if (!trackId) continue;
         await sql`
           INSERT INTO user_tracks (user_id, track_id, source, liked_at)
           VALUES (
             ${userId}::uuid, ${trackId}::uuid, 'spotify',
-            ${addedAtIso ? `${addedAtIso}` : null}
+            ${it.added_at ?? null}
           )
           ON CONFLICT (user_id, track_id) DO NOTHING`;
-
-        alreadyHaveSpotifyIds.add(tr.id);
-        added++;
+        seen.add(tr.id);
+        result.liked.added++;
       }
       nextUrl = page.next ?? null;
       pages++;
     }
+    result.liked.more = pages >= MAX_LIKED_PAGES && nextUrl != null;
   } catch (e) {
     const status = (e as { status?: number })?.status;
     if (status === 401) {
-      // Token genuinely revoked — connection helper already wrote a
-      // refresh attempt back. Surface to UI so it re-prompts.
       return json({ error: "spotify auth expired — please reconnect" }, 401);
     }
-    console.error("[spotify-sync] mid-sync error:", e);
-    return json({ error: "sync failed", added, skipped, scanned }, 500);
+    result.liked.error = String((e as { message?: string })?.message ?? e);
   }
 
-  // Stamp last_synced_at — used by the UI to render "Last synced 3
-  // minutes ago" and to gate the visible "Sync now" cooldown if we
-  // ever add one.
+  // ── 2. Top tracks (3 time-ranges combined) ──────────────────────
+  // user-top-read may be denied by users who don't want us to see
+  // their listening habits; one failed call shouldn't tank the rest.
+  try {
+    const ranges = ["long_term", "medium_term", "short_term"] as const;
+    for (const range of ranges) {
+      const page: SpotifyTopPage = await spotifyFetch(
+        conn.accessToken,
+        `/me/top/tracks?limit=${TOP_TRACKS_LIMIT}&time_range=${range}`,
+      );
+      const items = page.items ?? [];
+      for (const tr of items) {
+        result.top.scanned++;
+        const trackId = await resolveOrCreateTrack(sql, tr);
+        if (!trackId) continue;
+        // Insert with source='spotify-top' but ON CONFLICT DO NOTHING
+        // keeps a Liked-song row's source='spotify'. Either way, the
+        // track is in user_tracks for analysis to pick up.
+        const r = await sql`
+          INSERT INTO user_tracks (user_id, track_id, source, liked_at)
+          VALUES (${userId}::uuid, ${trackId}::uuid, 'spotify-top', NULL)
+          ON CONFLICT (user_id, track_id) DO NOTHING
+          RETURNING 1`;
+        if (r.length > 0) result.top.added++;
+      }
+    }
+  } catch (e) {
+    result.top.error = String((e as { message?: string })?.message ?? e);
+  }
+
+  // ── 3. Recently played (user_plays journal) ─────────────────────
+  // /me/player/recently-played hard-caps at 50; we accept the cap and
+  // sync more on subsequent runs as the user listens.
+  try {
+    const page: SpotifyRecentlyPlayedPage = await spotifyFetch(
+      conn.accessToken,
+      `/me/player/recently-played?limit=${RECENT_LIMIT}`,
+    );
+    const items = page.items ?? [];
+    for (const it of items) {
+      result.recent.scanned++;
+      if (!it.track || !it.played_at) continue;
+      const trackId = await resolveOrCreateTrack(sql, it.track);
+      if (!trackId) continue;
+      // PRIMARY KEY (user_id, track_id, played_at) means duplicates
+      // (same track, exact same play time) just no-op. Two separate
+      // plays at different times each get their own row.
+      const r = await sql`
+        INSERT INTO user_plays (user_id, track_id, played_at, source)
+        VALUES (
+          ${userId}::uuid, ${trackId}::uuid,
+          ${it.played_at}::timestamptz, 'spotify-recent'
+        )
+        ON CONFLICT DO NOTHING
+        RETURNING 1`;
+      if (r.length > 0) result.recent.added++;
+    }
+  } catch (e) {
+    result.recent.error = String((e as { message?: string })?.message ?? e);
+  }
+
+  // ── 4. Playlists (just refresh the listing — content sync is
+  //     gated behind explicit per-playlist opt-in via /sync-playlist) ─
+  try {
+    const page: SpotifyPlaylistsPage = await spotifyFetch(
+      conn.accessToken,
+      "/me/playlists?limit=50",
+    );
+    result.playlists.count = page.items?.length ?? 0;
+    // Note: we DO NOT insert into spotify_synced_playlists here. That
+    // table tracks playlists the user opted INTO syncing; this call
+    // is just confirming we have read access. The picker UI hits
+    // /api/spotify/playlists separately when the user opens it.
+  } catch (e) {
+    result.playlists.error = String((e as { message?: string })?.message ?? e);
+  }
+
+  // Stamp last_synced_at.
   await sql`
     UPDATE spotify_connections
        SET last_synced_at = now()
      WHERE user_id = ${userId}::uuid`;
 
-  return json(
-    {
-      ok: true,
-      added,
-      skipped,
-      scanned,
-      reachedMaxPages: pages >= MAX_PAGES && nextUrl != null,
-    },
-    200,
-  );
+  return json({ ok: true, ...result }, 200);
 }

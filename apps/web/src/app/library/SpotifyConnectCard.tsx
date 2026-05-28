@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
+import { SpotifyPlaylistPicker } from "./SpotifyPlaylistPicker";
 
 /**
  * Client widget for the Spotify side of the library page. Three
@@ -84,12 +85,22 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
     setResult(null);
     try {
       const res = await fetch("/api/spotify/sync", { method: "POST" });
+      // R27a expanded the sync result shape from a single liked-songs
+      // summary into a 4-section breakdown (liked + top + recent +
+      // playlist count). Surface them in the toast so the user can
+      // see what worked even if one path failed.
+      interface SyncSection {
+        added?: number;
+        scanned?: number;
+        more?: boolean;
+        error?: string | null;
+      }
       const d = (await res.json()) as {
         ok?: boolean;
-        added?: number;
-        skipped?: number;
-        scanned?: number;
-        reachedMaxPages?: boolean;
+        liked?: SyncSection;
+        top?: SyncSection;
+        recent?: SyncSection;
+        playlists?: { count?: number; error?: string | null };
         error?: string;
       };
       if (!res.ok || !d.ok) {
@@ -97,17 +108,18 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
         setBusy(null);
         return;
       }
-      const added = d.added ?? 0;
-      const scanned = d.scanned ?? 0;
-      const more = d.reachedMaxPages
+      const liked = d.liked?.added ?? 0;
+      const top = d.top?.added ?? 0;
+      const recent = d.recent?.added ?? 0;
+      const more = d.liked?.more
         ? ko
           ? " (더 가져올 게 있어요 — 다시 누르면 이어서)"
-          : " (more to fetch — click again to continue)"
+          : " (more liked songs — click again to continue)"
         : "";
       setResult(
         ko
-          ? `${added}곡 추가 · ${scanned}곡 검사${more}`
-          : `+${added} new of ${scanned} scanned${more}`,
+          ? `좋아요 ${liked}곡 · TOP ${top}곡 · 최근재생 ${recent}곡${more}`
+          : `${liked} liked · ${top} top · ${recent} recent${more}`,
       );
       // Refresh server data so the per-user stats pick up the new rows.
       router.refresh();
@@ -236,6 +248,9 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
           {error}
         </p>
       )}
+      {/* Playlist picker — lazy-loads its data on expand so we don't
+          hit /me/playlists on every /library render. R27b. */}
+      <SpotifyPlaylistPicker ko={ko} />
     </section>
   );
 }

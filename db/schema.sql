@@ -157,6 +157,44 @@ CREATE TABLE IF NOT EXISTS spotify_connections (
 CREATE INDEX IF NOT EXISTS idx_spotify_connections_synced
   ON spotify_connections (last_synced_at DESC NULLS LAST);
 
+-- ── Play history (R27a) — per-track listening events ─────────────
+-- Distinct from user_tracks (which holds LIKES). Spotify's
+-- /me/player/recently-played returns up to 50 most-recent plays,
+-- including duplicates if the user replayed; we keep each as its
+-- own row keyed by (user_id, track_id, played_at). UNIQUE
+-- constraint defeats the common case where two syncs happen close
+-- together and the API returns the same plays twice.
+--
+-- 'source' is the platform identifier (currently always
+-- 'spotify-recent'; reserved for YT Music play-history if we ever
+-- ingest it). Useful for downstream queries that want to attribute
+-- plays to a specific source.
+CREATE TABLE IF NOT EXISTS user_plays (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  track_id   UUID NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+  played_at  TIMESTAMPTZ NOT NULL,
+  source     TEXT NOT NULL DEFAULT 'spotify-recent',
+  PRIMARY KEY (user_id, track_id, played_at)
+);
+CREATE INDEX IF NOT EXISTS idx_user_plays_user_time
+  ON user_plays (user_id, played_at DESC);
+
+-- ── Spotify playlist sync state (R27b) ──────────────────────────
+-- Tracks which Spotify playlists the user opted to sync. Items in
+-- a synced playlist get appended into user_tracks with
+-- source='spotify-playlist'. Re-sync uses the snapshot_id from
+-- Spotify so we skip work when the playlist hasn't changed.
+CREATE TABLE IF NOT EXISTS spotify_synced_playlists (
+  user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  playlist_id    TEXT NOT NULL,
+  name           TEXT,
+  snapshot_id    TEXT,
+  last_synced_at TIMESTAMPTZ,
+  PRIMARY KEY (user_id, playlist_id)
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_synced_playlists_user
+  ON spotify_synced_playlists (user_id);
+
 -- ── Tracks (globally shared canonical) ────────────────
 CREATE TABLE IF NOT EXISTS tracks (
   id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
