@@ -109,8 +109,11 @@ export async function generateMetadata({
   return {
     title: `@${handle} — Earprint`,
     description: `Worldcups made by @${handle}`,
+    // OG image lives at opengraph-image.tsx adjacent — Next.js
+    // auto-attaches it, but bumping the card to summary_large_image
+    // makes Twitter render it at full width.
     openGraph: { title: `@${handle} on Earprint`, type: "profile" },
-    twitter: { card: "summary" },
+    twitter: { card: "summary_large_image" },
   };
 }
 

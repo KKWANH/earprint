@@ -6,10 +6,11 @@ import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { worldcupDict } from "@/lib/i18n/worldcup";
 import { WORLDCUP_SIZES, type WorldcupCategory } from "@/lib/worldcup";
-import { loadCommunityHomeData } from "@/lib/community-stats";
+import { loadCommunityHomeData, loadMyWorldcups } from "@/lib/community-stats";
 import { InProgressCard } from "./InProgressCard";
 import { CommunityStatsBar } from "./CommunityStatsBar";
 import { TrendingCommunityRow } from "./TrendingCommunityRow";
+import { MyWorldcupsRow } from "./MyWorldcupsRow";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = worldcupDict(await getLocale());
@@ -156,6 +157,14 @@ async function renderWorldcupHome() {
   ]);
   const { stats: communityStats, trending: communityTrending } =
     await communityHomePromise;
+  // R27h — pull the signed-in user's own community worldcups so we
+  // can render a "📌 내가 만든" row when they have any. Best-effort:
+  // catch swallows so a failure here never blocks the home page.
+  const myWorldcups = await loadMyWorldcups(userId, 4).catch(() => []);
+  // Email local-part = the public handle for the "전체 보기 →" link.
+  const ownerHandle =
+    (session?.user?.email ?? "").split("@")[0]?.toLowerCase().trim() ||
+    null;
   // `forgotten` draws from the older half of the library, so it
   // effectively halves the available pool — gate it at 2× the smallest
   // bracket so the picker doesn't offer something that will return
@@ -217,6 +226,15 @@ async function renderWorldcupHome() {
           /worldcup/community?sort=trending so what surfaces here is
           consistent with the dedicated list page. */}
       <TrendingCommunityRow trending={communityTrending} locale={locale} />
+
+      {/* User's own community worldcups (R27h). Hidden when the
+          user hasn't created any — the upstream loadMyWorldcups
+          returns []. */}
+      <MyWorldcupsRow
+        items={myWorldcups}
+        locale={locale}
+        ownerHandle={ownerHandle}
+      />
 
       {/* "Continue where you left off" — scans localStorage for any
           saved-in-progress brackets and surfaces them as amber resume

@@ -52,6 +52,61 @@ export interface TrendingBracket {
 }
 
 /**
+ * Loads up to N of the signed-in user's own community worldcups —
+ * surfaced on /worldcup home as a "📌 내가 만든" strip so creators
+ * can see their own catalogue at a glance without navigating to
+ * /u/<handle>. Returns [] when the user has no worldcups or no auth.
+ */
+export async function loadMyWorldcups(
+  userId: string | null,
+  limit = 4,
+): Promise<TrendingBracket[]> {
+  if (!userId) return [];
+  const sql = getSql();
+  try {
+    const rows = await sql`
+      SELECT w.id::text AS id, w.title, w.description,
+             w.play_count AS "playCount",
+             (SELECT count(*)::int FROM community_worldcup_items i
+                WHERE i.worldcup_id = w.id) AS "itemCount"
+      FROM community_worldcups w
+      WHERE w.owner_user_id = ${userId}::uuid
+      ORDER BY w.created_at DESC
+      LIMIT ${limit}`;
+    return await Promise.all(
+      rows.map(async (r) => {
+        let previews: TrendingBracket["previews"] = [];
+        try {
+          const itemRows = await sql`
+            SELECT thumbnail_url AS "thumbnailUrl", title
+            FROM community_worldcup_items
+            WHERE worldcup_id = ${r.id}::uuid
+            ORDER BY position ASC
+            LIMIT 4`;
+          previews = itemRows.map((it) => ({
+            thumbnailUrl: (it.thumbnailUrl as string | null) ?? null,
+            title: it.title as string,
+          }));
+        } catch {
+          /* leave empty */
+        }
+        return {
+          id: r.id as string,
+          title: r.title as string,
+          description: (r.description as string | null) ?? null,
+          playCount: Number(r.playCount ?? 0),
+          itemCount: Number(r.itemCount ?? 0),
+          previews,
+        };
+      }),
+    );
+  } catch (e) {
+    console.error("[community-stats] loadMyWorldcups failed:", e);
+    return [];
+  }
+}
+
+/**
  * Two-row data for /worldcup home. We don't paginate — the trending
  * strip shows exactly 3 brackets (so the layout stays a single row at
  * sm:grid-cols-3) and the stats strip is a single inline line.

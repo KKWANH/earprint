@@ -21,6 +21,7 @@ import { libraryDict } from "@/lib/i18n/library";
 import { profileDict } from "@/lib/i18n/profile";
 import type { Locale } from "@/lib/i18n";
 import { CHROME_WEB_STORE_URL } from "@/lib/constants";
+import { loadRecentPlays } from "@/lib/recentPlays";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = libraryDict(await getLocale());
@@ -54,6 +55,10 @@ export default async function LibraryPage({
 
   const { userId } = await requireOnboarded();
   const sql = getSql();
+  // Recent plays (R27g) — populated by Spotify's /me/player/recently-
+  // played sync. Returns null when there are zero plays in the last
+  // 7d, which is the common case for non-Spotify users.
+  const recentPlaysPromise = loadRecentPlays(userId);
   // Search + page come from URL — the form below uses method=GET so a
   // bookmarked / shared URL keeps the user on the same page of the same
   // query. Parse defensively (empty string → undefined, NaN page → 1).
@@ -64,10 +69,11 @@ export default async function LibraryPage({
   // surface the share UI when one already exists, so the user doesn't
   // see a "share my analysis" button before they've actually run an
   // analysis. Cheap one-column SELECT.
-  const [stats, tracksPage, shareRow] = await Promise.all([
+  const [stats, tracksPage, shareRow, recentPlays] = await Promise.all([
     getLibraryStats(userId),
     getLibraryTracks(userId, { q, page: pageNum, pageSize: 50 }),
     sql`SELECT share_id FROM taste_profiles WHERE user_id = ${userId}`,
+    recentPlaysPromise,
   ]);
   const shareId = (shareRow[0]?.share_id as string | undefined) ?? null;
   const totalPages = Math.max(1, Math.ceil(tracksPage.total / tracksPage.pageSize));
@@ -134,6 +140,40 @@ export default async function LibraryPage({
           but the Spotify path is still discoverable for cross-source
           users. */}
       <SpotifyConnectCard locale={locale} />
+
+      {/* Recent plays rollup (R27g) — only renders when user_plays
+          has at least one row in the last 7d. The "0 plays" zero
+          state would be confusing for users who haven't connected
+          Spotify (we'd show a card that needs a feature they don't
+          know about), so we hide instead. */}
+      {recentPlays && (
+        <section className="flex flex-col gap-3 rounded-2xl border border-sky-500/20 bg-sky-950/15 p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold text-sky-200">
+              {locale === "ko" ? "🎧 최근 7일 재생" : "🎧 Last 7 days"}
+            </h2>
+            <span className="text-[11px] text-neutral-500">
+              {locale === "ko"
+                ? `${recentPlays.weekTotal.toLocaleString()}회 · 곡 ${recentPlays.distinctTracks.toLocaleString()}개`
+                : `${recentPlays.weekTotal.toLocaleString()} plays · ${recentPlays.distinctTracks.toLocaleString()} distinct`}
+            </span>
+          </div>
+          {recentPlays.topArtists.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {recentPlays.topArtists.map((a) => (
+                <Link
+                  key={a.artist}
+                  href={`/artist/${encodeURIComponent(a.artist)}`}
+                  className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] text-sky-100 hover:bg-sky-500/20"
+                >
+                  <span className="max-w-[14ch] truncate">{a.artist}</span>
+                  <span className="text-sky-300/70">×{a.plays}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {shareId ? (
         <section className="flex flex-col gap-3 rounded-xl border border-emerald-900/50 bg-neutral-900 p-6">
