@@ -6,7 +6,10 @@ import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { worldcupDict } from "@/lib/i18n/worldcup";
 import { WORLDCUP_SIZES, type WorldcupCategory } from "@/lib/worldcup";
+import { loadCommunityHomeData } from "@/lib/community-stats";
 import { InProgressCard } from "./InProgressCard";
+import { CommunityStatsBar } from "./CommunityStatsBar";
+import { TrendingCommunityRow } from "./TrendingCommunityRow";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = worldcupDict(await getLocale());
@@ -119,6 +122,16 @@ async function renderWorldcupHome() {
       return 0;
     }
   };
+  // Community home data (stats strip + trending row) runs in parallel
+  // with the per-user counts. Both buckets independently catch on
+  // failure — `safeCount` returns 0, `loadCommunityHomeData` returns
+  // `{ stats: null, trending: [] }`. So even on a half-migrated deploy
+  // we render the rest of the page instead of 500'ing.
+  const communityHomePromise = loadCommunityHomeData().catch((e) => {
+    console.error("[worldcup-home] community data failed:", e);
+    return { stats: null, trending: [] };
+  });
+
   const [libN, recN, genN] = await Promise.all([
     safeCount(
       "user_tracks",
@@ -141,6 +154,8 @@ async function renderWorldcupHome() {
         WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL`,
     ),
   ]);
+  const { stats: communityStats, trending: communityTrending } =
+    await communityHomePromise;
   // `forgotten` draws from the older half of the library, so it
   // effectively halves the available pool — gate it at 2× the smallest
   // bracket so the picker doesn't offer something that will return
@@ -188,6 +203,20 @@ async function renderWorldcupHome() {
           {locale === "ko" ? "커뮤니티" : "Community"}
         </Link>
       </header>
+
+      {/* Community pulse — small inline strip showing total
+          worldcups + plays + top-3 champion items across the whole
+          platform. Hides itself when there's no public activity yet
+          (fresh deploy) so we don't show an awkward "0 worldcups"
+          zero state. */}
+      <CommunityStatsBar stats={communityStats} locale={locale} />
+
+      {/* Trending community brackets — 3 cards above the 3-hero so a
+          returning user sees concrete things to play, not just
+          category navigation. Mirrors the sort logic of
+          /worldcup/community?sort=trending so what surfaces here is
+          consistent with the dedicated list page. */}
+      <TrendingCommunityRow trending={communityTrending} locale={locale} />
 
       {/* "Continue where you left off" — scans localStorage for any
           saved-in-progress brackets and surfaces them as amber resume
