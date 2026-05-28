@@ -8,6 +8,7 @@ import { genreHue } from "@/lib/forceGraph";
 import { getLocale } from "@/lib/i18n-server";
 import { genreDict } from "@/lib/i18n/genre";
 import { getGenreContent } from "@/data/genre-content";
+import { loadRelatedGenres } from "@/lib/relatedGenres";
 import { PreviewButton } from "../../library/PreviewButton";
 import { AboutBox } from "./AboutBox";
 
@@ -50,7 +51,12 @@ export default async function GenrePage({
   }
 
   const { userId } = await requireOnboarded();
-  const d = await getGenreDetail(userId, name);
+  const [d, related] = await Promise.all([
+    getGenreDetail(userId, name),
+    // Related-genres sidebar (R27c). Independent query — failure
+    // returns []; the section just hides when empty.
+    loadRelatedGenres(name).catch(() => []),
+  ]);
   // Pre-baked editorial content (emoji / era / origin / history) lives
   // in apps/web/src/data/genre-content.ts. When a genre isn't covered
   // we fall back to the original behaviour (gradient banner with
@@ -228,6 +234,46 @@ export default async function GenrePage({
                 <PreviewButton deezerId={tr.deezerId} locale={locale} />
               </div>
             ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Related genres (R27c) — merged ranking of three signals:
+          same family (genreDict taxonomy), same era (curated content
+          comparison), and co-occurrence (jsonb keys that appear
+          alongside this one in the analysis table). Each chip carries
+          a title attribute spelling out which signal(s) introduced
+          the suggestion so curious users can see the reasoning. */}
+      {related.length > 0 && (
+        <Section title={locale === "ko" ? "관련 장르" : "Related genres"}>
+          <div className="flex flex-wrap gap-1.5">
+            {related.map((r) => {
+              const reasonLabel = r.reasons
+                .map((x) =>
+                  locale === "ko"
+                    ? x === "family"
+                      ? "같은 패밀리"
+                      : x === "era"
+                        ? "같은 시기"
+                        : "함께 등장"
+                    : x === "family"
+                      ? "same family"
+                      : x === "era"
+                        ? "same era"
+                        : "co-occurs",
+                )
+                .join(" · ");
+              return (
+                <Link
+                  key={r.name}
+                  href={`/genre/${encodeURIComponent(r.name)}`}
+                  title={reasonLabel}
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-300 hover:border-emerald-500/50 hover:text-white"
+                >
+                  {r.name}
+                </Link>
+              );
+            })}
           </div>
         </Section>
       )}

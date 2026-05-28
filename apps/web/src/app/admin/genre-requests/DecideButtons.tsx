@@ -36,11 +36,26 @@ export function DecideButtons({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ decision }),
       });
-      const d = (await res.json()) as { ok?: boolean; error?: string };
+      const d = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        reanalysisQueued?: boolean;
+        reanalysisNuked?: number;
+        createdGenreInfo?: boolean;
+      };
       if (!res.ok || !d.ok) {
         setError(d.error ?? `HTTP ${res.status}`);
         setBusy(null);
         return;
+      }
+      // For accepted reanalysis: alert the admin so they can see the
+      // side-effects happened. router.refresh() also surfaces the
+      // new state, but the inline alert is more visceral for the
+      // common "did anything actually happen?" question.
+      if (d.reanalysisQueued || d.reanalysisNuked) {
+        window.alert(
+          `Reanalysis queued: nuked ${d.reanalysisNuked ?? 0} empty analysis rows for the requester.`,
+        );
       }
       router.refresh();
     } catch (e) {
@@ -75,11 +90,13 @@ export function DecideButtons({
       >
         {busy === "duplicate" ? "..." : "Duplicate"}
       </button>
-      {/* For reanalysis kind, accept is operator action — surface the
-          reminder so the admin knows to actually rerun the pipeline. */}
+      {/* R27e: reanalysis accept now auto-queues a background_jobs
+          row for the requester + nukes empty-genre analysis rows for
+          tracks they have by the named artist. The services/analysis
+          worker picks them up on its next poll (~1 min). */}
       {kind === "reanalysis" && (
-        <span className="self-center text-[10px] text-neutral-500">
-          Accept = mark only. Rerun analysis via services/analysis.
+        <span className="self-center text-[10px] text-emerald-300">
+          Accept = auto-queue services/analysis rerun for the requester.
         </span>
       )}
       {error && (

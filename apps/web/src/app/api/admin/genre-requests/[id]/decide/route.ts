@@ -40,11 +40,13 @@ export async function POST(
 
   const sql = getSql();
   // Snapshot the request row so we know what to do with it after the
-  // status update. SELECT FOR UPDATE would be cleaner but neon's HTTP
-  // driver doesn't run transactions — we accept a tiny race window
-  // here (admin double-clicks decide twice in the same second).
+  // status update. Pull the requester user_id too so the reanalysis
+  // side-effect can scope to their library. SELECT FOR UPDATE would
+  // be cleaner but neon's HTTP driver doesn't run transactions — we
+  // accept a tiny race window here.
   const rows = await sql`
-    SELECT kind, subject, status FROM genre_requests
+    SELECT kind, subject, status, user_id::text AS requester_id
+    FROM genre_requests
     WHERE id = ${id}::uuid LIMIT 1`;
   if (rows.length === 0) return json({ error: "not found" }, 404);
   const r = rows[0]!;
@@ -64,6 +66,8 @@ export async function POST(
   // the existing lazy path. We don't burn a Gemini call here — that
   // happens in the request that actually displays the genre.
   let createdGenreInfo = false;
+  let reanalysisQueued = false;
+  let reanalysisNuked = 0;
   if (decision === "accepted" && r.kind === "catalog") {
     try {
       await sql`
@@ -77,5 +81,66 @@ export async function POST(
     }
   }
 
-  return json({ ok: true, decision, createdGenreInfo }, 200);
+  // 'reanalysis' accept side-effect (R27e): nuke analysis rows for
+  // tracks by the named artist where the requester actually has them
+  // AND the analysis is incomplete (empty genres). Then ensure a
+  // background_jobs row exists with status='running' so the services
+  // /analysis worker picks the user up on its next poll.
+  //
+  // Scoped narrowly:
+  //   - artist match is lower-cased exact (the requester typed it)
+  //   - only rows where the requester has user_tracks for the track
+  //   - only rows whose genres are NULL or {} (so we don't trash
+  //     already-good analyses that just happened to not match this
+  //     artist's expected genre)
+  // This means other users with the same track's analysis are NOT
+  // affected unless their analysis was also empty.
+  const requesterId = (r.requester_id as string | null) ?? null;
+  if (
+    decision === "accepted" &&
+    r.kind === "reanalysis" &&
+    requesterId
+  ) {
+    const artist = (r.subject as string).trim();
+    try {
+      const nuked = await sql`
+        DELETE FROM analysis
+        WHERE track_id IN (
+          SELECT t.id FROM tracks t
+          JOIN user_tracks ut ON ut.track_id = t.id
+          WHERE ut.user_id = ${requesterId}::uuid
+            AND lower(t.artist) = ${artist.toLowerCase()}
+        )
+        AND (
+          genres IS NULL
+          OR jsonb_typeof(genres) = 'null'
+          OR (jsonb_typeof(genres) = 'object' AND genres = '{}'::jsonb)
+        )
+        RETURNING track_id`;
+      reanalysisNuked = nuked.length;
+    } catch (e) {
+      console.error("[genre-request] reanalysis nuke failed:", e);
+    }
+    try {
+      await sql`
+        INSERT INTO background_jobs (user_id, kind, status)
+        VALUES (${requesterId}::uuid, 'analyze', 'running')
+        ON CONFLICT (user_id, kind) DO UPDATE
+          SET status = 'running', updated_at = now()`;
+      reanalysisQueued = true;
+    } catch (e) {
+      console.error("[genre-request] background_jobs enqueue failed:", e);
+    }
+  }
+
+  return json(
+    {
+      ok: true,
+      decision,
+      createdGenreInfo,
+      reanalysisQueued,
+      reanalysisNuked,
+    },
+    200,
+  );
 }
