@@ -142,6 +142,16 @@ export default async function ChampionPage({
           {ko ? "내 월드컵 시작" : "Start your own World Cup"}
         </Link>
       </div>
+      {/* Bracket replay — opens a postmortem view of every pair the
+          user judged across all rounds. Renders the "no replay log
+          saved" state for pre-bracket_path rows so the link is safe
+          to surface unconditionally. */}
+      <Link
+        href={`/worldcup/champion/${id}/replay`}
+        className="text-xs text-neutral-500 hover:text-emerald-300 hover:underline"
+      >
+        {ko ? "전체 대진 리플레이 보기 →" : "View full bracket replay →"}
+      </Link>
     </main>
   );
 }

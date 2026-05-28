@@ -225,6 +225,14 @@ export function Bracket({
   const [winners, setWinners] = useState<Rec[]>(restored?.winners ?? []);
   const [pairIdx, setPairIdx] = useState(restored?.pairIdx ?? 0);
   const [champion, setChampion] = useState<Rec | null>(null);
+  // Full per-pair outcome log — feeds the bracket-replay view via
+  // tournament_results.bracket_path JSONB. Reconstruction is round-
+  // bucketed downstream; here we just append flat. Not persisted to
+  // localStorage to keep the cache small + because a refresh
+  // mid-bracket loses the in-progress runner anyway.
+  const [pairHistory, setPairHistory] = useState<
+    Array<{ round: number; left: Rec; right: Rec; winnerSide: "left" | "right" }>
+  >([]);
   // Server-assigned ID of the persisted champion. Powers the OG share
   // link — the URL `/worldcup/champion/{championId}` has a dedicated
   // OG image rendered by next/og. Null while the save is in flight or
@@ -301,6 +309,20 @@ export function Bracket({
     const nextPairIdx = pairIdx + 1;
     const pairsInRound = bracket.length / 2;
 
+    // Record this pair's outcome for the replay log. left/right
+    // come from the bracket array (deterministic; matches what the
+    // user actually saw on screen). winnerSide is whichever id the
+    // winning Rec matches.
+    const leftCard = bracket[pairIdx * 2]!;
+    const rightCard = bracket[pairIdx * 2 + 1]!;
+    const winnerSide: "left" | "right" =
+      winner.id === leftCard.id ? "left" : "right";
+    const newHistory = [
+      ...pairHistory,
+      { round, left: leftCard, right: rightCard, winnerSide },
+    ];
+    setPairHistory(newHistory);
+
     setCounts((c) => ({
       rated: c.rated + 1,
       likes: c.likes + (loserSoft === "like" ? 1 : 0),
@@ -365,6 +387,7 @@ export function Bracket({
                 size: layout.size,
                 pattern,
                 champion: champ,
+                bracketPath: newHistory,
               }),
             });
             if (res.ok) {
@@ -414,6 +437,7 @@ export function Bracket({
           championId={championId}
           onRestart={restart}
           locale={locale}
+          allCandidates={initial}
         />;
   }
 
@@ -616,11 +640,17 @@ function ChampionView({
   championId,
   onRestart,
   locale,
+  allCandidates,
 }: {
   champion: Rec;
   championId: string | null;
   onRestart: () => void;
   locale: Locale;
+  /** The Rec[] the bracket ran over. Forwarded to the "save as
+   *  community" button so the promote endpoint can resolve YT
+   *  videoIds for each entry. Optional — genre brackets / other
+   *  callers can omit and the button will hide. */
+  allCandidates?: Rec[];
 }) {
   const t = recommendDict(locale);
   return (
@@ -666,6 +696,122 @@ function ChampionView({
           className="rounded-md bg-emerald-500 px-5 py-2 text-sm font-semibold text-black hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
         >
           {t.bracketRestart}
+        </button>
+      </div>
+      {/* Promote the bracket the user just ran into a public community
+          worldcup. Surfaces only when the parent passed allCandidates
+          (built-in / curated trackss do; genre-bracket / community
+          runner skips it — both already are or have no real video
+          mapping). */}
+      {allCandidates && allCandidates.length >= 4 && (
+        <PromoteToCommunityButton
+          candidates={allCandidates}
+          champion={champion}
+          locale={locale}
+        />
+      )}
+    </div>
+  );
+}
+
+/** "Save this bracket to the community" — promotes the current
+ *  bracket's candidate list into a community_worldcups row via
+ *  POST /api/worldcup/promote and redirects the user to the new
+ *  community page on success. The yt-search cache backs the
+ *  videoId resolution so this is usually free of quota cost. */
+function PromoteToCommunityButton({
+  candidates,
+  champion,
+  locale,
+}: {
+  candidates: Rec[];
+  champion: Rec;
+  locale: Locale;
+}) {
+  const ko = locale === "ko";
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(
+    champion.artist
+      ? `${champion.title} vs.${candidates.length}곡`
+      : `${champion.title} 월드컵`,
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    if (busy || !title.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // Strip Rec down to the promote endpoint's expected shape so
+      // the payload stays under the 64 KB body cap even on a 32-
+      // bracket. Drop fields the promote endpoint doesn't read.
+      const slim = candidates.map((c) => ({
+        id: c.id,
+        artist: c.artist,
+        title: c.title,
+        coverUrl: c.coverUrl,
+        ytVideoId: c.ytVideoId,
+      }));
+      const res = await fetch("/api/worldcup/promote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), candidates: slim }),
+      });
+      const d = (await res.json()) as { ok?: boolean; id?: string; error?: string };
+      if (!res.ok || !d.ok || !d.id) {
+        setError(d.error ?? `HTTP ${res.status}`);
+        setBusy(false);
+        return;
+      }
+      window.location.href = `/worldcup/community/${d.id}`;
+    } catch (e) {
+      setError(String(e));
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="self-center text-xs text-neutral-500 hover:text-emerald-300 hover:underline"
+      >
+        {ko ? "📤 이 토너먼트를 커뮤니티에 공개" : "📤 Publish this bracket as a community worldcup"}
+      </button>
+    );
+  }
+  return (
+    <div className="mt-2 flex flex-col gap-2 self-stretch rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 sm:max-w-md sm:self-center">
+      <label className="text-[11px] uppercase tracking-wider text-emerald-300">
+        {ko ? "공개 토너먼트 제목" : "Community worldcup title"}
+      </label>
+      <input
+        type="text"
+        maxLength={120}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
+      />
+      {error && (
+        <p className="rounded-md border border-rose-500/30 bg-rose-950/30 px-2.5 py-1.5 text-[11px] text-rose-200">
+          {error}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button
+          onClick={() => void submit()}
+          disabled={busy || !title.trim()}
+          className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? (ko ? "공개 중…" : "Publishing…") : (ko ? "공개" : "Publish")}
+        </button>
+        <button
+          onClick={() => setOpen(false)}
+          disabled={busy}
+          className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-neutral-300 hover:bg-white/5"
+        >
+          {ko ? "취소" : "Cancel"}
         </button>
       </div>
     </div>

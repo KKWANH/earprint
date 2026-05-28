@@ -25,7 +25,8 @@ export async function POST(req: Request) {
     size?: number;
     pattern?: string;
     champion?: unknown;
-  }>(req, 16 * 1024);
+    bracketPath?: unknown;
+  }>(req, 64 * 1024);
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;
 
@@ -36,13 +37,35 @@ export async function POST(req: Request) {
     return json({ error: "category/size/champion required" }, 400);
   }
 
+  // bracketPath optional: caller may omit (e.g. older clients), or
+  // pass an array of pair outcomes. We accept any JSON-serialisable
+  // value and store as JSONB; downstream replay page interprets the
+  // shape and ignores rows that don't match.
+  const bracketPathJson = body.bracketPath
+    ? JSON.stringify(body.bracketPath)
+    : null;
+
   const sql = getSql();
   try {
-    const rows = await sql`
-      INSERT INTO tournament_results (user_id, category, size, pattern, champion)
-      VALUES (${userId}::uuid, ${category}, ${size}::int, ${pattern},
-              ${JSON.stringify(body.champion)}::jsonb)
-      RETURNING id::text AS id, created_at`;
+    // Try with bracket_path first. If the column doesn't exist yet
+    // (operator hasn't run the migration), fall back to the old
+    // INSERT without it. Champion save still succeeds; replay page
+    // will just have nothing to render for this row.
+    let rows;
+    try {
+      rows = await sql`
+        INSERT INTO tournament_results (user_id, category, size, pattern, champion, bracket_path)
+        VALUES (${userId}::uuid, ${category}, ${size}::int, ${pattern},
+                ${JSON.stringify(body.champion)}::jsonb,
+                ${bracketPathJson}::jsonb)
+        RETURNING id::text AS id, created_at`;
+    } catch {
+      rows = await sql`
+        INSERT INTO tournament_results (user_id, category, size, pattern, champion)
+        VALUES (${userId}::uuid, ${category}, ${size}::int, ${pattern},
+                ${JSON.stringify(body.champion)}::jsonb)
+        RETURNING id::text AS id, created_at`;
+    }
     return json({ ok: true, id: rows[0]?.id, createdAt: rows[0]?.created_at }, 200);
   } catch (e) {
     captureError(e, { tag: "worldcup.save-champion" });
