@@ -114,5 +114,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
        SET play_count = play_count + 1
      WHERE id = ${id}`;
 
+  // R24d: also append to the per-finish event log so the worldcup
+  // home can compute rolling-window stats ("plays in last 7d") without
+  // a separate counter table needing cron maintenance. Wrapped in
+  // try/catch so a deploy that hasn't migrated the new table yet
+  // still records the aggregate counter updates above.
+  try {
+    await sql`
+      INSERT INTO community_worldcup_finishes
+        (worldcup_id, champion_item_id)
+      VALUES (${id}::uuid, ${body.championItemId}::uuid)`;
+  } catch {
+    /* finishes log missing — aggregates still updated, no rollback */
+  }
+
   return json({ ok: true }, 200);
 }

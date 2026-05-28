@@ -7,7 +7,7 @@
 > the community schema, or the BracketCard / GenreCard runners must
 > revisit the "Status" column below.
 >
-> Last updated: 2026-05-28 (R23b)
+> Last updated: 2026-05-28 (R24d)
 
 ## Vision
 
@@ -221,6 +221,7 @@ embeddable on Reddit / DC Inside / Twitter.
 | **Native share on result** | ✅ | `ShareChampionButton` (was shipped earlier; verified) |
 | **Embeddable iframe** | ✅ | `/worldcup/community/[id]/embed` + EmbedCodeButton |
 | **Community pulse on home (totals + top champions)** | ✅ | `/worldcup` `CommunityStatsBar` (R23a) |
+| **Rolling-window plays + creator leaderboard** | ✅ | `community_worldcup_finishes` + `CommunityStatsBar` (R24d) |
 | **Inline trending row on home** | ✅ | `/worldcup` `TrendingCommunityRow` (R23a) |
 | **Bulk-import from YT playlist** | ✅ | `/api/worldcup/community/resolve-playlist` + import panel in CreateForm (R23b) |
 

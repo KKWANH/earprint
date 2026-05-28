@@ -1243,6 +1243,28 @@ CREATE TABLE IF NOT EXISTS community_worldcup_items (
 );
 CREATE INDEX IF NOT EXISTS idx_cwi_worldcup ON community_worldcup_items(worldcup_id);
 
+-- Per-finish event log (R24d) — gives us "plays in the last 7d /
+-- 24h" without storing a windowed counter that would need cron
+-- maintenance. play_count on community_worldcups is still the
+-- canonical aggregate (faster to read); this table is an audit
+-- journal queried only when the worldcup home computes the
+-- rolling-window stats.
+-- No user_id / IP retained — plays are anonymous-by-design and
+-- per-IP abuse is rate-limited at the API layer. champion_item_id
+-- is nullable so the table tolerates a finish for a worldcup whose
+-- items were since deleted (CASCADE on worldcup_id handles the
+-- common case).
+CREATE TABLE IF NOT EXISTS community_worldcup_finishes (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  worldcup_id      UUID NOT NULL REFERENCES community_worldcups(id) ON DELETE CASCADE,
+  champion_item_id UUID,
+  finished_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_cwf_recent
+  ON community_worldcup_finishes (finished_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cwf_worldcup
+  ON community_worldcup_finishes (worldcup_id, finished_at DESC);
+
 -- ─────────────────────────────────────────────────────────────────────────
 -- Data migrations
 -- Run AFTER every CREATE TABLE so a fresh install can apply the whole file

@@ -16,6 +16,11 @@ import { getSql } from "./db";
 export interface CommunityStats {
   totalWorldcups: number;
   totalPlays: number;
+  /** Plays in the last 7 days. Computed from
+   *  community_worldcup_finishes (R24d). Null when that table doesn't
+   *  exist on this deploy yet — the bar then just omits the
+   *  "this week" segment instead of pretending it's zero. */
+  playsThisWeek: number | null;
   /** Items that won the most championships across ALL brackets. */
   topChampions: {
     title: string;
@@ -23,6 +28,16 @@ export interface CommunityStats {
     thumbnailUrl: string | null;
     championCount: number;
     worldcupId: string;
+  }[];
+  /** Users whose worldcups have the most total plays. Aggregated
+   *  from community_worldcups.play_count grouped by owner_user_id;
+   *  doesn't depend on the finishes table. */
+  topCreators: {
+    /** Public-display label — email local-part by default (kwanho0096
+     *  → "kwanho0096"). Truncated upstream to ~12 chars. */
+    handle: string;
+    worldcupCount: number;
+    totalPlays: number;
   }[];
 }
 
@@ -88,9 +103,56 @@ export async function loadCommunityHomeData(): Promise<{
     console.error("[community-stats] top champions query failed:", e);
   }
 
+  // Plays in the last 7 days — independent table; degrades to null
+  // (not 0) when the migration hasn't run, so the display layer can
+  // distinguish "no recent plays" from "feature not yet available".
+  let playsThisWeek: number | null = null;
+  try {
+    const rows = await sql`
+      SELECT count(*)::int AS n
+      FROM community_worldcup_finishes
+      WHERE finished_at > now() - interval '7 days'`;
+    playsThisWeek = Number((rows[0]?.n as number) ?? 0);
+  } catch {
+    /* finishes table not migrated yet — leave null */
+  }
+
+  // Top creators by total plays across their public worldcups. Email
+  // local-part as the public handle (truncated). Excludes deleted-
+  // user (NULL owner) rows. Bounded to 3 — we surface them as inline
+  // chips, not a paginated leaderboard.
+  let topCreators: CommunityStats["topCreators"] = [];
+  try {
+    const rows = await sql`
+      SELECT u.email,
+             count(*)::int AS "worldcupCount",
+             coalesce(sum(w.play_count), 0)::int AS "totalPlays"
+      FROM community_worldcups w
+      JOIN users u ON u.id = w.owner_user_id
+      WHERE w.visibility = 'public'
+      GROUP BY u.id, u.email
+      HAVING coalesce(sum(w.play_count), 0) > 0
+      ORDER BY "totalPlays" DESC, "worldcupCount" DESC
+      LIMIT 3`;
+    topCreators = rows.map((r) => {
+      const email = (r.email as string | null) ?? "";
+      // Keep the handle short — the strip is space-constrained.
+      // local-part only (drop @domain), then cap.
+      const local = email.split("@")[0] ?? "";
+      const handle = local.length > 14 ? `${local.slice(0, 13)}…` : local;
+      return {
+        handle: handle || "anon",
+        worldcupCount: Number(r.worldcupCount ?? 0),
+        totalPlays: Number(r.totalPlays ?? 0),
+      };
+    });
+  } catch (e) {
+    console.error("[community-stats] top creators query failed:", e);
+  }
+
   const stats: CommunityStats | null =
     totalWorldcups > 0
-      ? { totalWorldcups, totalPlays, topChampions }
+      ? { totalWorldcups, totalPlays, playsThisWeek, topChampions, topCreators }
       : null;
 
   // ── Trending brackets (mirror the /community?sort=trending logic) ─
