@@ -331,18 +331,38 @@ export async function generateRecommendations(
   }
 
   // ── resolve Deezer in small chunks (cover, preview, rank) ──
-  // Chunked + spaced so we stay well under Deezer's rate limit — bursts here
-  // were getting the whole Worker IP throttled, breaking playback elsewhere.
-  const TARGET = 12;
+  // Chunked + spaced so we stay well under Deezer's rate limit AND
+  // Cloudflare Workers' per-invocation subrequest cap (50 free / 1000 paid).
+  // Each cold-cache searchDeezer burns 3-4 subrequests (cache SELECT +
+  // 1-2 HTTP searches + cache INSERT); the previous slice of 20-50 could
+  // exhaust the budget on a first-time user before save_recommendations
+  // ever ran. Numbers below intentionally fit inside ~30 subrequests of
+  // Deezer work so the rest of the invocation (Last.fm pool + final
+  // save_recommendations) has headroom.
+  const TARGET = 8;
   // "indie" (hidden gems) discards most candidates to the popularity filter,
-  // so it needs a much larger pool to resolve.
-  const slice = filtered.slice(0, mode === "indie" ? 50 : 20);
+  // so it needs a slightly larger pool to resolve — but still capped.
+  const slice = filtered.slice(0, mode === "indie" ? 18 : 12);
   const rows: RecRow[] = [];
-  for (let i = 0; i < slice.length && rows.length < TARGET; i += 6) {
-    const chunk = slice.slice(i, i + 6);
-    const matches = await Promise.all(
-      chunk.map((c) => searchDeezer(c.artist, c.title, { withYear: false })),
-    );
+  const isSubreqError = (e: unknown): boolean => {
+    const s = String((e as { message?: string })?.message ?? e ?? "");
+    return /too many subrequests/i.test(s) || /subrequest/i.test(s);
+  };
+  outer: for (let i = 0; i < slice.length && rows.length < TARGET; i += 4) {
+    const chunk = slice.slice(i, i + 4);
+    let matches: Awaited<ReturnType<typeof searchDeezer>>[];
+    try {
+      matches = await Promise.all(
+        chunk.map((c) => searchDeezer(c.artist, c.title, { withYear: false })),
+      );
+    } catch (e) {
+      // If we tripped the Worker subrequest cap mid-chunk, bail out with
+      // whatever we already collected instead of bubbling up a 500.
+      // Caller still gets a non-empty `added` count when the earlier
+      // chunks resolved enough rows.
+      if (isSubreqError(e)) break outer;
+      throw e;
+    }
     chunk.forEach((c, k) => {
       if (rows.length >= TARGET) return;
       const d = matches[k];
@@ -360,7 +380,7 @@ export async function generateRecommendations(
         recType: mode === "indie" ? "indie" : c.recType,
       });
     });
-    if (rows.length < TARGET && i + 6 < slice.length) await sleep(350);
+    if (rows.length < TARGET && i + 4 < slice.length) await sleep(250);
   }
   return rows;
 }

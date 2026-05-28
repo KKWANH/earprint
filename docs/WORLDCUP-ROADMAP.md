@@ -7,7 +7,7 @@
 > the community schema, or the BracketCard / GenreCard runners must
 > revisit the "Status" column below.
 >
-> Last updated: 2026-05-28 (R22)
+> Last updated: 2026-05-28 (R22c)
 
 ## Vision
 

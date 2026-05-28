@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { Locale } from "@/lib/i18n";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 
 /**
  * Resumes an in-progress worldcup. Bracket.tsx stores per-bracket
@@ -75,17 +77,17 @@ function scanLocalBrackets(): SavedBracket[] {
   return out;
 }
 
-interface Labels {
-  title: string;
-  resume: string;
-  roundLabel: (round: number, total: number) => string;
-  pairLabel: (idx: number, of: number) => string;
-  dismiss: string;
-  catLabels: Partial<Record<string, string>>;
-}
-
-export function InProgressCard({ labels }: { labels: Labels }) {
+/**
+ * Takes a `locale` (plain string) rather than a labels object. The
+ * earlier shape passed `roundLabel`/`pairLabel` functions down from
+ * the server component — React Server Components cannot serialize
+ * functions across the server→client boundary, which crashed the RSC
+ * stream with a non-localised digest. Computing labels client-side
+ * via `worldcupDict(locale)` keeps the prop fully serialisable.
+ */
+export function InProgressCard({ locale }: { locale: Locale }) {
   const [items, setItems] = useState<SavedBracket[]>([]);
+  const t = worldcupDict(locale);
   // Hydration: scan only client-side. Empty list while SSR / on first
   // paint so the section doesn't flash an empty header.
   useEffect(() => {
@@ -103,14 +105,24 @@ export function InProgressCard({ labels }: { labels: Labels }) {
 
   if (items.length === 0) return null;
 
+  const catLabels: Record<string, string> = {
+    library: t.catLibraryLabel,
+    recent: t.catRecentLabel,
+    forgotten: t.catForgottenLabel,
+    genre: t.catGenreLabel,
+    discover: t.catDiscoverLabel,
+    mix: t.catMixLabel,
+    liked: t.catLikedLabel,
+  };
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
-        {labels.title}
+        {t.inProgressTitle}
       </h2>
       <div className="flex flex-col gap-2">
         {items.map((it) => {
-          const catLabel = labels.catLabels[it.category] ?? it.category;
+          const catLabel = catLabels[it.category] ?? it.category;
           // Genre bracket uses /worldcup/genre/[size] route, every
           // other category uses /worldcup/[cat]/[size]. The router
           // file structure dictates the URL shape — kept the
@@ -130,21 +142,21 @@ export function InProgressCard({ labels }: { labels: Labels }) {
                   <span className="text-xs text-neutral-500">· {it.size}</span>
                 </div>
                 <div className="mt-0.5 text-[11px] text-neutral-400">
-                  {labels.roundLabel(it.round + 1, it.totalRounds)}
+                  {t.inProgressRoundLabel(it.round + 1, it.totalRounds)}
                   {" · "}
-                  {labels.pairLabel(it.pairIdx + 1, it.pairsInRound)}
+                  {t.inProgressPairLabel(it.pairIdx + 1, it.pairsInRound)}
                 </div>
               </div>
               <Link
                 href={href}
                 className="rounded-md bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/30"
               >
-                {labels.resume}
+                {t.inProgressResume}
               </Link>
               <button
                 onClick={() => dismiss(it.key)}
                 className="rounded-md px-2 py-1 text-xs text-neutral-500 hover:bg-white/5 hover:text-neutral-300"
-                title={labels.dismiss}
+                title={t.inProgressDismiss}
               >
                 ×
               </button>

@@ -191,25 +191,11 @@ async function renderWorldcupHome() {
 
       {/* "Continue where you left off" — scans localStorage for any
           saved-in-progress brackets and surfaces them as amber resume
-          cards. Renders nothing when there's nothing saved. */}
-      <InProgressCard
-        labels={{
-          title: t.inProgressTitle,
-          resume: t.inProgressResume,
-          dismiss: t.inProgressDismiss,
-          roundLabel: t.inProgressRoundLabel,
-          pairLabel: t.inProgressPairLabel,
-          catLabels: {
-            library: t.catLibraryLabel,
-            recent: t.catRecentLabel,
-            forgotten: t.catForgottenLabel,
-            genre: t.catGenreLabel,
-            discover: t.catDiscoverLabel,
-            mix: t.catMixLabel,
-            liked: t.catLikedLabel,
-          },
-        }}
-      />
+          cards. Renders nothing when there's nothing saved. Pass
+          `locale` only (not pre-built label functions) — RSC cannot
+          serialise functions across the server→client boundary, which
+          previously crashed this page mid-stream. */}
+      <InProgressCard locale={locale} />
 
       {/* Three top-level entry points — the roadmap's A/B/C tracks
           surfaced as a hero band so a returning user can pick the
