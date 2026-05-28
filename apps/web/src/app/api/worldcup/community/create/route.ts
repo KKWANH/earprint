@@ -32,7 +32,24 @@ const Body = z.object({
   // Optional free-form short tags (lowercased server-side). Max 5
   // tags, 12 chars each — keeps the rendered chips compact.
   tags: z.array(z.string().trim().min(1).max(12)).max(5).optional().default([]),
+  // Optional per-row thumbnail override. Parallel to `videos`; empty
+  // string at position i means "use oEmbed default". Max length per
+  // entry keeps the DB column sane (TEXT but bounded).
+  covers: z.array(z.string().trim().max(500)).max(32).optional(),
 });
+
+// Only allow https URLs for thumbnail overrides. Closes the XSS vector
+// where a malicious caller could paste `javascript:` or `data:` and
+// have the page render it via the bracket card's <img src>.
+function isSafeCoverUrl(s: string): boolean {
+  if (!s) return false;
+  try {
+    const u = new URL(s);
+    return u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 const ALLOWED_SIZES = new Set([4, 8, 16, 32]);
 
@@ -100,12 +117,31 @@ export async function POST(req: Request) {
   const worldcupId = rows[0]?.id as string | undefined;
   if (!worldcupId) return json({ error: "create failed" }, 500);
 
+  // Build the parallel cover-override array — same length as `ids`
+  // (which itself is a dedup-filtered subset of `body.videos`). The
+  // mapping isn't 1:1 with the original input order; we need to map
+  // each id back to its first occurrence to find the matching cover.
+  const inputIdAt: Record<string, number> = {};
+  for (let i = 0; i < body.videos.length; i++) {
+    const parsed = parseYouTubeVideoId(body.videos[i]!);
+    if (parsed && !(parsed in inputIdAt)) inputIdAt[parsed] = i;
+  }
+
   // Bulk insert items. Run as one statement per row — neon's tagged
   // template doesn't support easy bulk inserts and 32 rows is fine
   // for a one-off create call.
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i]!;
     const m = meta[i];
+    // Cover override: look up the input position, take its cover entry
+    // if any. URL-safety-check before we let it land in the DB.
+    const inputPos = inputIdAt[id] ?? -1;
+    const overrideRaw =
+      inputPos >= 0 && body.covers ? body.covers[inputPos] ?? "" : "";
+    const override = overrideRaw && isSafeCoverUrl(overrideRaw)
+      ? overrideRaw
+      : null;
+    const thumb = override ?? m?.thumbnail ?? null;
     await sql`
       INSERT INTO community_worldcup_items
         (worldcup_id, position, yt_video_id, title, subtitle, thumbnail_url)
@@ -113,7 +149,7 @@ export async function POST(req: Request) {
         ${worldcupId}, ${i}, ${id},
         ${m?.title ?? `YouTube ${id}`},
         ${m?.author ?? null},
-        ${m?.thumbnail ?? null}
+        ${thumb}
       )`;
   }
   return json({ ok: true, id: worldcupId }, 200);

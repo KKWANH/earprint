@@ -18,7 +18,60 @@ export async function generateMetadata(): Promise<Metadata> {
  * /worldcup/[cat]/[size] — keeping the picker separate makes it easy to
  * deep-link a friend to e.g. /worldcup/liked/64 ("rank your library").
  */
+// next/navigation's redirect()/notFound() throw control-flow sentinels we
+// MUST allow through. Catching them as "errors" would swallow the intended
+// redirect and the user would get stuck on a worldcup page that should
+// have bounced to /onboarding (or 404'd).
+function isControlFlowError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const msg = (e as { message?: string }).message ?? "";
+  const digest = (e as { digest?: string }).digest ?? "";
+  return (
+    msg.includes("NEXT_REDIRECT") ||
+    msg.includes("NEXT_NOT_FOUND") ||
+    digest.startsWith("NEXT_REDIRECT") ||
+    digest.startsWith("NEXT_NOT_FOUND")
+  );
+}
+
 export default async function WorldcupHome() {
+  try {
+    return await renderWorldcupHome();
+  } catch (e) {
+    if (isControlFlowError(e)) throw e;
+    // Server-side log: this WILL appear in Cloudflare Workers logs
+    // with the full stack + message (production hides client-side
+    // detail but server console retains everything). The user can
+    // grep the dashboard for `[worldcup-home FATAL]` to find the
+    // exact failure.
+    const err = e as Error & { digest?: string };
+    console.error(
+      `[worldcup-home FATAL] ${err.message ?? String(e)}`,
+      "\nstack:",
+      err.stack,
+      "\ndigest:",
+      err.digest,
+    );
+    // Friendly fallback that doesn't re-throw. error.tsx still wraps
+    // child routes; this just protects /worldcup itself.
+    return (
+      <main className="mx-auto max-w-2xl px-6 py-20">
+        <h1 className="text-xl font-bold">월드컵 페이지 로드 실패</h1>
+        <p className="mt-2 text-sm text-neutral-400">
+          서버에서 데이터를 불러오는 중 오류가 났습니다. 잠시 후 다시 시도해
+          주세요.
+        </p>
+        {err.digest && (
+          <p className="mt-3 rounded-md border border-rose-500/30 bg-rose-950/30 px-3 py-2 font-mono text-xs text-rose-200">
+            digest: {err.digest}
+          </p>
+        )}
+      </main>
+    );
+  }
+}
+
+async function renderWorldcupHome() {
   const locale = await getLocale();
   const t = worldcupDict(locale);
 

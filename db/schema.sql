@@ -856,6 +856,20 @@ CREATE TABLE IF NOT EXISTS tournament_results (
 CREATE INDEX IF NOT EXISTS idx_tournament_results_user
   ON tournament_results (user_id, created_at DESC);
 
+-- Bracket replay history (May 2026). For each saved built-in
+-- tournament, the client can POST the per-round pair results so the
+-- public `/worldcup/champion/[id]/replay` page can render the full
+-- bracket tree. Shape:
+--   [
+--     { round: 0, pairs: [{ left:{...}, right:{...}, winnerSide: 'left' }, ...] },
+--     { round: 1, pairs: [...] },
+--     ...
+--   ]
+-- Optional — old rows stay NULL and the replay page falls through to
+-- "champion only" mode.
+ALTER TABLE tournament_results
+  ADD COLUMN IF NOT EXISTS bracket_path JSONB;
+
 -- Bulk-save recommendation candidates. p_rows keys: artist, title, album, deezerId, previewUrl, seedTrack
 CREATE OR REPLACE FUNCTION save_recommendations(p_user uuid, p_rows jsonb)
 RETURNS int AS $$

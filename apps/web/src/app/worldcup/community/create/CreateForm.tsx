@@ -24,6 +24,13 @@ export function CreateForm({ locale }: { locale: Locale }) {
   const [tagsInput, setTagsInput] = useState("");
   const [size, setSize] = useState<(typeof SIZES)[number]>(8);
   const [rows, setRows] = useState<string[]>(() => Array(8).fill(""));
+  // Optional per-row thumbnail override. Empty string = use oEmbed's
+  // default YouTube thumbnail (server fetches it). User can drop in a
+  // Deezer album cover URL or any other https:// image here.
+  const [covers, setCovers] = useState<string[]>(() => Array(8).fill(""));
+  // Advanced mode toggle — hides the per-row thumbnail input by default
+  // so the form stays compact for the 90% path (paste URLs, done).
+  const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,10 +41,23 @@ export function CreateForm({ locale }: { locale: Locale }) {
       while (next.length < n) next.push("");
       return next;
     });
+    setCovers((cur) => {
+      const next = cur.slice(0, n);
+      while (next.length < n) next.push("");
+      return next;
+    });
   }
 
   function setRow(i: number, val: string) {
     setRows((cur) => {
+      const next = cur.slice();
+      next[i] = val;
+      return next;
+    });
+  }
+
+  function setCover(i: number, val: string) {
+    setCovers((cur) => {
       const next = cur.slice();
       next[i] = val;
       return next;
@@ -67,14 +87,23 @@ export function CreateForm({ locale }: { locale: Locale }) {
         .map((t) => t.trim().toLowerCase())
         .filter((t) => t && t.length <= 12)
         .slice(0, 5);
+      // Trim the videos + parallel cover-override arrays. Server
+      // validates and dedups; here we just send the parallel order.
+      const videos = rows.map((r) => r.trim()).filter(Boolean);
+      // Covers parallel to videos: empty string means "use oEmbed
+      // default". Only forward when at least one cover is filled in
+      // (saves bytes on the common path).
+      const trimmedCovers = covers.slice(0, videos.length).map((c) => c.trim());
+      const hasAnyCover = trimmedCovers.some(Boolean);
       const res = await fetch("/api/worldcup/community/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || undefined,
-          videos: rows.map((r) => r.trim()).filter(Boolean),
+          videos,
           tags,
+          ...(hasAnyCover ? { covers: trimmedCovers } : {}),
         }),
       });
       const d = (await res.json()) as { ok?: boolean; id?: string; error?: string };
@@ -171,16 +200,34 @@ export function CreateForm({ locale }: { locale: Locale }) {
 
       {/* YT URL rows */}
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-          {ko
-            ? `YouTube URL · ${validCount} / ${size}`
-            : `YouTube URLs · ${validCount} / ${size}`}
-        </label>
+        <div className="flex items-baseline justify-between gap-2">
+          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+            {ko
+              ? `YouTube URL · ${validCount} / ${size}`
+              : `YouTube URLs · ${validCount} / ${size}`}
+          </label>
+          <button
+            type="button"
+            onClick={() => setAdvanced((v) => !v)}
+            className="text-[10px] text-neutral-500 hover:text-emerald-300"
+          >
+            {advanced
+              ? ko ? "기본 모드" : "Basic"
+              : ko ? "썸네일 직접 지정" : "Override thumbnails"}
+          </button>
+        </div>
         <p className="text-[11px] leading-snug text-neutral-500">
           {ko
             ? "youtube.com / youtu.be / shorts URL 모두 OK. 11자 영상 ID 만 붙여도 됩니다."
             : "youtube.com / youtu.be / shorts URLs all work. 11-character video ID also fine."}
         </p>
+        {advanced && (
+          <p className="text-[11px] leading-snug text-amber-200/80">
+            {ko
+              ? "각 행 옆에 썸네일 이미지 URL(앨범 커버 등)을 직접 넣으면 기본 YouTube 썸네일 대신 그걸 씁니다. 비워두면 자동."
+              : "Paste a thumbnail URL (album cover etc.) next to each row to override the default YouTube thumbnail. Empty = auto."}
+          </p>
+        )}
         <ul className="flex flex-col gap-1.5">
           {rows.map((r, i) => {
             const id = parseYouTubeVideoId(r);
@@ -215,6 +262,15 @@ export function CreateForm({ locale }: { locale: Locale }) {
                 >
                   {status === "ok" ? "✓" : status === "bad" ? "×" : ""}
                 </span>
+                {advanced && (
+                  <input
+                    type="url"
+                    value={covers[i] ?? ""}
+                    onChange={(e) => setCover(i, e.target.value)}
+                    placeholder={ko ? "썸네일 URL (선택)" : "Thumbnail URL (optional)"}
+                    className="w-40 shrink-0 rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1 text-[10px] focus:border-amber-500 focus:outline-none sm:w-56"
+                  />
+                )}
               </li>
             );
           })}

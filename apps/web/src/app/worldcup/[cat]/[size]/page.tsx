@@ -97,12 +97,19 @@ export default async function WorldcupRunner({
     );
   }
 
-  // Re-roll is available only for the random-sample modes — recent /
-  // discover / mix are deterministic enough that "re-roll" wouldn't
-  // visibly change the bracket. Linking the same URL re-runs the server
-  // component (force-dynamic above) and gets a fresh ORDER BY random()
-  // sample, no JS needed.
-  const canReroll = cat === "library" || cat === "forgotten" || cat === "liked";
+  // Re-roll is available on the random-sample modes (library / forgotten
+  // / liked) AND now also on the recommendation-driven modes (discover /
+  // mix). For those, a re-roll re-fetches recommendations with a fresh
+  // RANDOM() ordering so the user gets a different slate without needing
+  // to navigate away. Force-dynamic page → repeated nav to the same URL
+  // walks a fresh server render. Recent is the only mode that stays
+  // deterministic (sorted by list_position).
+  const canReroll =
+    cat === "library" ||
+    cat === "forgotten" ||
+    cat === "liked" ||
+    cat === "discover" ||
+    cat === "mix";
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-10">
