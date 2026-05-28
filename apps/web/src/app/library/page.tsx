@@ -19,6 +19,7 @@ import { getLocale } from "@/lib/i18n-server";
 import { libraryDict } from "@/lib/i18n/library";
 import { profileDict } from "@/lib/i18n/profile";
 import type { Locale } from "@/lib/i18n";
+import { CHROME_WEB_STORE_URL } from "@/lib/constants";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = libraryDict(await getLocale());
@@ -70,6 +71,45 @@ export default async function LibraryPage({
   const shareId = (shareRow[0]?.share_id as string | undefined) ?? null;
   const totalPages = Math.max(1, Math.ceil(tracksPage.total / tracksPage.pageSize));
   const pt = profileDict(locale);
+
+  // Brand-new user (synced=0) — short-circuit the entire stats wall.
+  // Otherwise the page renders 8+ empty cards saying "no data yet"
+  // which is more discouraging than helpful. Surface a single hero
+  // pointing them at the Chrome extension (the only way to sync) and
+  // a link to /guide for the longer walkthrough. AnalyzePanel and
+  // the stats grid only return once at least one track lands.
+  if (stats.total === 0) {
+    return (
+      <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-12 sm:px-6 sm:py-20">
+        <header className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
+          <p className="truncate text-xs text-neutral-500">{session.user.email}</p>
+        </header>
+        <section className="flex flex-col gap-4 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-7">
+          <h2 className="text-xl font-bold text-white">{t.emptyHeroTitle}</h2>
+          <p className="text-sm leading-relaxed text-neutral-300">
+            {t.emptyHeroLead}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href={CHROME_WEB_STORE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
+            >
+              {t.emptyHeroInstall}
+            </a>
+            <Link
+              href="/guide"
+              className="text-xs text-neutral-400 hover:text-emerald-300"
+            >
+              {t.emptyHeroGuide}
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">

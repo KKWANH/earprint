@@ -71,6 +71,14 @@ const en = {
   cappedNote:
     "🌙 AI analysis is paused — today's shared analysis limit was reached. It resumes automatically tomorrow; the data collected so far is kept.",
   noSyncedTracks: "No synced tracks.",
+  // Brand-new user (synced=0) hero — replaces the whole stats wall
+  // until at least one track lands. The page would otherwise render
+  // 8+ empty cards which is more discouraging than helpful.
+  emptyHeroTitle: "Your library is empty",
+  emptyHeroLead:
+    "Install the browser extension to start syncing your YouTube Music likes. It runs quietly on music.youtube.com and sends only your liked-song metadata — no playback, no cookies.",
+  emptyHeroInstall: "📥 Install the Chrome extension",
+  emptyHeroGuide: "How does this work? →",
   errorPrefix: "Error:",
   errorCode: (code: number) => `Error ${code}`,
   // ExcludeButton
@@ -193,6 +201,11 @@ const ko: typeof en = {
   cappedNote:
     "🌙 오늘 공용 AI 한도가 다 찼습니다. 내일 자동으로 이어집니다 (지금까지 모은 데이터는 그대로).",
   noSyncedTracks: "동기화된 곡 없음.",
+  emptyHeroTitle: "라이브러리가 비어있어요",
+  emptyHeroLead:
+    "브라우저 익스텐션을 설치하면 YouTube Music 좋아요 곡을 자동 동기화합니다. music.youtube.com 에서만 조용히 돌고, 좋아요 곡 메타데이터만 보내요 — 재생 정보·쿠키 안 보냅니다.",
+  emptyHeroInstall: "📥 Chrome 익스텐션 설치하기",
+  emptyHeroGuide: "어떻게 동작하나요? →",
   errorPrefix: "오류:",
   errorCode: (code: number) => `오류 ${code}`,
   excludeIncludeTitle:
