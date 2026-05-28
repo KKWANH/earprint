@@ -21,6 +21,7 @@ export function CreateForm({ locale }: { locale: Locale }) {
   const ko = locale === "ko";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
   const [size, setSize] = useState<(typeof SIZES)[number]>(8);
   const [rows, setRows] = useState<string[]>(() => Array(8).fill(""));
   const [busy, setBusy] = useState(false);
@@ -58,6 +59,14 @@ export function CreateForm({ locale }: { locale: Locale }) {
     setBusy(true);
     setError(null);
     try {
+      // Parse comma/space-separated tag input into a clean array
+      // (server also normalises + caps, but doing it client-side first
+      // avoids surprise mismatches in the "5 of 5" UI feedback).
+      const tags = tagsInput
+        .split(/[,\s]+/)
+        .map((t) => t.trim().toLowerCase())
+        .filter((t) => t && t.length <= 12)
+        .slice(0, 5);
       const res = await fetch("/api/worldcup/community/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -65,6 +74,7 @@ export function CreateForm({ locale }: { locale: Locale }) {
           title: title.trim(),
           description: description.trim() || undefined,
           videos: rows.map((r) => r.trim()).filter(Boolean),
+          tags,
         }),
       });
       const d = (await res.json()) as { ok?: boolean; id?: string; error?: string };
@@ -113,6 +123,27 @@ export function CreateForm({ locale }: { locale: Locale }) {
           onChange={(e) => setDescription(e.target.value)}
           className="resize-none rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
         />
+      </div>
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
+          {ko ? "태그 (선택, 최대 5개)" : "Tags (optional, up to 5)"}
+        </label>
+        <input
+          type="text"
+          value={tagsInput}
+          onChange={(e) => setTagsInput(e.target.value)}
+          placeholder={
+            ko
+              ? "쉼표로 구분 · 예: k-pop, idol, 2020s"
+              : "Comma-separated · e.g. k-pop, idol, 2020s"
+          }
+          className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+        />
+        <p className="text-[11px] text-neutral-500">
+          {ko
+            ? "태그가 있으면 커뮤니티 목록에서 같은 태그끼리 묶여 노출돼요."
+            : "Tagged worldcups can be filtered together on the community list."}
+        </p>
       </div>
 
       {/* Bracket size selector */}

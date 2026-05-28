@@ -1162,6 +1162,15 @@ CREATE INDEX IF NOT EXISTS idx_community_worldcups_listed
 CREATE INDEX IF NOT EXISTS idx_community_worldcups_owner
   ON community_worldcups (owner_user_id, created_at DESC);
 
+-- Tags (May 2026) — free-form short labels for categorisation +
+-- discovery on the community list. Lowercased, max 12 chars each,
+-- ~5 per worldcup. GIN index for cheap `WHERE 'k-pop' = ANY(tags)`
+-- filter queries. NULL-safe default = '{}'.
+ALTER TABLE community_worldcups
+  ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}';
+CREATE INDEX IF NOT EXISTS idx_community_worldcups_tags
+  ON community_worldcups USING GIN (tags);
+
 CREATE TABLE IF NOT EXISTS community_worldcup_items (
   id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   worldcup_id       UUID NOT NULL REFERENCES community_worldcups(id) ON DELETE CASCADE,

@@ -24,43 +24,93 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function CommunityList({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; tag?: string }>;
 }) {
   const locale = await getLocale();
   const ko = locale === "ko";
   const sql = getSql();
-  const { sort } = await searchParams;
+  const { sort, tag: rawTag } = await searchParams;
   const mode = sort === "trending" ? "trending" : sort === "new" ? "new" : "popular";
+  const tag = rawTag ? rawTag.toLowerCase().trim() : "";
 
-  const rows =
-    mode === "trending"
-      ? await sql`
-          SELECT w.id, w.title, w.description, w.play_count, w.created_at,
-                 (SELECT count(*)::int FROM community_worldcup_items i
-                    WHERE i.worldcup_id = w.id) AS item_count
-          FROM community_worldcups w
-          WHERE w.visibility = 'public'
-          ORDER BY (w.play_count::real /
-                    greatest(1, extract(epoch from (now() - w.created_at)) / 86400.0)) DESC,
-                   w.created_at DESC
-          LIMIT 100`
-      : mode === "new"
-      ? await sql`
-          SELECT w.id, w.title, w.description, w.play_count, w.created_at,
-                 (SELECT count(*)::int FROM community_worldcup_items i
-                    WHERE i.worldcup_id = w.id) AS item_count
-          FROM community_worldcups w
-          WHERE w.visibility = 'public'
-          ORDER BY w.created_at DESC
-          LIMIT 100`
-      : await sql`
-          SELECT w.id, w.title, w.description, w.play_count, w.created_at,
-                 (SELECT count(*)::int FROM community_worldcup_items i
-                    WHERE i.worldcup_id = w.id) AS item_count
-          FROM community_worldcups w
-          WHERE w.visibility = 'public'
-          ORDER BY w.play_count DESC, w.created_at DESC
-          LIMIT 100`;
+  // tags column may not exist on older DBs (migration not applied yet)
+  // — catch + fall back to "no tags shown / no tag filter" so the
+  // list still renders. Same defensive pattern as library.ts.
+  type Row = {
+    id: string;
+    title: string;
+    description: string | null;
+    play_count: number;
+    created_at: string;
+    item_count: number;
+    tags?: string[];
+  };
+  const fetchWithTags = async (): Promise<Row[]> => {
+    const orderClause =
+      mode === "trending"
+        ? sql`(w.play_count::real /
+                greatest(1, extract(epoch from (now() - w.created_at)) / 86400.0)) DESC,
+              w.created_at DESC`
+        : mode === "new"
+          ? sql`w.created_at DESC`
+          : sql`w.play_count DESC, w.created_at DESC`;
+    if (tag) {
+      return (await sql`
+        SELECT w.id, w.title, w.description, w.play_count, w.created_at, w.tags,
+               (SELECT count(*)::int FROM community_worldcup_items i
+                  WHERE i.worldcup_id = w.id) AS item_count
+        FROM community_worldcups w
+        WHERE w.visibility = 'public' AND ${tag} = ANY(w.tags)
+        ORDER BY ${orderClause}
+        LIMIT 100`) as Row[];
+    }
+    return (await sql`
+      SELECT w.id, w.title, w.description, w.play_count, w.created_at, w.tags,
+             (SELECT count(*)::int FROM community_worldcup_items i
+                WHERE i.worldcup_id = w.id) AS item_count
+      FROM community_worldcups w
+      WHERE w.visibility = 'public'
+      ORDER BY ${orderClause}
+      LIMIT 100`) as Row[];
+  };
+  const fetchWithoutTags = async (): Promise<Row[]> => {
+    const orderClause =
+      mode === "trending"
+        ? sql`(w.play_count::real /
+                greatest(1, extract(epoch from (now() - w.created_at)) / 86400.0)) DESC,
+              w.created_at DESC`
+        : mode === "new"
+          ? sql`w.created_at DESC`
+          : sql`w.play_count DESC, w.created_at DESC`;
+    return (await sql`
+      SELECT w.id, w.title, w.description, w.play_count, w.created_at,
+             (SELECT count(*)::int FROM community_worldcup_items i
+                WHERE i.worldcup_id = w.id) AS item_count
+      FROM community_worldcups w
+      WHERE w.visibility = 'public'
+      ORDER BY ${orderClause}
+      LIMIT 100`) as Row[];
+  };
+  let rows: Row[];
+  try {
+    rows = await fetchWithTags();
+  } catch {
+    rows = await fetchWithoutTags();
+  }
+
+  // Sample of the most-used tags across the listed brackets — surfaces
+  // a quick "browse by k-pop / indie / 2020s" affordance. Pure
+  // client-side aggregation, no extra SQL.
+  const tagCounts = new Map<string, number>();
+  for (const r of rows) {
+    for (const t of r.tags ?? []) {
+      tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+    }
+  }
+  const topTags = [...tagCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([t]) => t);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-10">
@@ -101,10 +151,11 @@ export default async function CommunityList({
             { id: "new", label: ko ? "🆕 새로 나온" : "🆕 New" },
           ] as const
         ).map((tab) => {
-          const href =
-            tab.id === "popular"
-              ? "/worldcup/community"
-              : `/worldcup/community?sort=${tab.id}`;
+          const qp = new URLSearchParams();
+          if (tab.id !== "popular") qp.set("sort", tab.id);
+          if (tag) qp.set("tag", tag);
+          const qs = qp.toString();
+          const href = qs ? `/worldcup/community?${qs}` : "/worldcup/community";
           const active = mode === tab.id;
           return (
             <Link
@@ -142,6 +193,18 @@ export default async function CommunityList({
                     {r.description as string}
                   </p>
                 ) : null}
+                {(r.tags ?? []).length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {(r.tags ?? []).slice(0, 5).map((tg) => (
+                      <span
+                        key={tg}
+                        className="rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] text-neutral-400"
+                      >
+                        #{tg}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-neutral-500">
                   <span>{r.item_count as number}{ko ? "강" : "-slot"}</span>
                   <span>·</span>

@@ -29,6 +29,9 @@ const Body = z.object({
   description: z.string().trim().max(800).optional(),
   visibility: z.enum(["public", "unlisted"]).optional().default("public"),
   videos: z.array(z.string().trim().min(1).max(400)).min(4).max(32),
+  // Optional free-form short tags (lowercased server-side). Max 5
+  // tags, 12 chars each — keeps the rendered chips compact.
+  tags: z.array(z.string().trim().min(1).max(12)).max(5).optional().default([]),
 });
 
 const ALLOWED_SIZES = new Set([4, 8, 16, 32]);
@@ -81,10 +84,18 @@ export async function POST(req: Request) {
   // with a placeholder.
   const meta = await Promise.all(ids.map((id) => fetchYouTubeOEmbed(id)));
 
+  // Tags: lowercase, dedupe, drop empties.
+  const tagSet = new Set<string>();
+  for (const raw of body.tags ?? []) {
+    const v = raw.toLowerCase().trim();
+    if (v) tagSet.add(v);
+  }
+  const tags = [...tagSet];
+
   const sql = getSql();
   const rows = await sql`
-    INSERT INTO community_worldcups (owner_user_id, title, description, visibility)
-    VALUES (${userId}, ${body.title}, ${body.description ?? null}, ${body.visibility})
+    INSERT INTO community_worldcups (owner_user_id, title, description, visibility, tags)
+    VALUES (${userId}, ${body.title}, ${body.description ?? null}, ${body.visibility}, ${tags}::text[])
     RETURNING id`;
   const worldcupId = rows[0]?.id as string | undefined;
   if (!worldcupId) return json({ error: "create failed" }, 500);

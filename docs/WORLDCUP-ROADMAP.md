@@ -7,7 +7,7 @@
 > the community schema, or the BracketCard / GenreCard runners must
 > revisit the "Status" column below.
 >
-> Last updated: 2026-05-28 (R19b)
+> Last updated: 2026-05-28 (R20)
 
 ## Vision
 
@@ -177,8 +177,10 @@ embeddable on Reddit / DC Inside / Twitter.
 - **Cover/thumbnail flexibility**: today uses YT's own oEmbed
   thumbnail. For music tracks, the user might prefer the album
   cover — possible upgrade: optional Deezer-cover override.
-- **Categorisation/tags**: no genre/region tagging on community
-  brackets → can't surface "K-pop brackets near you".
+- ~~**Categorisation/tags**: no genre/region tagging~~ → ✅
+  Shipped R20: `tags TEXT[]` column on community_worldcups (GIN
+  indexed), comma-separated input on create form, tag filter
+  strip + chip display on `/worldcup/community?tag=k-pop`.
 
 ### Plan
 1. **Native share** on champion view: `navigator.share()` with

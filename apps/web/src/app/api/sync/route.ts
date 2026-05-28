@@ -27,10 +27,17 @@ async function resolveUserIdByToken(token: string): Promise<string | null> {
   if (!token) return null;
   const sql = getSql();
   const hash = await hashSyncToken(token);
-  // Fast path: indexed equality on the hash column.
-  const byHash = await sql`
-    SELECT id FROM users WHERE sync_token_hash = ${hash} LIMIT 1`;
-  if (byHash.length > 0) return byHash[0].id as string;
+  // Fast path: indexed equality on the hash column. Wrapped in
+  // try/catch so an environment where the sync_token_hash column
+  // hasn't been migrated yet falls through to the plaintext path
+  // below instead of returning 401.
+  try {
+    const byHash = await sql`
+      SELECT id FROM users WHERE sync_token_hash = ${hash} LIMIT 1`;
+    if (byHash.length > 0) return byHash[0].id as string;
+  } catch {
+    /* migration not applied — silently fall through to legacy lookup */
+  }
   // Legacy plaintext fallback. Surface this via console so the
   // operator can monitor "is anyone still on plaintext?" via Cloudflare
   // logs and time the drop. On hit, fire-and-forget UPDATE that

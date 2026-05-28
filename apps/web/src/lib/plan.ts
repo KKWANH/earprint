@@ -126,12 +126,20 @@ export async function isPro(userId: string): Promise<boolean> {
 export async function hasEverPurchased(userId: string): Promise<boolean> {
   if (!PAYMENTS_ENABLED) return true;
   const sql = getSql();
-  const rows = await sql`
-    SELECT purchases_count FROM users WHERE id = ${userId}`;
-  const n = Number(
-    (rows[0] as { purchases_count?: number } | undefined)?.purchases_count ?? 0,
-  );
-  return n > 0;
+  // Defensive: if the operator hasn't run the purchases_count
+  // migration yet, the column doesn't exist and the SELECT throws.
+  // Returning false means the free-tier cap stays active — strictly
+  // safer than throwing the user's whole sync request.
+  try {
+    const rows = await sql`
+      SELECT purchases_count FROM users WHERE id = ${userId}`;
+    const n = Number(
+      (rows[0] as { purchases_count?: number } | undefined)?.purchases_count ?? 0,
+    );
+    return n > 0;
+  } catch {
+    return false;
+  }
 }
 
 /**

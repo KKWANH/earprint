@@ -67,11 +67,25 @@ export async function ensureConnection(): Promise<Connection> {
   // remaining == 0, then runs ALTER TABLE DROP COLUMN sync_token).
   const newToken = generateSyncToken();
   const newHash = await hashSyncToken(newToken);
-  const created = await sql`
-    INSERT INTO users (email, display_name, sync_token, sync_token_hash)
-    VALUES (${email}, ${session.user?.name ?? null}, ${newToken}, ${newHash})
-    ON CONFLICT (email) DO UPDATE SET sync_token = users.sync_token
-    RETURNING id, sync_token`;
+  // Try the hash-column INSERT first; if the migration hasn't run
+  // the column doesn't exist and the INSERT throws. Fall back to
+  // the legacy INSERT (without the hash column) so first-sign-in
+  // works even on a not-yet-migrated DB. The hash gets back-filled
+  // by the admin endpoint once the column lands.
+  let created;
+  try {
+    created = await sql`
+      INSERT INTO users (email, display_name, sync_token, sync_token_hash)
+      VALUES (${email}, ${session.user?.name ?? null}, ${newToken}, ${newHash})
+      ON CONFLICT (email) DO UPDATE SET sync_token = users.sync_token
+      RETURNING id, sync_token`;
+  } catch {
+    created = await sql`
+      INSERT INTO users (email, display_name, sync_token)
+      VALUES (${email}, ${session.user?.name ?? null}, ${newToken})
+      ON CONFLICT (email) DO UPDATE SET sync_token = users.sync_token
+      RETURNING id, sync_token`;
+  }
   return {
     userId: created[0].id as string,
     token: created[0].sync_token as string,

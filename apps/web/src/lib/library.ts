@@ -225,6 +225,11 @@ async function topTags(
   //
   // Moods don't have multi-label columns yet — keep legacy path.
   if (column === "genres") {
+    // Try the unified (new + legacy) query first; if the multi-label
+    // migration hasn't run yet the WHOLE UNION fails to plan, so fall
+    // back to the pure-legacy jsonb query. Once the migration is
+    // applied + back-filled the fallback never fires.
+    type Row = { name: string; count: number; weighted: number };
     const rows = await sql`
       WITH lib_size AS (
         SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
@@ -275,7 +280,28 @@ async function topTags(
       WHERE name IS NOT NULL AND name <> ''
       GROUP BY name
       ORDER BY weighted DESC
-      LIMIT 60`;
+      LIMIT 60`.catch(async () => {
+        // Migration not run yet — fall back to pure-legacy jsonb-only
+        // query so the dashboards still render with whatever genre
+        // data the user has. Same shape, different source.
+        return (await sql`
+          WITH lib_size AS (
+            SELECT count(*)::int AS n FROM user_tracks WHERE user_id = ${userId}
+          )
+          SELECT k.key AS name, count(*)::int AS count,
+                 sum(recency_weight(ut.list_position, lib_size.n))::real AS weighted
+          FROM analysis a
+          JOIN user_tracks ut ON ut.track_id = a.track_id
+          JOIN tracks t ON t.id = a.track_id
+          CROSS JOIN lib_size
+          CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
+          WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
+            AND t.artist <> ALL(${excluded}::text[])
+            AND (NOT t.resolved OR t.match_confidence >= 0.65)
+          GROUP BY k.key
+          ORDER BY weighted DESC
+          LIMIT 60`) as Row[];
+      }) as Row[];
     // TS dedup: map every raw label to its genreDict canonical id so
     // "indie pop" (legacy) and "indie_pop" (new) collapse into one
     // row. Drop excluded families (religious / spoken / children /
@@ -456,7 +482,10 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
       // YouTuber junk doesn't reach the family rollup.
       //
       // Source priority mirrors topTags(): new schema first (primary +
-      // sub), legacy jsonb only when both new fields are null.
+      // sub), legacy jsonb only when both new fields are null. Wrapped
+      // in catch → [] so a missing multi-label migration doesn't tank
+      // the whole library page (the legacy jsonb-only fallback below
+      // would still error because UNION ALL parses all branches).
       sql`
         SELECT name, count(*)::int AS count FROM (
           SELECT a.primary_genre AS name
@@ -487,10 +516,29 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
             AND (NOT t.resolved OR t.match_confidence >= 0.65)
         ) s
         WHERE name IS NOT NULL AND name <> ''
-        GROUP BY name`,
+        GROUP BY name`.catch(async () => {
+          // Pre-multi-label-migration fallback. Use the jsonb-only
+          // family rollup so the 18-bucket pie still renders.
+          return (await sql`
+            SELECT k.key AS name, count(*)::int AS count
+            FROM analysis a
+            JOIN user_tracks ut ON ut.track_id = a.track_id
+            JOIN tracks t ON t.id = a.track_id
+            CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
+            WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
+              AND t.artist <> ALL(${excluded}::text[])
+              AND (NOT t.resolved OR t.match_confidence >= 0.65)
+            GROUP BY k.key`) as Array<{ name: string; count: number }>;
+        }),
       // Region tag rollup — only available when analysis was run with
       // the multi-label prompt (May 2026+). Powers a future "your
       // library by region" UI; populated lazily as backfill runs.
+      //
+      // Defensive catch: if the operator hasn't run the multi-label
+      // schema migration yet, the column doesn't exist and the SQL
+      // throws. Promise.all would then reject the WHOLE getLibraryStats
+      // — every dashboard page would error out. Empty array is the
+      // correct "missing column = no signal" semantics. Same for era.
       sql`
         SELECT rt AS name, count(*)::int AS count
         FROM analysis a
@@ -502,8 +550,7 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
           AND (NOT t.resolved OR t.match_confidence >= 0.65)
         GROUP BY rt
         ORDER BY count DESC
-        LIMIT 8`,
-      // Era tag rollup — same caveat as region. "70s" / "2020s" / etc.
+        LIMIT 8`.catch(() => [] as Array<{ name: string; count: number }>),
       sql`
         SELECT et AS name, count(*)::int AS count
         FROM analysis a
@@ -515,7 +562,7 @@ export async function getLibraryStats(userId: string): Promise<LibraryStats> {
           AND (NOT t.resolved OR t.match_confidence >= 0.65)
         GROUP BY et
         ORDER BY count DESC
-        LIMIT 6`,
+        LIMIT 6`.catch(() => [] as Array<{ name: string; count: number }>),
     ]);
 
   // ── Family rollup. Each genre key maps via genreDict.genreFamily()
