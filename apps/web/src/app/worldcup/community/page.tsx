@@ -24,14 +24,22 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function CommunityList({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; tag?: string }>;
+  searchParams: Promise<{ sort?: string; tag?: string; creator?: string }>;
 }) {
   const locale = await getLocale();
   const ko = locale === "ko";
   const sql = getSql();
-  const { sort, tag: rawTag } = await searchParams;
+  const { sort, tag: rawTag, creator: rawCreator } = await searchParams;
   const mode = sort === "trending" ? "trending" : sort === "new" ? "new" : "popular";
   const tag = rawTag ? rawTag.toLowerCase().trim() : "";
+  // R27i — `?creator=<handle>` filter. Same handle resolution
+  // /u/[handle] uses (email local-part, regex whitelisted) so a
+  // crafted URL can't fire a SQL injection or expand the filter to
+  // arbitrary email matches.
+  const creatorHandle =
+    rawCreator && /^[a-z0-9._-]{1,30}$/i.test(rawCreator.trim())
+      ? rawCreator.toLowerCase().trim()
+      : "";
 
   // tags column may not exist on older DBs (migration not applied yet)
   // — catch + fall back to "no tags shown / no tag filter" so the
@@ -54,6 +62,23 @@ export default async function CommunityList({
         : mode === "new"
           ? sql`w.created_at DESC`
           : sql`w.play_count DESC, w.created_at DESC`;
+    // Three filter axes: tag + creator handle + (always-on) public
+    // visibility. Each filter has its own branch because the neon
+    // tagged-template driver doesn't compose AND-able WHERE fragments
+    // cleanly; explicit shapes keep the SQL readable + indexable.
+    if (tag && creatorHandle) {
+      return (await sql`
+        SELECT w.id, w.title, w.description, w.play_count, w.created_at, w.tags,
+               (SELECT count(*)::int FROM community_worldcup_items i
+                  WHERE i.worldcup_id = w.id) AS item_count
+        FROM community_worldcups w
+        JOIN users u ON u.id = w.owner_user_id
+        WHERE w.visibility = 'public'
+          AND ${tag} = ANY(w.tags)
+          AND lower(split_part(u.email, '@', 1)) = ${creatorHandle}
+        ORDER BY ${orderClause}
+        LIMIT 100`) as Row[];
+    }
     if (tag) {
       return (await sql`
         SELECT w.id, w.title, w.description, w.play_count, w.created_at, w.tags,
@@ -61,6 +86,18 @@ export default async function CommunityList({
                   WHERE i.worldcup_id = w.id) AS item_count
         FROM community_worldcups w
         WHERE w.visibility = 'public' AND ${tag} = ANY(w.tags)
+        ORDER BY ${orderClause}
+        LIMIT 100`) as Row[];
+    }
+    if (creatorHandle) {
+      return (await sql`
+        SELECT w.id, w.title, w.description, w.play_count, w.created_at, w.tags,
+               (SELECT count(*)::int FROM community_worldcup_items i
+                  WHERE i.worldcup_id = w.id) AS item_count
+        FROM community_worldcups w
+        JOIN users u ON u.id = w.owner_user_id
+        WHERE w.visibility = 'public'
+          AND lower(split_part(u.email, '@', 1)) = ${creatorHandle}
         ORDER BY ${orderClause}
         LIMIT 100`) as Row[];
     }
@@ -135,6 +172,31 @@ export default async function CommunityList({
           <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
             {ko ? "커뮤니티 월드컵" : "Community worldcups"}
           </h1>
+          {/* R27i — surface the active creator filter so users can
+              see why their list looks short, and click out of it
+              back to the full feed. */}
+          {creatorHandle && (
+            <p className="mt-1 text-xs text-sky-300">
+              {ko ? "메이커 " : "by "}
+              <Link
+                href={`/u/${encodeURIComponent(creatorHandle)}`}
+                className="underline hover:text-sky-200"
+              >
+                @{creatorHandle}
+              </Link>
+              {" "}·{" "}
+              <Link
+                href={
+                  tag
+                    ? `/worldcup/community?tag=${encodeURIComponent(tag)}`
+                    : "/worldcup/community"
+                }
+                className="text-neutral-500 hover:text-white"
+              >
+                {ko ? "필터 해제" : "clear filter"}
+              </Link>
+            </p>
+          )}
           <p className="mt-1 text-sm text-neutral-400">
             {ko
               ? "다른 사람이 만든 토너먼트. 누구든 플레이 가능."
@@ -164,6 +226,7 @@ export default async function CommunityList({
           const qp = new URLSearchParams();
           if (tab.id !== "popular") qp.set("sort", tab.id);
           if (tag) qp.set("tag", tag);
+          if (creatorHandle) qp.set("creator", creatorHandle);
           const qs = qp.toString();
           const href = qs ? `/worldcup/community?${qs}` : "/worldcup/community";
           const active = mode === tab.id;
