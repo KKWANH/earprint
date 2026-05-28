@@ -84,16 +84,19 @@ export function CommunityStatsBar({
       )}
       {/* Creator leaderboard — appears once at least one creator
           has a non-zero total-plays sum. Doesn't require the finishes
-          table; pure aggregate on community_worldcups.play_count. */}
+          table; pure aggregate on community_worldcups.play_count.
+          Each chip links to /u/<handle> (R26b) — the creator's
+          public profile showing all their worldcups. */}
       {topCreators.length > 0 && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
           <span className="text-neutral-500">
             {ko ? "🧑‍🎤 메이커 TOP" : "🧑‍🎤 Top creators"}
           </span>
           {topCreators.map((c, i) => (
-            <span
+            <Link
               key={`${c.handle}-${i}`}
-              className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-sky-100"
+              href={`/u/${encodeURIComponent(c.handle)}`}
+              className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-sky-100 hover:bg-sky-500/20"
               title={`${c.worldcupCount} ${ko ? "개" : "worldcups"} · ${c.totalPlays.toLocaleString()} ${ko ? "회" : "plays"}`}
             >
               <span className="font-semibold">{i + 1}</span>
@@ -101,7 +104,7 @@ export function CommunityStatsBar({
               <span className="text-sky-300/70">
                 ×{c.totalPlays.toLocaleString()}
               </span>
-            </span>
+            </Link>
           ))}
         </div>
       )}

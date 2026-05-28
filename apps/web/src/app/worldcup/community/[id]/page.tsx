@@ -33,10 +33,21 @@ export default async function CommunityPlay({
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const sql = getSql();
+  // LEFT JOIN users so a worldcup whose owner deleted their account
+  // (owner_user_id NULL via ON DELETE SET NULL) still renders — we
+  // just hide the byline in that case.
   const [wc] = await sql`
-    SELECT id, title, description, visibility, play_count
-    FROM community_worldcups WHERE id = ${id}`;
+    SELECT w.id, w.title, w.description, w.visibility, w.play_count,
+           u.email AS owner_email
+    FROM community_worldcups w
+    LEFT JOIN users u ON u.id = w.owner_user_id
+    WHERE w.id = ${id}`;
   if (!wc) notFound();
+  // Derive the public handle (email local-part) for the byline link.
+  // Matches the resolution shape /u/[handle] uses on the other end.
+  const ownerHandle = wc.owner_email
+    ? ((wc.owner_email as string).split("@")[0] ?? "").toLowerCase().trim()
+    : "";
 
   const items = await sql`
     SELECT id, position, yt_video_id, title, subtitle, thumbnail_url
@@ -64,6 +75,21 @@ export default async function CommunityPlay({
         <p className="mt-1 text-[11px] text-neutral-600">
           {items.length}-{ko ? "인 토너먼트 · " : "slot tournament · "}
           {(wc.play_count as number).toLocaleString()} {ko ? "회 진행" : "plays"}
+          {/* "made by @handle" byline — links to the creator's
+              public profile (R26b). Hidden when the owner row was
+              deleted (LEFT JOIN above leaves email NULL). */}
+          {ownerHandle && (
+            <>
+              {" · "}
+              {ko ? "메이커 " : "by "}
+              <Link
+                href={`/u/${encodeURIComponent(ownerHandle)}`}
+                className="text-neutral-400 hover:text-sky-300 hover:underline"
+              >
+                @{ownerHandle}
+              </Link>
+            </>
+          )}
         </p>
       </header>
       <CommunityRunner
