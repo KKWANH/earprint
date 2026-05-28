@@ -38,7 +38,7 @@ const en = {
     name: "Single Analysis",
     price: "$1.99",
     period: "one-time",
-    desc: "Top up one extra AI profile generation when you want a fresh take on your taste. No subscription, no recurring charge.",
+    desc: "Top up one extra AI profile generation when you want a fresh take on your taste — AND lifts the 500-track sync cap permanently. No subscription, no recurring charge.",
     cta: "Buy 1 analysis — $1.99",
   },
 
@@ -47,14 +47,14 @@ const en = {
     price: "$3.99",
     period: "one-time",
     saveLabel: "~33% off vs. singles",
-    desc: "Three analysis credits in a bundle. Sit on them and run a fresh profile every couple of months as your taste shifts.",
+    desc: "Three analysis credits in a bundle + the same lifetime sync-cap lift as the single. Sit on them and run a fresh profile every couple of months as your taste shifts.",
     cta: "Buy 3-pack — $3.99",
   },
 
   comparison: {
     title: "What's included",
     rows: [
-      { feature: "Liked-songs sync", free: "✓", paid: "✓" },
+      { feature: "Liked-songs sync", free: "Up to 500 tracks", paid: "Unlimited (lifetime)" },
       { feature: "Library dashboard · top artists / genres / moods", free: "✓", paid: "✓" },
       { feature: "Music Zodiac portrait", free: "✓", paid: "✓" },
       { feature: "Taste DNA · Artist Map · Recommendations · Worldcup", free: "✓", paid: "✓" },
@@ -114,7 +114,7 @@ const ko: typeof en = {
     name: "1회 분석권",
     price: "₩2,500",
     period: "일회성 결제",
-    desc: "취향이 바뀌었을 때 AI 분석을 한 번 더 돌려보고 싶을 때 선택하세요. 구독 없이 일회성.",
+    desc: "AI 분석 한 번 더 + 500곡 동기화 제한 영구 해제. 구독 없이 일회성, 한 번만 결제하면 라이브러리 무제한 sync 가능.",
     cta: "1회 분석권 구매 — ₩2,500",
   },
 
@@ -123,14 +123,14 @@ const ko: typeof en = {
     price: "₩5,000",
     period: "일회성 결제",
     saveLabel: "1회권 대비 약 33% 할인",
-    desc: "AI 분석 크레딧 3회를 한 번에. 몇 달에 한 번씩 취향 변화 따라 돌려보고 싶을 때.",
+    desc: "AI 분석 크레딧 3회 + 1회권과 동일한 500곡 동기화 제한 영구 해제. 몇 달에 한 번씩 돌려보고 싶을 때.",
     cta: "3회권 구매 — ₩5,000",
   },
 
   comparison: {
     title: "포함 내역",
     rows: [
-      { feature: "좋아요 곡 동기화", free: "✓", paid: "✓" },
+      { feature: "좋아요 곡 동기화", free: "최대 500곡", paid: "무제한 (영구)" },
       { feature: "라이브러리 대시보드 · 주요 아티스트·장르·무드", free: "✓", paid: "✓" },
       { feature: "Music Zodiac 별자리 프로필", free: "✓", paid: "✓" },
       { feature: "Taste DNA · Artist Map · Recommendations · Worldcup", free: "✓", paid: "✓" },

@@ -80,13 +80,38 @@ export default async function LibraryPage({
 
       <AnalyzePanel locale={locale} />
 
-      {shareId && (
+      {shareId ? (
         <section className="flex flex-col gap-3 rounded-xl border border-emerald-900/50 bg-neutral-900 p-6">
           <h2 className="font-semibold text-emerald-300">{pt.shareHeading}</h2>
           <p className="text-xs text-neutral-400">{pt.shareCtaLine}</p>
           <ShareButton shareId={shareId} locale={locale} />
         </section>
-      )}
+      ) : stats.total > 0 ? (
+        // No AI profile yet, but the library is synced — surface the
+        // value hook above the stats grid so the user knows where the
+        // payoff is. Without this, first-time users land on a wall of
+        // numbers and can't tell the dashboards aren't the product.
+        // Reviewer 3 ("Library dashboard is a stats page, not a 'why
+        // should I care' page") was right.
+        <Link
+          href="/profile"
+          className="group flex flex-col gap-1.5 rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-5 transition-colors hover:border-emerald-400/70 hover:bg-emerald-500/10"
+        >
+          <span className="text-xs font-semibold uppercase tracking-wider text-emerald-300">
+            {locale === "ko" ? "다음 단계" : "Next step"}
+          </span>
+          <span className="text-lg font-bold text-white sm:text-xl">
+            {locale === "ko"
+              ? "AI 가 라이브러리를 읽고 취향을 풀어줍니다 →"
+              : "Let AI read your library and surface your taste →"}
+          </span>
+          <span className="text-xs text-neutral-400">
+            {locale === "ko"
+              ? "취향 페르소나 · 디깅 점수 · 시대·신·장르 분석 · 별자리. 한 번에 약 10초."
+              : "Persona · digging axes · era / region / genre map · zodiac. About 10 seconds."}
+          </span>
+        </Link>
+      ) : null}
 
       <ConfidenceRollup
         total={stats.total}

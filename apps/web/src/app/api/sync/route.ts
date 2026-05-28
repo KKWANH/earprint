@@ -3,7 +3,42 @@ import { z } from "zod";
 import { FREE_LIMITS, PAYMENTS_ENABLED } from "@/lib/constants";
 import { getSql } from "@/lib/db";
 import { json, readJsonBody } from "@/lib/http";
-import { isPro } from "@/lib/plan";
+import { hasEverPurchased, isPro } from "@/lib/plan";
+import { hashSyncToken } from "@/lib/tokens";
+
+/**
+ * Look up a user by their plaintext bearer token. Hash-first lookup
+ * via the indexed sync_token_hash column; falls back to the legacy
+ * plaintext column for tokens issued before the hash migration AND
+ * back-fills the hash so the next request takes the fast path.
+ * Returns the userId or null.
+ *
+ * Drop the fallback once every active row has a populated
+ * sync_token_hash (see schema.sql comment on the migration plan).
+ */
+async function resolveUserIdByToken(token: string): Promise<string | null> {
+  if (!token) return null;
+  const sql = getSql();
+  const hash = await hashSyncToken(token);
+  // Fast path: indexed equality on the hash column.
+  const byHash = await sql`
+    SELECT id FROM users WHERE sync_token_hash = ${hash} LIMIT 1`;
+  if (byHash.length > 0) return byHash[0].id as string;
+  // Legacy plaintext fallback. If found, lazily back-fill the hash so
+  // future calls hit the fast path. UNIQUE index on sync_token_hash
+  // protects against races (concurrent back-fills throw, we swallow).
+  const byPlain = await sql`
+    SELECT id FROM users WHERE sync_token = ${token} LIMIT 1`;
+  if (byPlain.length === 0) return null;
+  const userId = byPlain[0].id as string;
+  void sql`
+    UPDATE users
+       SET sync_token_hash = ${hash}, updated_at = now()
+     WHERE id = ${userId} AND sync_token_hash IS NULL`.catch(() => {
+    /* race with another back-fill — already done */
+  });
+  return userId;
+}
 
 /** Hard ceiling for /api/sync request bodies. Empirically ~80 bytes/track
  *  with a comfortable allowance for whitespace and longer names —
@@ -96,11 +131,8 @@ export async function GET(req: NextRequest) {
   const header = req.headers.get("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!token) return json({ ok: false, error: "missing token" }, 401, CORS);
-  const sql = getSql();
-  const users = await sql`SELECT id FROM users WHERE sync_token = ${token}`;
-  if (users.length === 0) {
-    return json({ ok: false, error: "invalid token" }, 401, CORS);
-  }
+  const userId = await resolveUserIdByToken(token);
+  if (!userId) return json({ ok: false, error: "invalid token" }, 401, CORS);
   return json({ ok: true }, 200, CORS);
 }
 
@@ -132,9 +164,8 @@ export async function POST(req: NextRequest) {
   const body = v.data;
 
   const sql = getSql();
-  const users = await sql`SELECT id FROM users WHERE sync_token = ${token}`;
-  if (users.length === 0) return json({ error: "invalid token" }, 401, CORS);
-  const userId = users[0].id as string;
+  const userId = await resolveUserIdByToken(token);
+  if (!userId) return json({ error: "invalid token" }, 401, CORS);
 
   // Per-token daily rate limit. user_usage rows roll over at midnight UTC.
   // Increment-and-read in one statement so concurrent syncs from the same
@@ -161,11 +192,24 @@ export async function POST(req: NextRequest) {
   // we're append-only.
   let tracks = body.tracks;
   let dropped = 0;
-  if (PAYMENTS_ENABLED && !(await isPro(userId))) {
-    const cap = FREE_LIMITS.librarySize;
-    if (tracks.length > cap) {
-      dropped = tracks.length - cap;
-      tracks = tracks.slice(0, cap);
+  // Free-tier cap applies only when:
+  //   (a) the paywall is live (PAYMENTS_ENABLED),
+  //   (b) the user is NOT a Pro subscriber, AND
+  //   (c) the user has NEVER bought anything (purchases_count == 0).
+  // One paid SKU (₩2,500 single OR ₩5,000 3-pack) lifts the ceiling
+  // permanently — the smallest viable purchase counts as "I'm in"
+  // and we honour it for the lifetime of the account.
+  if (PAYMENTS_ENABLED) {
+    const [pro, paid] = await Promise.all([
+      isPro(userId),
+      hasEverPurchased(userId),
+    ]);
+    if (!pro && !paid) {
+      const cap = FREE_LIMITS.librarySize;
+      if (tracks.length > cap) {
+        dropped = tracks.length - cap;
+        tracks = tracks.slice(0, cap);
+      }
     }
   }
 

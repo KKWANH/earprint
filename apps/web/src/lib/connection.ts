@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { CURRENT_TOS_VERSION } from "@/lib/constants";
 import { getSql } from "@/lib/db";
-import { generateSyncToken } from "@/lib/tokens";
+import { generateSyncToken, hashSyncToken } from "@/lib/tokens";
 
 export interface Connection {
   userId: string;
@@ -56,9 +56,14 @@ export async function ensureConnection(): Promise<Connection> {
 
   // First sign-in: create the row, but leave consent fields NULL — the
   // middleware will redirect the user to /onboarding before anything else.
+  // Hash is computed and stored alongside the plaintext for the
+  // duration of the transition; the plaintext column will be dropped
+  // in a follow-up commit once every active row has a hash.
+  const newToken = generateSyncToken();
+  const newHash = await hashSyncToken(newToken);
   const created = await sql`
-    INSERT INTO users (email, display_name, sync_token)
-    VALUES (${email}, ${session.user?.name ?? null}, ${generateSyncToken()})
+    INSERT INTO users (email, display_name, sync_token, sync_token_hash)
+    VALUES (${email}, ${session.user?.name ?? null}, ${newToken}, ${newHash})
     ON CONFLICT (email) DO UPDATE SET sync_token = users.sync_token
     RETURNING id, sync_token`;
   return {

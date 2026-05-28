@@ -65,6 +65,45 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sync_captured  INT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sync_expected  INT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sync_removed   INT;
 
+-- ── Pro-gating (May 2026) ─────────────────────────────────────────
+-- purchases_count: lifetime count of one-shot purchases (Single
+-- Analysis + 3-pack each increment by 1). Drives the "you've paid
+-- at least once → sync cap lifted" gate without coupling to the
+-- legacy `plan` / `is_lifetime` columns. Rationale: one purchase
+-- is a strong-enough signal that the user values the product to
+-- justify removing the 500-track sync ceiling for the rest of
+-- their account lifetime. No retention tax.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS purchases_count INT NOT NULL DEFAULT 0;
+
+-- ── Sync token hash (May 2026 hardening, audit P0-1) ──────────────
+-- The extension's bearer token (`users.sync_token`) was stored as
+-- plaintext: a DB backup leak → immediately-usable credentials.
+-- Migration plan:
+--
+--   Phase 1 (this column landing): add sync_token_hash. Generation
+--   path writes BOTH plaintext and hash; verification path tries
+--   hash first then falls back to plaintext, AND if the fallback
+--   succeeds it back-fills the hash so future requests take the
+--   fast path. Existing tokens keep working — no forced re-pairing.
+--
+--   Phase 2 (separate commit, after cron has back-filled every row):
+--   drop the plaintext `sync_token` column. By then the extension
+--   has been re-pairing via /connect for long enough that every
+--   active token has a hash row.
+--
+-- HMAC-SHA256 with a server-side secret (env SYNC_TOKEN_HMAC_SECRET)
+-- is the chosen primitive: deterministic (= indexable single-row
+-- lookup, no need to scan + compare like bcrypt would), fast on
+-- Workers Web Crypto, and a single-secret leak compromises every
+-- token at once — acceptable trade because the secret lives in
+-- Cloudflare's secret store, NOT in the same DB dump that would
+-- otherwise be the attack surface. If raised exposure becomes a
+-- concern, swap HMAC for PBKDF2 with per-row salt later (the
+-- hash column type stays TEXT).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS sync_token_hash TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_users_sync_token_hash
+  ON users(sync_token_hash) WHERE sync_token_hash IS NOT NULL;
+
 -- Per-user, per-day counters for paywalled features (free tier daily caps).
 CREATE TABLE IF NOT EXISTS user_usage (
   user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

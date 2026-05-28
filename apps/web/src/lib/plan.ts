@@ -111,6 +111,30 @@ export async function isPro(userId: string): Promise<boolean> {
 }
 
 /**
+ * True iff the user has ever completed a paid one-shot purchase
+ * (single-analysis ₩2,500 or 3-pack ₩5,000). Drives the lifetime
+ * sync-cap lift — the smallest viable purchase is treated as "this
+ * user has committed", and the 500-track free ceiling is removed
+ * for the rest of their account lifetime. No retention tax, no
+ * recurring "did the credit refill expire" checks. Pro subscribers
+ * also pass this gate via the webhook bumping purchases_count
+ * alongside the subscription state.
+ *
+ * Returns true when PAYMENTS_ENABLED is off (paywall inert during
+ * dry-run — every user passes every gate).
+ */
+export async function hasEverPurchased(userId: string): Promise<boolean> {
+  if (!PAYMENTS_ENABLED) return true;
+  const sql = getSql();
+  const rows = await sql`
+    SELECT purchases_count FROM users WHERE id = ${userId}`;
+  const n = Number(
+    (rows[0] as { purchases_count?: number } | undefined)?.purchases_count ?? 0,
+  );
+  return n > 0;
+}
+
+/**
  * Atomically increment a per-user daily counter and return the new total.
  * Use with checkAndConsume() to apply a free-tier cap.
  */

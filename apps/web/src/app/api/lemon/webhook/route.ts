@@ -80,11 +80,18 @@ export async function POST(req: NextRequest) {
       //                                      stash ls_customer_id.
       const creditAdd = isAnalysisPurchase ? 1 : isTriplePurchase ? 3 : 0;
       if (creditAdd > 0) {
+        // Pro-gating: ANY one-shot purchase (Single Analysis or
+        // 3-pack) bumps purchases_count by 1, which is what the
+        // sync-route Pro gate checks. So buying a single analysis
+        // credit also lifts the user's 500-track sync ceiling for
+        // good — the smallest viable purchase is the "I'm in"
+        // signal we honour.
         await sql`
           UPDATE users
-             SET credits        = credits + ${creditAdd},
-                 ls_customer_id = COALESCE(${customerId}, ls_customer_id),
-                 updated_at     = now()
+             SET credits         = credits + ${creditAdd},
+                 purchases_count = purchases_count + 1,
+                 ls_customer_id  = COALESCE(${customerId}, ls_customer_id),
+                 updated_at      = now()
            WHERE id = ${resolvedUserId}`;
       } else if (customerId) {
         await sql`
