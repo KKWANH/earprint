@@ -7,6 +7,7 @@ import { getGenreDetail } from "@/lib/genreDetail";
 import { genreHue } from "@/lib/forceGraph";
 import { getLocale } from "@/lib/i18n-server";
 import { genreDict } from "@/lib/i18n/genre";
+import { getGenreContent } from "@/data/genre-content";
 import { PreviewButton } from "../../library/PreviewButton";
 import { AboutBox } from "./AboutBox";
 
@@ -50,8 +51,23 @@ export default async function GenrePage({
 
   const { userId } = await requireOnboarded();
   const d = await getGenreDetail(userId, name);
-  const hue = genreHue(name);
+  // Pre-baked editorial content (emoji / era / origin / history) lives
+  // in apps/web/src/data/genre-content.ts. When a genre isn't covered
+  // we fall back to the original behaviour (gradient banner with
+  // genreHue() + Gemini-warmed `description` only), so the page never
+  // looks half-broken for the long tail of niche tags.
+  const content = getGenreContent(name);
+  const hue = content?.accentHue ?? genreHue(name);
   const description = locale === "ko" ? d.descriptionKo : d.descriptionEn;
+  const era = content
+    ? locale === "ko" ? content.eraKo : content.eraEn
+    : null;
+  const origin = content
+    ? locale === "ko" ? content.originKo : content.originEn
+    : null;
+  const history = content
+    ? locale === "ko" ? content.historyKo : content.historyEn
+    : null;
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
@@ -62,7 +78,12 @@ export default async function GenrePage({
         </Link>
       </div>
 
-      {/* coloured genre banner */}
+      {/* Coloured genre banner. When pre-baked content is available
+          we use its emoji as a big "cover" and surface era/origin
+          chips alongside the library count — gives the page an
+          immediate "this is what genre X is" identity before the user
+          scrolls into the description. Without pre-baked content the
+          banner falls back to the legacy gradient + name only. */}
       <header
         className="flex flex-col gap-3 rounded-2xl border border-white/10 p-7"
         style={{
@@ -71,19 +92,41 @@ export default async function GenrePage({
           } 45% 12%) 100%)`,
         }}
       >
-        <h1 className="text-2xl font-extrabold capitalize leading-tight sm:text-3xl">
-          {d.name}
-        </h1>
-        <div>
-          {d.inLibrary ? (
-            <span className="rounded-full bg-black/40 px-3 py-1 text-xs font-medium text-white">
-              ♪ {t.inLibrary(d.userTrackCount)}
-            </span>
-          ) : (
-            <span className="rounded-full bg-black/40 px-3 py-1 text-xs font-medium text-white/70">
-              {t.notInLibrary}
+        <div className="flex items-start gap-4">
+          {content?.emoji && (
+            <span
+              className="select-none text-5xl leading-none sm:text-6xl"
+              aria-hidden="true"
+            >
+              {content.emoji}
             </span>
           )}
+          <div className="flex flex-col gap-2">
+            <h1 className="text-2xl font-extrabold capitalize leading-tight sm:text-3xl">
+              {d.name}
+            </h1>
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              {d.inLibrary ? (
+                <span className="rounded-full bg-black/40 px-3 py-1 font-medium text-white">
+                  ♪ {t.inLibrary(d.userTrackCount)}
+                </span>
+              ) : (
+                <span className="rounded-full bg-black/40 px-3 py-1 font-medium text-white/70">
+                  {t.notInLibrary}
+                </span>
+              )}
+              {era && (
+                <span className="rounded-full bg-white/10 px-3 py-1 text-white/85">
+                  <span className="text-white/55">{t.era}</span> · {era}
+                </span>
+              )}
+              {origin && (
+                <span className="rounded-full bg-white/10 px-3 py-1 text-white/85">
+                  <span className="text-white/55">{t.origin}</span> · {origin}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </header>
 
@@ -96,6 +139,19 @@ export default async function GenrePage({
           warmingText={t.aboutWarming ?? t.aboutEmpty}
         />
       </Section>
+
+      {/* Pre-baked editorial history — longer than the one-line About
+          box, written by hand or seeded by Gemini through
+          scripts/seed-genre-content.mjs. Hidden when no pre-baked
+          content exists for this genre so we never surface an empty
+          "역사" section header. */}
+      {history && (
+        <Section title={t.history}>
+          <p className="text-sm leading-relaxed text-neutral-300">
+            {history}
+          </p>
+        </Section>
+      )}
 
       {d.topArtists.length > 0 && (
         <Section title={t.topArtists}>
