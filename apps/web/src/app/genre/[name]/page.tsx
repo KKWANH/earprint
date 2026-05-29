@@ -14,6 +14,7 @@ import { loadWikiSummary } from "@/lib/wikipedia";
 import { PreviewButton } from "../../library/PreviewButton";
 import { AboutBox } from "./AboutBox";
 import { GenreShareButton } from "./GenreShareButton";
+import { GenreViewPing } from "./GenreViewPing";
 
 export async function generateMetadata({
   params,
