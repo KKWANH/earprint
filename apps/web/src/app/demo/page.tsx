@@ -68,6 +68,11 @@ export default async function DemoPage() {
       <LikesDisclaimer locale={locale} />
       <AiPsychologyDisclaimer locale={locale} />
 
+      {/* R38 — interactive sample worldcup so a visitor can DO
+          something, not just read a static dashboard. Biggest
+          onboarding lever per the R37 audit. */}
+      <DemoWorldcup locale={locale} />
+
       {zodiac && <MusicZodiacCard data={zodiac} locale={locale} />}
 
       {/* Library stats grid */}
