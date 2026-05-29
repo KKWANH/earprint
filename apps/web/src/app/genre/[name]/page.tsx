@@ -33,14 +33,28 @@ export async function generateMetadata({
   };
 }
 
+// R34 — searchParams used for the track-list sort option
+export const dynamic = "force-dynamic";
+
+type TrackSort = "alpha" | "added" | "popular";
+
 /** Shared genre detail page — reachable from the library and artist pages. */
 export default async function GenrePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ name: string }>;
+  searchParams: Promise<{ tracksSort?: string }>;
 }) {
   const { name: raw } = await params;
   const name = decodeURIComponent(raw);
+  const sp = await searchParams;
+  const tracksSort: TrackSort =
+    sp.tracksSort === "added"
+      ? "added"
+      : sp.tracksSort === "popular"
+        ? "popular"
+        : "alpha";
   const locale = await getLocale();
   const t = genreDict(locale);
 
@@ -386,24 +400,71 @@ export default async function GenrePage({
         </Section>
       )}
 
-      {d.userTracks.length > 0 && (
-        <Section title={t.yourTracks}>
-          <div className="flex flex-col gap-1">
-            {d.userTracks.map((tr, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 border-b border-neutral-800/60 py-1.5 text-sm last:border-0"
-              >
-                <span className="min-w-0 flex-1 truncate">
-                  {tr.title}
-                  <span className="text-neutral-500"> · {tr.artist}</span>
-                </span>
-                <PreviewButton deezerId={tr.deezerId} locale={locale} />
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
+      {d.userTracks.length > 0 && (() => {
+        // R34 — sort the user tracks per the active option. The
+        // SQL already ORDER BY artist,title so default 'alpha' is
+        // a no-op; 'added' uses captured_at desc (newest first);
+        // 'popular' uses deezer_rank asc (lower rank = more
+        // popular on Deezer).
+        const sorted = [...d.userTracks];
+        if (tracksSort === "added") {
+          sorted.sort(
+            (a, b) =>
+              (b.capturedAt?.getTime() ?? 0) - (a.capturedAt?.getTime() ?? 0),
+          );
+        } else if (tracksSort === "popular") {
+          sorted.sort((a, b) => {
+            const ar = a.deezerRank ?? Number.MAX_SAFE_INTEGER;
+            const br = b.deezerRank ?? Number.MAX_SAFE_INTEGER;
+            return ar - br;
+          });
+        }
+        const sortTab = (id: TrackSort, label: string) => {
+          const active = tracksSort === id;
+          const qp = new URLSearchParams();
+          if (id !== "alpha") qp.set("tracksSort", id);
+          const qs = qp.toString();
+          const href = qs
+            ? `/genre/${encodeURIComponent(name)}?${qs}`
+            : `/genre/${encodeURIComponent(name)}`;
+          return (
+            <Link
+              key={id}
+              href={href}
+              className={`rounded-md border px-2.5 py-1 text-[11px] font-medium ${
+                active
+                  ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-200"
+                  : "border-white/10 bg-black/30 text-neutral-400 hover:border-emerald-500/40 hover:text-neutral-200"
+              }`}
+            >
+              {label}
+            </Link>
+          );
+        };
+        return (
+          <Section title={t.yourTracks}>
+            <div className="flex flex-wrap gap-1.5">
+              {sortTab("alpha", locale === "ko" ? "🔤 가나다순" : "🔤 A → Z")}
+              {sortTab("added", locale === "ko" ? "🆕 추가순" : "🆕 Added")}
+              {sortTab("popular", locale === "ko" ? "🔥 인기순" : "🔥 Popular")}
+            </div>
+            <div className="flex flex-col gap-1">
+              {sorted.map((tr, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 border-b border-neutral-800/60 py-1.5 text-sm last:border-0"
+                >
+                  <span className="min-w-0 flex-1 truncate">
+                    {tr.title}
+                    <span className="text-neutral-500"> · {tr.artist}</span>
+                  </span>
+                  <PreviewButton deezerId={tr.deezerId} locale={locale} />
+                </div>
+              ))}
+            </div>
+          </Section>
+        );
+      })()}
 
       {/* Community worldcups tagged with this genre (R28c) — the
           genre page becomes a discovery hub: not just "what is this

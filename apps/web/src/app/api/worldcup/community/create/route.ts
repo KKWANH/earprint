@@ -28,14 +28,14 @@ const Body = z.object({
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().max(800).optional(),
   visibility: z.enum(["public", "unlisted"]).optional().default("public"),
-  videos: z.array(z.string().trim().min(1).max(400)).min(4).max(32),
+  videos: z.array(z.string().trim().min(1).max(400)).min(4).max(256),
   // Optional free-form short tags (lowercased server-side). Max 5
   // tags, 12 chars each — keeps the rendered chips compact.
   tags: z.array(z.string().trim().min(1).max(12)).max(5).optional().default([]),
   // Optional per-row thumbnail override. Parallel to `videos`; empty
   // string at position i means "use oEmbed default". Max length per
   // entry keeps the DB column sane (TEXT but bounded).
-  covers: z.array(z.string().trim().max(500)).max(32).optional(),
+  covers: z.array(z.string().trim().max(500)).max(256).optional(),
 });
 
 // Only allow https URLs for thumbnail overrides. Closes the XSS vector
@@ -51,7 +51,9 @@ function isSafeCoverUrl(s: string): boolean {
   }
 }
 
-const ALLOWED_SIZES = new Set([4, 8, 16, 32]);
+// R34 — bumped to match the form (128 / 256 added). Server is the
+// security boundary; client list is just UX.
+const ALLOWED_SIZES = new Set([4, 8, 16, 32, 64, 128, 256]);
 
 export async function POST(req: Request) {
   const session = await auth();

@@ -12,7 +12,7 @@ import { requireOnboarded } from "@/lib/onboarding";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { worldcupDict } from "@/lib/i18n/worldcup";
-import { WORLDCUP_SIZES, type WorldcupCategory } from "@/lib/worldcup";
+import { type WorldcupCategory } from "@/lib/worldcup";
 import { loadCommunityHomeData, loadMyWorldcups } from "@/lib/community-stats";
 import { InProgressCard } from "./InProgressCard";
 import { CommunityStatsBar } from "./CommunityStatsBar";
@@ -186,25 +186,8 @@ async function renderWorldcupHome() {
     genre:     genN,
   };
 
-  // Order: self-bracket modes first (the product purpose), then
-  // discovery-style modes. `library` is the headline default and is
-  // listed top-left so a first-time visitor lands on it.
-  const categories: {
-    id: Exclude<WorldcupCategory, "liked">;
-    emoji: string;
-    label: string;
-    hint: string;
-    disabled: boolean;
-  }[] = [
-    { id: "library",   emoji: "🎲", label: t.catLibraryLabel,   hint: t.catLibraryHint,   disabled: counts.library < 4 },
-    { id: "recent",    emoji: "⚡", label: t.catRecentLabel,    hint: t.catRecentHint,    disabled: counts.recent < 4 },
-    { id: "forgotten", emoji: "🕰", label: t.catForgottenLabel, hint: t.catForgottenHint, disabled: counts.forgotten < 4 },
-    // Genre tournaments need ≥4 distinct genres (smallest bracket size).
-    // Big libraries comfortably clear 16-32; very narrow taste might not.
-    { id: "genre",     emoji: "🎼", label: t.catGenreLabel,     hint: t.catGenreHint,     disabled: counts.genre < 4 },
-    { id: "discover",  emoji: "🧭", label: t.catDiscoverLabel,  hint: t.catDiscoverHint,  disabled: counts.discover < 4 },
-    { id: "mix",       emoji: "🔀", label: t.catMixLabel,       hint: t.catMixHint,       disabled: counts.mix < 4 },
-  ];
+  // R34 — legacy `categories` array + CategoryCard removed.
+  // HomeHeroRow now owns the mode/size picker via inline <details>.
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
@@ -253,112 +236,7 @@ async function renderWorldcupHome() {
       />
       <InProgressCard locale={locale} />
 
-      {/* Legacy CategoryCard grid removed in R32b — its content
-          now lives inside HomeHeroRow's first card. Variable left
-          unused below; kept to satisfy the existing TS signature
-          without a wider refactor. */}
-      {false && (
-        <div className="hidden">
-          {categories.map((c) => (
-            <CategoryCard
-              key={c.id}
-              cat={c}
-              counts={counts}
-              locale={locale}
-              comingSoonText={t.catComingSoon}
-              sizeTitle={t.sizeTitle}
-              startText={t.sizeStart}
-              roundCount={t.sizeRoundCount}
-              notEnoughFn={t.notEnough}
-            />
-          ))}
-        </div>
-      )}
     </main>
   );
 }
 
-function CategoryCard({
-  cat,
-  counts,
-  comingSoonText,
-  sizeTitle,
-  startText,
-  roundCount,
-  notEnoughFn,
-}: {
-  cat: {
-    id: Exclude<WorldcupCategory, "liked">;
-    emoji: string;
-    label: string;
-    hint: string;
-    disabled: boolean;
-  };
-  counts: Record<Exclude<WorldcupCategory, "liked">, number>;
-  locale: string;
-  comingSoonText: string;
-  sizeTitle: string;
-  startText: string;
-  roundCount: (n: number) => string;
-  notEnoughFn: (have: number, need: number) => string;
-}) {
-  const have = counts[cat.id];
-  return (
-    <div
-      className={`flex flex-col gap-3 rounded-2xl border p-5 transition-colors ${
-        cat.disabled
-          ? "border-white/5 bg-white/[0.02] opacity-60"
-          : "border-white/10 bg-white/[0.04] hover:border-emerald-500/40"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <span className="text-2xl">{cat.emoji}</span>
-        <div className="flex-1">
-          <p className="font-semibold">{cat.label}</p>
-          <p className="text-xs text-neutral-500">{cat.hint}</p>
-        </div>
-        {/* "Coming soon" badge intentionally removed — genre category
-            now ships fully. Left the prop in place in case we add other
-            future-only categories later. */}
-        {false && cat.id === "genre" && (
-          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] text-amber-300">
-            {comingSoonText}
-          </span>
-        )}
-      </div>
-
-      {!cat.disabled && (
-        <div className="flex flex-col gap-1.5">
-          <p className="text-[11px] uppercase tracking-wider text-neutral-500">
-            {sizeTitle}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {WORLDCUP_SIZES.map((s) => {
-              const enough = have >= s;
-              return enough ? (
-                <Link
-                  key={s}
-                  href={`/worldcup/${cat.id}/${s}`}
-                  className="rounded-md border border-white/10 bg-black/30 px-3 py-1.5 text-sm font-medium text-neutral-200 hover:border-emerald-500/60 hover:bg-emerald-500/10 hover:text-emerald-200"
-                >
-                  {s}강
-                </Link>
-              ) : (
-                <span
-                  key={s}
-                  title={notEnoughFn(have, s)}
-                  className="rounded-md border border-white/5 bg-black/10 px-3 py-1.5 text-sm text-neutral-600"
-                >
-                  {s}강
-                </span>
-              );
-            })}
-          </div>
-          <p className="text-[10px] text-neutral-600">
-            {startText} · {roundCount(Math.log2(Math.min(have, 128)))}
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}

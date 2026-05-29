@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { getSql } from "@/lib/db";
 import { isAdminEmail } from "@/lib/constants";
+import { WikiRefreshForm } from "./WikiRefreshForm";
 
 export const metadata: Metadata = {
   title: "Cache stats — Earprint admin",
@@ -201,6 +202,7 @@ export default async function CacheAdmin() {
         the corresponding INSERT path. Migrations: tables not yet
         applied show as 0 / 0.
       </p>
+      <WikiRefreshForm />
     </main>
   );
 }

@@ -8,7 +8,7 @@ import { getLocale } from "@/lib/i18n-server";
 import { accountDict } from "@/lib/i18n/account";
 import { getPlanState } from "@/lib/plan";
 import { AiConsentToggle } from "./AiConsentToggle";
-import { SpotifyDisconnectInline } from "./SpotifyDisconnectInline";
+import { ConnectionsBoard } from "./ConnectionsBoard";
 import { DeleteAccountButton } from "./DeleteAccountButton";
 import { RotateSyncTokenButton } from "./RotateSyncTokenButton";
 import { WorldcupHistorySection } from "./WorldcupHistorySection";
@@ -183,46 +183,40 @@ export default async function AccountPage() {
         )}
       </section>
 
-      {/* Service-status row (R31b) — Spotify feature flag visibility.
-          Surfaces whether the operator has enabled the integration
-          so beta testers don't wonder why the Connect button is
-          greyed out in /library. */}
+      {/* R34 — unified Connections board: Google / extension /
+          Spotify in one consistent layout. Replaces the previous
+          Service-status row + the separate Google ConnectionRow
+          + the separate Library "open" link, since users were
+          having to scan three different surfaces to understand
+          their connection state. Payments status moved out to
+          its own tiny row below since it's not really a
+          "connection" in the same sense. */}
       <section className="flex flex-col gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
-          {locale === "ko" ? "서비스 상태" : "Service status"}
+          {locale === "ko" ? "연결" : "Connections"}
         </h2>
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <span className="text-neutral-400">Spotify:</span>
-          {SPOTIFY_ENABLED ? (
-            <span className="rounded-full bg-[#1DB954]/20 px-2 py-0.5 text-[#1DB954]">
-              {locale === "ko" ? "활성화" : "Enabled"}
-            </span>
-          ) : (
-            <span className="rounded-full bg-neutral-700/40 px-2 py-0.5 text-neutral-400">
-              {locale === "ko" ? "준비 중 (Premium 대기)" : "Pending (waiting for Premium)"}
-            </span>
-          )}
-          {/* R32d — inline per-user Spotify connection state +
-              disconnect button. Hidden when not connected so it
-              doesn't clutter the row for non-Spotify users. */}
-          {SPOTIFY_ENABLED && (
-            <SpotifyDisconnectInline ko={locale === "ko"} />
-          )}
-          <span className="text-neutral-700">·</span>
-          <span className="text-neutral-400">
-            {locale === "ko" ? "결제 모드:" : "Payments:"}
-          </span>
-          {PAYMENTS_ENABLED ? (
-            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-200">
-              {locale === "ko" ? "활성화" : "Enabled"}
-            </span>
-          ) : (
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-200">
-              {locale === "ko" ? "오픈 베타 (무료)" : "Open beta (free)"}
-            </span>
-          )}
-        </div>
+        <ConnectionsBoard
+          ko={locale === "ko"}
+          googleEmail={session.user.email ?? ""}
+          extensionSyncedCount={data.synced_count ?? 0}
+          extensionLastSyncedAt={data.last_synced_at ?? null}
+          spotifyFeatureEnabled={SPOTIFY_ENABLED}
+        />
       </section>
+      {/* Tiny payments-mode chip — operators want quick visibility
+          but it's not a "connection" per the new board's semantics. */}
+      <p className="flex items-center gap-2 text-[11px] text-neutral-500">
+        <span>{locale === "ko" ? "결제 모드:" : "Payments:"}</span>
+        {PAYMENTS_ENABLED ? (
+          <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-200">
+            {locale === "ko" ? "활성화" : "Enabled"}
+          </span>
+        ) : (
+          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-200">
+            {locale === "ko" ? "오픈 베타 (무료)" : "Open beta (free)"}
+          </span>
+        )}
+      </p>
 
       <Section title={t.librarySummaryTitle}>
         <p className="text-sm text-neutral-300">

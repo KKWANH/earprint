@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
+
+// R34 — searchParams + auth() both need a dynamic render. Without
+// this the route was static-prerendering once with empty params
+// and ignoring subsequent ?q=/sort=/page= updates.
+export const dynamic = "force-dynamic";
 import { requireOnboarded } from "@/lib/onboarding";
 import { getSql } from "@/lib/db";
 import { getExcludedArtists } from "@/lib/library";
@@ -36,7 +41,6 @@ async function getAllGenres(userId: string): Promise<GenreRow[]> {
 }
 
 type Sort = "count" | "alpha";
-const PAGE_SIZE = 50;
 
 /**
  * The full alphabet of genres — every tag, with R33 enhancements:
@@ -51,7 +55,7 @@ const PAGE_SIZE = 50;
 export default async function GenresIndexPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; sort?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; sort?: string }>;
 }) {
   const locale = await getLocale();
   const t = genresIndexDict(locale);
@@ -78,31 +82,23 @@ export default async function GenresIndexPage({
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().slice(0, 60);
   const sort: Sort = sp.sort === "alpha" ? "alpha" : "count";
-  const pageNum = Math.max(1, Number(sp.page) || 1);
 
   const all = await getAllGenres(userId);
-  // R33 — server-side filter + sort. We could push this into SQL but
-  // jsonb_object_keys aggregation is already the expensive part; a
-  // post-filter on a <1k row array is microseconds either way.
+  // R34 — server-side filter + sort. Pagination removed at the user's
+  // request: a long single list is fine when you've got fast search.
   const ql = q.toLowerCase();
   let filtered = ql ? all.filter((g) => g.name.toLowerCase().includes(ql)) : all;
   if (sort === "alpha") {
     filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
   }
-  // Default sort = count desc (handled in SQL) so we don't re-sort.
   const max = Math.max(1, ...filtered.map((g) => g.count));
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(pageNum, totalPages);
-  const start = (safePage - 1) * PAGE_SIZE;
-  const slice = filtered.slice(start, start + PAGE_SIZE);
 
-  const buildHref = (p: number, override?: Partial<{ q: string; sort: Sort }>) => {
+  const buildHref = (override: Partial<{ q: string; sort: Sort }>) => {
     const qp = new URLSearchParams();
-    const nextQ = override?.q ?? q;
-    const nextSort = override?.sort ?? sort;
+    const nextQ = override.q ?? q;
+    const nextSort = override.sort ?? sort;
     if (nextQ) qp.set("q", nextQ);
     if (nextSort === "alpha") qp.set("sort", "alpha");
-    if (p > 1) qp.set("page", String(p));
     const qs = qp.toString();
     return qs ? `/genres?${qs}` : "/genres";
   };
@@ -120,48 +116,63 @@ export default async function GenresIndexPage({
 
       {/* R33 — controls: search GET form + sort toggle. Both
           preserve each other via querystring. */}
-      <form
-        method="GET"
-        action="/genres"
-        className="flex flex-wrap items-center gap-2"
-      >
-        {sort === "alpha" && <input type="hidden" name="sort" value="alpha" />}
-        <input
-          type="search"
-          name="q"
-          defaultValue={q}
-          placeholder={ko ? "장르 검색…" : "Search genres…"}
-          className="flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none"
-        />
-        {q && (
-          <Link
-            href={buildHref(1, { q: "" })}
-            className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400 hover:bg-neutral-800"
+      <div className="flex flex-col gap-2">
+        {/* Search box. GET form so URL is shareable. The hidden
+            sort input preserves the active sort when submitting a
+            new search term. */}
+        <form
+          method="GET"
+          action="/genres"
+          className="flex items-center gap-2"
+        >
+          {sort === "alpha" && (
+            <input type="hidden" name="sort" value="alpha" />
+          )}
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder={ko ? "장르 검색…" : "Search genres…"}
+            className="flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400"
           >
-            {ko ? "지우기" : "Clear"}
-          </Link>
-        )}
+            {ko ? "검색" : "Search"}
+          </button>
+          {q && (
+            <Link
+              href={buildHref({ q: "" })}
+              className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400 hover:bg-neutral-800"
+            >
+              {ko ? "지우기" : "Clear"}
+            </Link>
+          )}
+        </form>
+        {/* Sort toggle on its own row — clearer affordance, more
+            tappable hit targets than crammed alongside search. */}
         <div className="flex gap-1.5">
           {(["count", "alpha"] as const).map((s) => {
             const active = sort === s;
             return (
               <Link
                 key={s}
-                href={buildHref(1, { sort: s })}
-                className={`rounded-full border px-3 py-1 text-xs ${
+                href={buildHref({ sort: s })}
+                className={`rounded-md border px-3 py-1.5 text-xs font-medium ${
                   active
                     ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-200"
-                    : "border-white/10 bg-black/30 text-neutral-400 hover:border-emerald-500/40"
+                    : "border-white/10 bg-black/30 text-neutral-400 hover:border-emerald-500/40 hover:text-neutral-200"
                 }`}
               >
                 {s === "count"
                   ? ko ? "🔥 빈도순" : "🔥 By frequency"
-                  : ko ? "🔤 가나다순" : "🔤 Alphabetical"}
+                  : ko ? "🔤 가나다순" : "🔤 A → Z"}
               </Link>
             );
           })}
         </div>
-      </form>
+      </div>
 
       {all.length === 0 ? (
         <p className="text-sm text-neutral-500">{t.empty}</p>
@@ -173,11 +184,11 @@ export default async function GenresIndexPage({
         <>
           <p className="text-xs text-neutral-500">
             {ko
-              ? `${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} / ${filtered.length.toLocaleString()}개`
-              : `${start + 1}–${Math.min(start + PAGE_SIZE, filtered.length)} of ${filtered.length.toLocaleString()}`}
+              ? `${filtered.length.toLocaleString()}개`
+              : `${filtered.length.toLocaleString()} genres`}
           </p>
           <section className="flex flex-col gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
-            {slice.map((g) => (
+            {filtered.map((g) => (
               <div key={g.name} className="flex items-center gap-3 text-sm">
                 <Link
                   href={`/genre/${encodeURIComponent(g.name)}`}
@@ -197,37 +208,6 @@ export default async function GenresIndexPage({
               </div>
             ))}
           </section>
-          {totalPages > 1 && (
-            <nav className="flex items-center justify-between gap-2 text-xs text-neutral-500">
-              {safePage > 1 ? (
-                <Link
-                  href={buildHref(safePage - 1)}
-                  className="rounded-md border border-neutral-700 px-3 py-1.5 hover:bg-neutral-800 hover:text-white"
-                >
-                  {ko ? "← 이전" : "← Previous"}
-                </Link>
-              ) : (
-                <span className="rounded-md border border-neutral-800 px-3 py-1.5 text-neutral-700">
-                  {ko ? "← 이전" : "← Previous"}
-                </span>
-              )}
-              <span className="tabular-nums">
-                {safePage} / {totalPages}
-              </span>
-              {safePage < totalPages ? (
-                <Link
-                  href={buildHref(safePage + 1)}
-                  className="rounded-md border border-neutral-700 px-3 py-1.5 hover:bg-neutral-800 hover:text-white"
-                >
-                  {ko ? "다음 →" : "Next →"}
-                </Link>
-              ) : (
-                <span className="rounded-md border border-neutral-800 px-3 py-1.5 text-neutral-700">
-                  {ko ? "다음 →" : "Next →"}
-                </span>
-              )}
-            </nav>
-          )}
         </>
       )}
 

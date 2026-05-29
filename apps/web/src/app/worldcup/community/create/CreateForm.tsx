@@ -5,7 +5,12 @@ import { useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { parseYouTubeVideoId } from "@/lib/youtubeId";
 
-const SIZES = [4, 8, 16, 32] as const;
+// R34 — 128 and 256 added at the user's request. Pasting that many
+// URLs is a lot of work, but power users want to scope the bracket
+// to a whole-discography or wider concept. The bulk-import panel
+// makes 128/256 actually achievable in one go via a YT playlist
+// URL.
+const SIZES = [4, 8, 16, 32, 64, 128, 256] as const;
 
 /**
  * Client form: title + 4-32 YouTube URL rows. Dynamic add/remove,

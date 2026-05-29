@@ -45,7 +45,7 @@ export default async function RecommendPage() {
   const { userId } = await requireOnboarded();
   const sql = getSql();
 
-  const [unrated, stat, perMode, weeklyQuality] = await Promise.all([
+  const [unrated, stat, perMode, weeklyQuality, hourlyQuality] = await Promise.all([
     sql`
       SELECT id, artist, title, album, cover_url, deezer_id, seed_track,
              score, rec_type, blurb AS description
@@ -87,6 +87,19 @@ export default async function RecommendPage() {
         AND date_trunc('week', r.created_at) = weeks.w
       GROUP BY weeks.w
       ORDER BY weeks.w ASC`,
+    // R34 — hour-of-day like rate. Bucket recommendations by the
+    // hour the user RATED them (proxy via recommendations.created_at
+    // — most users rate within minutes of generation, and we don't
+    // store rated_at separately). Reveals "I'm pickier in the
+    // morning" patterns.
+    sql`
+      SELECT extract(hour FROM r.created_at AT TIME ZONE 'Asia/Seoul')::int AS hr,
+             count(*) FILTER (WHERE r.rating IS NOT NULL)::int AS rated,
+             count(*) FILTER (WHERE r.rating IN ('like', 'superlike'))::int AS likes
+      FROM recommendations r
+      WHERE r.user_id = ${userId} AND r.rating IS NOT NULL
+      GROUP BY hr
+      ORDER BY hr ASC`,
   ]);
 
   const recs: Rec[] = unrated.map((r) => ({
@@ -247,6 +260,77 @@ export default async function RecommendPage() {
               </div>
             </div>
           )}
+          {/* R34 — hour-of-day heatmap. Maps recommendations.created_at
+              hour-bucket → like rate. Cells colored emerald/sky/grey
+              by rate; greyed-out empty hours stay visible so the
+              24-cell row is always 24 wide. Limited usefulness until
+              the user has rated ≥ 30 across at least 3 hours, so
+              hidden until then. */}
+          {(() => {
+            const totalRated = hourlyQuality.reduce(
+              (s, h) => s + Number(h.rated ?? 0),
+              0,
+            );
+            const distinctHours = hourlyQuality.filter(
+              (h) => Number(h.rated ?? 0) > 0,
+            ).length;
+            if (totalRated < 30 || distinctHours < 3) return null;
+            // Build a 24-cell array from the sparse rows so empty
+            // hours still render.
+            const byHour: Record<number, { rated: number; likes: number }> = {};
+            for (const r of hourlyQuality) {
+              byHour[Number(r.hr ?? 0)] = {
+                rated: Number(r.rated ?? 0),
+                likes: Number(r.likes ?? 0),
+              };
+            }
+            return (
+              <div className="mt-3 flex flex-col gap-1">
+                <p className="text-[11px] uppercase tracking-wider text-neutral-500">
+                  {locale === "ko"
+                    ? "시간대별 좋아요 비율 (KST)"
+                    : "Like rate by hour (KST)"}
+                </p>
+                <div className="grid grid-cols-12 gap-px sm:grid-cols-24">
+                  {Array.from({ length: 24 }).map((_, h) => {
+                    const cell = byHour[h] ?? { rated: 0, likes: 0 };
+                    const rate = cell.rated > 0 ? cell.likes / cell.rated : 0;
+                    const bg =
+                      cell.rated === 0
+                        ? "#1c1917"
+                        : rate >= 0.6
+                          ? "#10b981"
+                          : rate >= 0.3
+                            ? "#38bdf8"
+                            : "#52525b";
+                    return (
+                      <div
+                        key={h}
+                        title={
+                          cell.rated > 0
+                            ? `${h}시: ${cell.likes}/${cell.rated} (${Math.round(rate * 100)}%)`
+                            : `${h}시 · no ratings`
+                        }
+                        style={{ backgroundColor: bg }}
+                        className="aspect-square rounded-sm"
+                      >
+                        <span className="sr-only">
+                          {h}: {cell.likes}/{cell.rated}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between text-[9px] text-neutral-700">
+                  <span>0</span>
+                  <span>6</span>
+                  <span>12</span>
+                  <span>18</span>
+                  <span>23</span>
+                </div>
+              </div>
+            );
+          })()}
         </section>
       )}
 

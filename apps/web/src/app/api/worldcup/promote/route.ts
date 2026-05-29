@@ -39,7 +39,8 @@ const Body = z.object({
   candidates: z.array(Candidate).min(4).max(64),
 });
 
-const ALLOWED_SIZES = new Set([4, 8, 16, 32]);
+// R34 — matches create endpoint + create form (128/256 added).
+const ALLOWED_SIZES = new Set([4, 8, 16, 32, 64, 128, 256]);
 const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
 
 /**
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
   // allowed power-of-2 size ≤ candidates.length so the bracket
   // shape stays valid.
   const sizeTarget = (() => {
-    for (const s of [32, 16, 8, 4]) if (body.candidates.length >= s) return s;
+    for (const s of [256, 128, 64, 32, 16, 8, 4]) if (body.candidates.length >= s) return s;
     return 4;
   })();
   type Resolved = {

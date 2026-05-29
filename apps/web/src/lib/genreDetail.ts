@@ -14,6 +14,11 @@ export interface GenreTrack {
   title: string;
   artist: string;
   deezerId: number | null;
+  /** R34 — additional fields powering the sort options on the
+   *  genre page (added / alpha / popularity). Nullable on legacy
+   *  rows that haven't been re-enriched. */
+  capturedAt: Date | null;
+  deezerRank: number | null;
 }
 
 export interface GenreDetail {
@@ -211,7 +216,7 @@ export async function getGenreDetail(
   const lc = genre.toLowerCase();
   const [trackRows, info, feelRows] = await Promise.all([
     sql`
-      SELECT t.title, t.artist, t.deezer_id
+      SELECT t.title, t.artist, t.deezer_id, t.deezer_rank, ut.captured_at
       FROM user_tracks ut
       JOIN tracks t ON t.id = ut.track_id
       JOIN analysis a ON a.track_id = t.id AND a.analysis_version = 1
@@ -238,6 +243,8 @@ export async function getGenreDetail(
     title: r.title as string,
     artist: r.artist as string,
     deezerId: (r.deezer_id as number) ?? null,
+    capturedAt: r.captured_at ? new Date(r.captured_at as string) : null,
+    deezerRank: (r.deezer_rank as number) ?? null,
   }));
   const fr = feelRows[0];
   const audioFeel =
