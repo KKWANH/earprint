@@ -52,6 +52,66 @@ export interface TrendingBracket {
 }
 
 /**
+ * Loads community worldcups tagged with a specific genre — used by
+ * the /genre/[name] page to cross-link from the genre detail to
+ * matching community brackets. tag matches happen on the lower-cased
+ * tag value (community_worldcups.tags is TEXT[] of lowercased
+ * values; the genre input is lower-cased here to mirror it).
+ *
+ * Sorted by play_count DESC so the most-trafficked tag matches
+ * surface first. Limited to a small N (default 3) since this is
+ * a sidebar callout, not a full list.
+ */
+export async function loadWorldcupsByTag(
+  tag: string,
+  limit = 3,
+): Promise<TrendingBracket[]> {
+  const sql = getSql();
+  const lc = tag.toLowerCase().trim();
+  if (!lc) return [];
+  try {
+    const rows = await sql`
+      SELECT w.id::text AS id, w.title, w.description,
+             w.play_count AS "playCount",
+             (SELECT count(*)::int FROM community_worldcup_items i
+                WHERE i.worldcup_id = w.id) AS "itemCount"
+      FROM community_worldcups w
+      WHERE w.visibility = 'public' AND ${lc} = ANY(w.tags)
+      ORDER BY w.play_count DESC, w.created_at DESC
+      LIMIT ${limit}`;
+    return await Promise.all(
+      rows.map(async (r) => {
+        let previews: TrendingBracket["previews"] = [];
+        try {
+          const itemRows = await sql`
+            SELECT thumbnail_url AS "thumbnailUrl", title
+            FROM community_worldcup_items
+            WHERE worldcup_id = ${r.id}::uuid
+            ORDER BY position ASC
+            LIMIT 4`;
+          previews = itemRows.map((it) => ({
+            thumbnailUrl: (it.thumbnailUrl as string | null) ?? null,
+            title: it.title as string,
+          }));
+        } catch {
+          /* leave empty */
+        }
+        return {
+          id: r.id as string,
+          title: r.title as string,
+          description: (r.description as string | null) ?? null,
+          playCount: Number(r.playCount ?? 0),
+          itemCount: Number(r.itemCount ?? 0),
+          previews,
+        };
+      }),
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Loads up to N of the signed-in user's own community worldcups —
  * surfaced on /worldcup home as a "📌 내가 만든" strip so creators
  * can see their own catalogue at a glance without navigating to

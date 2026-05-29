@@ -3,7 +3,14 @@ import { getSql } from "@/lib/db";
 import { generateRecommendations, type RecMode } from "@/lib/recommend";
 import { json, readJsonBody } from "@/lib/http";
 
-const MODES = new Set<RecMode>(["song", "genre", "unheard", "indie", "mix"]);
+const MODES = new Set<RecMode>([
+  "song",
+  "genre",
+  "unheard",
+  "indie",
+  "mix",
+  "spotify-top",
+]);
 
 /** Generates recommendation candidates and stores them — { mode } optional. */
 export async function POST(req: Request) {

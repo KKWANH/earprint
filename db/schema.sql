@@ -195,6 +195,25 @@ CREATE TABLE IF NOT EXISTS spotify_synced_playlists (
 CREATE INDEX IF NOT EXISTS idx_spotify_synced_playlists_user
   ON spotify_synced_playlists (user_id);
 
+-- ── Spotify top artists (R28b) ───────────────────────────────────
+-- /me/top/artists per-user snapshot. Useful taste-profile signal
+-- separate from top tracks (a user's top ARTISTS often surface
+-- artists they haven't actually liked individual tracks for).
+-- Re-written every full sync (no append-only history kept here;
+-- that's what /me/player/recently-played → user_plays is for).
+CREATE TABLE IF NOT EXISTS spotify_top_artists (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  time_range TEXT NOT NULL CHECK (time_range IN ('short_term', 'medium_term', 'long_term')),
+  rank       INT NOT NULL,
+  artist     TEXT NOT NULL,
+  spotify_id TEXT,
+  image_url  TEXT,
+  refreshed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, time_range, rank)
+);
+CREATE INDEX IF NOT EXISTS idx_spotify_top_artists_user
+  ON spotify_top_artists (user_id, refreshed_at DESC);
+
 -- ── Tracks (globally shared canonical) ────────────────
 CREATE TABLE IF NOT EXISTS tracks (
   id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

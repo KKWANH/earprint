@@ -134,13 +134,22 @@ export async function POST(
         if (!tr.id || !tr.name) continue;
         const artist = tr.artists?.[0]?.name?.trim();
         if (!artist) continue;
-        // Inline resolve-or-create (same shape as in /sync). Kept
-        // inline rather than extracted because the unique snapshot_id
-        // gating already makes the duplicated query cheap.
+        // Inline resolve-or-create (same shape as in /sync, kept here
+        // because the snapshot_id gating makes duplicating cheaper than
+        // extracting a shared helper that would cross route boundaries).
+        // R28e: same 3-tier dedup as the main sync — ISRC, canon_key,
+        // then lower(artist)+lower(title) as the legacy fallback.
         let trackId: string | null = null;
         if (tr.external_ids?.isrc) {
           const r = await sql`
             SELECT id::text AS id FROM tracks WHERE isrc = ${tr.external_ids.isrc} LIMIT 1`;
+          if (r.length > 0) trackId = r[0]!.id as string;
+        }
+        if (!trackId) {
+          const r = await sql`
+            SELECT id::text AS id FROM tracks
+            WHERE canon_key = track_canon_key(${artist}, ${tr.name})
+            LIMIT 1`;
           if (r.length > 0) trackId = r[0]!.id as string;
         }
         if (!trackId) {

@@ -13,9 +13,22 @@ export async function generateMetadata(): Promise<Metadata> {
  * YouTube URLs with add/remove rows; the page wrapper just decides
  * whether to show it.
  */
-export default async function CreateCommunityWorldcup() {
+export default async function CreateCommunityWorldcup({
+  searchParams,
+}: {
+  searchParams: Promise<{ tag?: string }>;
+}) {
   const locale = await getLocale();
   const session = await auth();
+  // R28c — optional `?tag=` pre-seed (linked from /genre/[name]).
+  // Whitelisted to short lowercase tokens to avoid an injection
+  // surface; we don't want a crafted URL to dump arbitrary content
+  // into the tag input.
+  const { tag: rawTag } = await searchParams;
+  const initialTag =
+    rawTag && /^[a-z0-9 _-]{1,40}$/i.test(rawTag.trim())
+      ? rawTag.toLowerCase().trim()
+      : "";
   if (!session?.user) {
     return (
       <main className="mx-auto max-w-xl px-6 py-20">
@@ -46,7 +59,7 @@ export default async function CreateCommunityWorldcup() {
             : "Paste 4 / 8 / 16 / 32 YouTube URLs to compose a tournament. Once published, anyone can play it and the win-rate stats stack up."}
         </p>
       </header>
-      <CreateForm locale={locale} />
+      <CreateForm locale={locale} initialTag={initialTag} />
     </main>
   );
 }

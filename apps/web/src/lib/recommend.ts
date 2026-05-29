@@ -4,7 +4,17 @@ import { searchDeezer } from "./deezer";
 import { captureError } from "./sentry";
 
 /** Recommendation flavour the user can choose. */
-export type RecMode = "song" | "genre" | "unheard" | "indie" | "mix";
+export type RecMode =
+  | "song"
+  | "genre"
+  | "unheard"
+  | "indie"
+  | "mix"
+  // R28d — uses /me/top/tracks ingested into user_tracks with
+  // source='spotify-top' as seeds instead of random library picks.
+  // Steers Last.fm similar-tracks toward the user's HEAVY-rotation
+  // taste rather than the broad library average.
+  | "spotify-top";
 
 /** One recommendation candidate (input to save_recommendations). */
 export interface RecRow {
@@ -156,31 +166,47 @@ export async function generateRecommendations(
 ): Promise<RecRow[]> {
   const sql = getSql();
 
+  // R28d — when mode='spotify-top' the seeds come from user_tracks
+  // rows that were inserted via Spotify's /me/top/tracks (source=
+  // 'spotify-top'), so the Last.fm similar-tracks pool steers off
+  // the user's heavy-rotation taste instead of the random library
+  // sample. Falls back to the default seeds query when the user has
+  // no spotify-top rows yet — better than returning empty.
+  const seedsQuery =
+    mode === "spotify-top"
+      ? sql`
+          SELECT artist, title
+          FROM (
+            SELECT DISTINCT ON (artist_canon(t.artist, t.deezer_artist_id))
+                   t.artist AS artist, t.title AS title
+            FROM user_tracks ut
+            JOIN tracks t ON t.id = ut.track_id
+            WHERE ut.user_id = ${userId}
+              AND ut.source = 'spotify-top'
+            ORDER BY artist_canon(t.artist, t.deezer_artist_id), random()
+          ) s
+          ORDER BY random()
+          LIMIT 6`
+      : sql`
+          SELECT artist, title
+          FROM (
+            SELECT DISTINCT ON (artist_canon(t.artist, t.deezer_artist_id))
+                   t.artist AS artist, t.title AS title,
+                   COALESCE(aff.weight, 1) AS w
+            FROM user_tracks ut
+            JOIN tracks t ON t.id = ut.track_id
+            LEFT JOIN artist_affinity aff
+              ON aff.user_id = ut.user_id
+              AND lower(artist_canon(aff.artist, NULL))
+                = lower(artist_canon(t.artist, t.deezer_artist_id))
+            WHERE ut.user_id = ${userId}
+            ORDER BY artist_canon(t.artist, t.deezer_artist_id), random()
+          ) s
+          ORDER BY random() / s.w
+          LIMIT 6`;
+
   const [seeds, likedRows, existingRows, dislikedRows, genreRows] = await Promise.all([
-    // One random track per *canonical* artist, then 6 — affinity-weighted
-    // and artist-diverse. Recency weighting got removed here on purpose:
-    // when seeds skewed to the user's most recent likes, those tended to
-    // be niche K-pop / Korean indie that Last.fm has thin similar-artist
-    // data on, so songPool kept returning []. Seed diversity matters
-    // more than recency for discovery; recency stays in topArtists /
-    // topTags where it's directly user-visible.
-    sql`
-      SELECT artist, title
-      FROM (
-        SELECT DISTINCT ON (artist_canon(t.artist, t.deezer_artist_id))
-               t.artist AS artist, t.title AS title,
-               COALESCE(aff.weight, 1) AS w
-        FROM user_tracks ut
-        JOIN tracks t ON t.id = ut.track_id
-        LEFT JOIN artist_affinity aff
-          ON aff.user_id = ut.user_id
-          AND lower(artist_canon(aff.artist, NULL))
-            = lower(artist_canon(t.artist, t.deezer_artist_id))
-        WHERE ut.user_id = ${userId}
-        ORDER BY artist_canon(t.artist, t.deezer_artist_id), random()
-      ) s
-      ORDER BY random() / s.w
-      LIMIT 6`,
+    seedsQuery,
     // Blocklist of liked artists — canonicalized so a user who likes "BTS"
     // doesn't get "방탄소년단" recommended back as if it were a new find.
     sql`
@@ -302,7 +328,8 @@ export async function generateRecommendations(
   };
 
   let pool: Cand[];
-  if (mode === "song" || mode === "indie") pool = await songPool();
+  if (mode === "song" || mode === "indie" || mode === "spotify-top")
+    pool = await songPool();
   else if (mode === "genre") pool = await genrePool();
   else if (mode === "unheard") pool = await unheardPool();
   else {

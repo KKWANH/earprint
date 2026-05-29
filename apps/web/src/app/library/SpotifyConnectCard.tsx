@@ -127,8 +127,10 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
         ok?: boolean;
         liked?: SyncSection;
         top?: SyncSection;
+        topArtists?: { added?: number; error?: string | null };
         recent?: SyncSection;
         playlists?: { count?: number; error?: string | null };
+        autoSync?: { triggered?: number; addedTotal?: number; error?: string | null };
         error?: string;
       };
       if (!res.ok || !d.ok) {
@@ -138,16 +140,24 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
       }
       const liked = d.liked?.added ?? 0;
       const top = d.top?.added ?? 0;
+      const topA = d.topArtists?.added ?? 0;
       const recent = d.recent?.added ?? 0;
+      const auto = d.autoSync?.addedTotal ?? 0;
       const more = d.liked?.more
         ? ko
           ? " (더 가져올 게 있어요 — 다시 누르면 이어서)"
           : " (more liked songs — click again to continue)"
         : "";
+      // R28b adds top artists + auto-resync of opted-in playlists
+      // to the summary. Keep it on one line for compactness; the
+      // numbers most users care about (added counts) are still there.
+      const autoNote = auto > 0
+        ? ko ? ` · 플리 자동 +${auto}` : ` · playlists +${auto}`
+        : "";
       setResult(
         ko
-          ? `좋아요 ${liked}곡 · TOP ${top}곡 · 최근재생 ${recent}곡${more}`
-          : `${liked} liked · ${top} top · ${recent} recent${more}`,
+          ? `좋아요 ${liked}곡 · TOP ${top}곡 · 아티스트 ${topA} · 최근재생 ${recent}곡${autoNote}${more}`
+          : `${liked} liked · ${top} top · ${topA} artists · ${recent} recent${autoNote}${more}`,
       );
       // Refresh server data so the per-user stats pick up the new rows.
       router.refresh();

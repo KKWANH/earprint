@@ -45,6 +45,14 @@ interface SpotifyTracksPage {
 interface SpotifyTopPage {
   items?: SpotifyTrack[];
 }
+interface SpotifyArtist {
+  id?: string;
+  name?: string;
+  images?: { url?: string }[];
+}
+interface SpotifyTopArtistsPage {
+  items?: SpotifyArtist[];
+}
 interface SpotifyRecentlyPlayedPage {
   items?: { played_at?: string; track?: SpotifyTrack | null }[];
 }
@@ -78,11 +86,28 @@ async function resolveOrCreateTrack(
   const artist = tr.artists?.[0]?.name?.trim();
   if (!artist) return null;
   let trackId: string | null = null;
+
+  // 1. ISRC — exact cross-platform match (most reliable).
   if (tr.external_ids?.isrc) {
     const r = await sql`
       SELECT id::text AS id FROM tracks WHERE isrc = ${tr.external_ids.isrc} LIMIT 1`;
     if (r.length > 0) trackId = r[0]!.id as string;
   }
+
+  // 2. canon_key — strips "Remastered 2011", "Live", brackets, special
+  //    chars; normalizes Korean/Japanese variants. This catches the
+  //    common YT Music ⇄ Spotify dedup case where the same song has
+  //    different "release version" suffixes per platform. R28e.
+  if (!trackId) {
+    const r = await sql`
+      SELECT id::text AS id FROM tracks
+      WHERE canon_key = track_canon_key(${artist}, ${tr.name})
+      LIMIT 1`;
+    if (r.length > 0) trackId = r[0]!.id as string;
+  }
+
+  // 3. Last-ditch exact-lower match — covers tracks whose canon_key
+  //    column hasn't been backfilled yet on a partly-migrated deploy.
   if (!trackId) {
     const r = await sql`
       SELECT id::text AS id FROM tracks
@@ -91,6 +116,8 @@ async function resolveOrCreateTrack(
       LIMIT 1`;
     if (r.length > 0) trackId = r[0]!.id as string;
   }
+
+  // 4. New track.
   if (!trackId) {
     const r = await sql`
       INSERT INTO tracks (title, artist, album, duration_ms, isrc)
@@ -104,6 +131,7 @@ async function resolveOrCreateTrack(
       RETURNING id::text AS id`;
     trackId = r[0]!.id as string;
   }
+
   // Idempotent source mapping.
   await sql`
     INSERT INTO track_sources (track_id, source, source_id, raw_title, raw_artist)
@@ -129,8 +157,10 @@ export async function POST() {
   const result = {
     liked:        { added: 0, scanned: 0, more: false, error: null as string | null },
     top:          { added: 0, scanned: 0, error: null as string | null },
+    topArtists:   { added: 0, error: null as string | null },
     recent:       { added: 0, scanned: 0, error: null as string | null },
     playlists:    { count: 0, error: null as string | null },
+    autoSync:     { triggered: 0, addedTotal: 0, error: null as string | null },
   };
 
   // ── 1. Liked Songs ──────────────────────────────────────────────
@@ -204,6 +234,48 @@ export async function POST() {
     result.top.error = String((e as { message?: string })?.message ?? e);
   }
 
+  // ── 2.5. Top artists (R28b) ─────────────────────────────────────
+  // /me/top/artists × 3 time-ranges → spotify_top_artists. Per-user
+  // ranked list; useful taste-profile signal distinct from top
+  // tracks. Replaces the per-(user, time_range) snapshot each sync
+  // — no append-only history kept (recently-played already covers
+  // that for tracks; we don't track artist drift over time yet).
+  try {
+    const ranges = ["long_term", "medium_term", "short_term"] as const;
+    for (const range of ranges) {
+      const page: SpotifyTopArtistsPage = await spotifyFetch(
+        conn.accessToken,
+        `/me/top/artists?limit=20&time_range=${range}`,
+      );
+      const items = page.items ?? [];
+      // Clear-then-insert per range so the rank order stays
+      // contiguous (a Spotify response with N artists fills ranks
+      // 1..N and leaves no stale rows above N).
+      await sql`
+        DELETE FROM spotify_top_artists
+        WHERE user_id = ${userId}::uuid AND time_range = ${range}`;
+      for (let i = 0; i < items.length; i++) {
+        const a = items[i]!;
+        if (!a.id || !a.name) continue;
+        await sql`
+          INSERT INTO spotify_top_artists
+            (user_id, time_range, rank, artist, spotify_id, image_url)
+          VALUES (
+            ${userId}::uuid, ${range}, ${i + 1},
+            ${a.name}, ${a.id}, ${a.images?.[0]?.url ?? null}
+          )
+          ON CONFLICT (user_id, time_range, rank) DO UPDATE
+            SET artist = EXCLUDED.artist,
+                spotify_id = EXCLUDED.spotify_id,
+                image_url = EXCLUDED.image_url,
+                refreshed_at = now()`;
+        result.topArtists.added++;
+      }
+    }
+  } catch (e) {
+    result.topArtists.error = String((e as { message?: string })?.message ?? e);
+  }
+
   // ── 3. Recently played (user_plays journal) ─────────────────────
   // /me/player/recently-played hard-caps at 50; we accept the cap and
   // sync more on subsequent runs as the user listens.
@@ -251,7 +323,82 @@ export async function POST() {
     result.playlists.error = String((e as { message?: string })?.message ?? e);
   }
 
-  // Stamp last_synced_at.
+  // ── 5. Auto-resync opted-in playlists (R28b) ────────────────────
+  // For every playlist the user opted into with the picker, hit its
+  // /playlists/{id} endpoint to grab the current snapshot_id; if it
+  // changed since our last sync, paginate the tracks and append new
+  // ones. Skip-when-snapshot-matches keeps this cheap on quiet
+  // playlists. Bounded at the playlist's existing per-call limits
+  // (8 pages × 100 = 800 tracks) so a runaway playlist doesn't
+  // dominate the invocation.
+  try {
+    const opted = await sql`
+      SELECT playlist_id, snapshot_id
+      FROM spotify_synced_playlists
+      WHERE user_id = ${userId}::uuid`;
+    for (const row of opted) {
+      const pid = row.playlist_id as string;
+      const priorSnap = (row.snapshot_id as string | null) ?? null;
+      try {
+        const meta = await spotifyFetch<{ snapshot_id?: string; name?: string }>(
+          conn.accessToken,
+          `/playlists/${pid}?fields=name,snapshot_id`,
+        );
+        if (priorSnap && meta.snapshot_id && priorSnap === meta.snapshot_id) {
+          // Unchanged — just bump last_synced_at to reflect the check.
+          await sql`
+            UPDATE spotify_synced_playlists
+               SET last_synced_at = now()
+             WHERE user_id = ${userId}::uuid AND playlist_id = ${pid}`;
+          continue;
+        }
+        result.autoSync.triggered++;
+        // Paginate + insert. Reuses the same resolveOrCreateTrack
+        // helper and the same per-row INSERT shape as /playlists/[id]
+        // /sync; keeping the logic here rather than redirecting via
+        // an internal fetch avoids the CF Workers subrequest cost of
+        // a self-call.
+        let nextUrl: string | null = `/playlists/${pid}/tracks?limit=100`;
+        let pages = 0;
+        const MAX_PAGES = 8;
+        while (nextUrl && pages < MAX_PAGES) {
+          const page: SpotifyTracksPage = await spotifyFetch(conn.accessToken, nextUrl);
+          for (const it of page.items ?? []) {
+            const tr = it.track;
+            if (!tr || !tr.id || !tr.name) continue;
+            const artist = tr.artists?.[0]?.name?.trim();
+            if (!artist) continue;
+            const trackId = await resolveOrCreateTrack(sql, tr);
+            if (!trackId) continue;
+            const r = await sql`
+              INSERT INTO user_tracks (user_id, track_id, source, liked_at)
+              VALUES (
+                ${userId}::uuid, ${trackId}::uuid, 'spotify-playlist',
+                ${it.added_at ?? null}
+              )
+              ON CONFLICT (user_id, track_id) DO NOTHING
+              RETURNING 1`;
+            if (r.length > 0) result.autoSync.addedTotal++;
+          }
+          nextUrl = page.next ?? null;
+          pages++;
+        }
+        // Stamp new snapshot.
+        await sql`
+          UPDATE spotify_synced_playlists
+             SET snapshot_id = ${meta.snapshot_id ?? null},
+                 name = ${meta.name ?? null},
+                 last_synced_at = now()
+           WHERE user_id = ${userId}::uuid AND playlist_id = ${pid}`;
+      } catch {
+        /* per-playlist failure is non-fatal — try the next one */
+      }
+    }
+  } catch (e) {
+    result.autoSync.error = String((e as { message?: string })?.message ?? e);
+  }
+
+  // Stamp last_synced_at on the connection.
   await sql`
     UPDATE spotify_connections
        SET last_synced_at = now()

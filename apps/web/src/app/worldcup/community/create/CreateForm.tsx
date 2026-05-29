@@ -16,12 +16,22 @@ const SIZES = [4, 8, 16, 32] as const;
  * Size is chosen first (radio); the row count auto-adjusts to that
  * size so the user can't accidentally submit a 7-video bracket.
  */
-export function CreateForm({ locale }: { locale: Locale }) {
+export function CreateForm({
+  locale,
+  initialTag,
+}: {
+  locale: Locale;
+  /** Optional pre-seeded tag (R28c) — populated when the form is
+   *  reached via /genre/[name]'s "create with this genre" CTA. The
+   *  user can still add/remove tags after; this just primes the
+   *  input so they don't have to type it themselves. */
+  initialTag?: string;
+}) {
   const router = useRouter();
   const ko = locale === "ko";
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [tagsInput, setTagsInput] = useState("");
+  const [tagsInput, setTagsInput] = useState(initialTag ?? "");
   const [size, setSize] = useState<(typeof SIZES)[number]>(8);
   const [rows, setRows] = useState<string[]>(() => Array(8).fill(""));
   // Optional per-row thumbnail override. Empty string = use oEmbed's

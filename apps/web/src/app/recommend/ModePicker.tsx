@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { recommendDict } from "@/lib/i18n/recommend";
 
-type ModeId = "mix" | "song" | "genre" | "unheard" | "indie";
+type ModeId = "mix" | "song" | "genre" | "unheard" | "indie" | "spotify-top";
 
 /** Picks a recommendation flavour and generates a fresh batch.
  *  `currentMode` (if known) highlights the mode the top-of-deck card came
@@ -24,6 +24,21 @@ export function ModePicker({
     { id: "genre", emoji: "🎼", label: t.modeGenreLabel, hint: t.modeGenreHint },
     { id: "unheard", emoji: "🧭", label: t.modeUnheardLabel, hint: t.modeUnheardHint },
     { id: "indie", emoji: "💎", label: t.modeIndieLabel, hint: t.modeIndieHint },
+    // R28d — only meaningful when the user has Spotify connected
+    // and the top-tracks sync has populated user_tracks rows with
+    // source='spotify-top'. The mode still renders the chip for
+    // every user (since gating it on connection state would need
+    // a server roundtrip), but a no-data user just sees "no new
+    // picks" — same UX as any sparse mode.
+    {
+      id: "spotify-top",
+      emoji: "🟢",
+      label: locale === "ko" ? "Spotify TOP" : "Spotify Top",
+      hint:
+        locale === "ko"
+          ? "Spotify에서 자주 듣는 곡 기준 추천 (먼저 라이브러리에 Spotify 연결 필요)"
+          : "Seeds from your Spotify top tracks (requires Spotify connected first)",
+    },
   ];
   // Hovered/active mode whose hint is shown in the description bar.
   const [hovered, setHovered] = useState<ModeId | null>(null);

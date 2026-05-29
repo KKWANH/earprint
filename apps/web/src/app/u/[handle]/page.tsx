@@ -22,6 +22,11 @@ interface CreatorRow {
   email: string;
   worldcups: CreatorWorldcup[];
   totalPlays: number;
+  /** 14-day plays-per-day histogram (R28f). Each entry is one day,
+   *  oldest first. Populated from community_worldcup_finishes joined
+   *  to community_worldcups by owner. Empty array when the finishes
+   *  table isn't migrated yet — the sparkline just hides. */
+  recentPlays: { day: string; count: number }[];
 }
 
 /**
@@ -95,10 +100,45 @@ async function loadCreator(handle: string): Promise<CreatorRow | null> {
     }),
   );
   const totalPlays = worldcups.reduce((s, w) => s + w.playCount, 0);
+
+  // 14-day plays-per-day for the sparkline. generate_series gives us
+  // a row per day even when nothing happened, so the chart x-axis
+  // doesn't collapse on quiet days. Wrapped in try/catch because
+  // community_worldcup_finishes is the table from R24d — present on
+  // deploys that ran the migration, absent on older ones.
+  let recentPlays: CreatorRow["recentPlays"] = [];
+  try {
+    const histRows = await sql`
+      WITH days AS (
+        SELECT (date_trunc('day', now()) - (n || ' days')::interval) AS day
+        FROM generate_series(0, 13) AS n
+      )
+      SELECT to_char(d.day, 'YYYY-MM-DD') AS day,
+             count(f.id)::int AS n
+      FROM days d
+      LEFT JOIN community_worldcup_finishes f
+        ON date_trunc('day', f.finished_at) = d.day
+        AND f.worldcup_id IN (
+          SELECT w.id FROM community_worldcups w
+          JOIN users u ON u.id = w.owner_user_id
+          WHERE w.visibility = 'public'
+            AND lower(split_part(u.email, '@', 1)) = ${lc}
+        )
+      GROUP BY d.day
+      ORDER BY d.day ASC`;
+    recentPlays = histRows.map((r) => ({
+      day: r.day as string,
+      count: Number(r.n ?? 0),
+    }));
+  } catch {
+    /* finishes table missing — leave [] */
+  }
+
   return {
     email: rows[0]!.email as string,
     worldcups,
     totalPlays,
+    recentPlays,
   };
 }
 
@@ -139,7 +179,7 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
         {ko ? "← 커뮤니티" : "← Community"}
       </Link>
 
-      <header className="flex flex-col gap-2 rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-950/30 via-neutral-950 to-neutral-900 p-6">
+      <header className="flex flex-col gap-3 rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-950/30 via-neutral-950 to-neutral-900 p-6">
         <p className="text-xs font-bold uppercase tracking-wider text-sky-300">
           {ko ? "Worldcup 메이커" : "Worldcup creator"}
         </p>
@@ -149,6 +189,13 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
             ? `${data.worldcups.length}개 월드컵 · 총 ${data.totalPlays.toLocaleString()}회 진행`
             : `${data.worldcups.length} worldcups · ${data.totalPlays.toLocaleString()} total plays`}
         </p>
+        {/* R28f — 14-day sparkline. Hidden when there's no play
+            activity at all (sum=0) since a flat line would be more
+            depressing than informative. */}
+        {data.recentPlays.length > 0 &&
+          data.recentPlays.some((d) => d.count > 0) && (
+            <Sparkline data={data.recentPlays} ko={ko} />
+          )}
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2">
@@ -207,5 +254,64 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
         </p>
       )}
     </main>
+  );
+}
+
+/**
+ * Inline SVG sparkline — 14 day bars, no axis, no labels. Width
+ * stretches to container; height fixed at 40px. Bar height
+ * normalises against the local max so even a single play day is
+ * visually meaningful.
+ *
+ * Rendered as plain SVG with calculated x/y values rather than a
+ * charting library — the data is tiny (14 entries) and keeping the
+ * dependency surface light on the public profile page matters more
+ * than chart richness.
+ */
+function Sparkline({
+  data,
+  ko,
+}: {
+  data: { day: string; count: number }[];
+  ko: boolean;
+}) {
+  const total = data.reduce((s, d) => s + d.count, 0);
+  const max = Math.max(1, ...data.map((d) => d.count));
+  const W = 280;
+  const H = 40;
+  const gap = 2;
+  const barW = (W - gap * (data.length - 1)) / data.length;
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="h-10 w-full max-w-[280px]"
+        aria-label={
+          ko
+            ? `최근 14일 플레이 ${total.toLocaleString()}회`
+            : `last 14 days ${total.toLocaleString()} plays`
+        }
+      >
+        {data.map((d, i) => {
+          const h = d.count > 0 ? (d.count / max) * (H - 2) : 0;
+          const x = i * (barW + gap);
+          const y = H - h;
+          return (
+            <rect
+              key={d.day}
+              x={x}
+              y={y}
+              width={barW}
+              height={h || 1}
+              rx={1}
+              fill={d.count > 0 ? "#38bdf8" : "#1e293b"}
+            />
+          );
+        })}
+      </svg>
+      <span className="shrink-0 text-[10px] text-neutral-500">
+        {ko ? "최근 14일" : "Last 14 days"}
+      </span>
+    </div>
   );
 }

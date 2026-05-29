@@ -9,6 +9,7 @@ import { getLocale } from "@/lib/i18n-server";
 import { genreDict } from "@/lib/i18n/genre";
 import { getGenreContent } from "@/data/genre-content";
 import { loadRelatedGenres } from "@/lib/relatedGenres";
+import { loadWorldcupsByTag } from "@/lib/community-stats";
 import { PreviewButton } from "../../library/PreviewButton";
 import { AboutBox } from "./AboutBox";
 
@@ -51,11 +52,15 @@ export default async function GenrePage({
   }
 
   const { userId } = await requireOnboarded();
-  const [d, related] = await Promise.all([
+  const [d, related, taggedWorldcups] = await Promise.all([
     getGenreDetail(userId, name),
     // Related-genres sidebar (R27c). Independent query — failure
     // returns []; the section just hides when empty.
     loadRelatedGenres(name).catch(() => []),
+    // R28c — community worldcups tagged with this genre. Cross-link
+    // surface so the genre page becomes a discovery hub, not just an
+    // info page. Same try/catch fallback.
+    loadWorldcupsByTag(name, 3).catch(() => []),
   ]);
   // Pre-baked editorial content (emoji / era / origin / history) lives
   // in apps/web/src/data/genre-content.ts. When a genre isn't covered
@@ -236,6 +241,79 @@ export default async function GenrePage({
             ))}
           </div>
         </Section>
+      )}
+
+      {/* Community worldcups tagged with this genre (R28c) — the
+          genre page becomes a discovery hub: not just "what is this
+          genre" but "what brackets exist for it?". Hidden when no
+          public worldcup carries this tag; the "make one" CTA below
+          still renders so first-mover users can fill the gap. */}
+      {taggedWorldcups.length > 0 && (
+        <Section
+          title={
+            locale === "ko" ? "이 장르의 커뮤니티 월드컵" : "Community worldcups in this genre"
+          }
+        >
+          <div className="flex flex-col gap-2">
+            {taggedWorldcups.map((w) => (
+              <Link
+                key={w.id}
+                href={`/worldcup/community/${w.id}`}
+                className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-950/15 p-3 transition-colors hover:border-emerald-400/50 hover:bg-emerald-500/10"
+              >
+                <div className="grid h-12 w-12 shrink-0 grid-cols-2 grid-rows-2 gap-px overflow-hidden rounded bg-black/40">
+                  {Array.from({ length: 4 }).map((_, i) => {
+                    const p = w.previews[i];
+                    return p?.thumbnailUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={i}
+                        src={p.thumbnailUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div key={i} className="bg-emerald-500/10" />
+                    );
+                  })}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-1 text-sm font-semibold text-white">
+                    {w.title}
+                  </p>
+                  <p className="text-[11px] text-neutral-500">
+                    {w.itemCount}
+                    {locale === "ko" ? "강" : "-slot"} ·{" "}
+                    {w.playCount.toLocaleString()}
+                    {locale === "ko" ? "회 진행" : " plays"}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <Link
+            href={`/worldcup/community/create?tag=${encodeURIComponent(name.toLowerCase())}`}
+            className="mt-1 self-start text-xs text-emerald-300 hover:text-emerald-200 hover:underline"
+          >
+            {locale === "ko"
+              ? "+ 이 장르로 새 월드컵 만들기"
+              : "+ Create a new worldcup with this genre"}
+          </Link>
+        </Section>
+      )}
+      {/* When no worldcup matches yet, surface a leaner first-mover
+          CTA — saves the user a click to /worldcup/community/create
+          when they're already on the right genre page. */}
+      {taggedWorldcups.length === 0 && (
+        <Link
+          href={`/worldcup/community/create?tag=${encodeURIComponent(name.toLowerCase())}`}
+          className="self-start rounded-md border border-emerald-500/30 bg-emerald-950/15 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/15"
+        >
+          {locale === "ko"
+            ? `+ '${d.name}' 첫 번째 월드컵 만들기`
+            : `+ Be the first to create a '${d.name}' worldcup`}
+        </Link>
       )}
 
       {/* Related genres (R27c) — merged ranking of three signals:
