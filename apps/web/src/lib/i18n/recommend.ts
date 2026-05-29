@@ -98,6 +98,19 @@ const en = {
     "Random shuffles freely. Top picks pairs your highest-scoring recs against each other. Opposites pits the most against the least similar (high vs low scores). Mixed modes interleaves song-based with unheard-genre picks.",
   bracketKeyboardHint: "← left · → right · Space play",
   bracketFinalBanner: "🏆 FINAL — pick your winner",
+
+  // R40 — auto-pick / mode-accuracy panel strings (migrated from inline ternaries)
+  // EC-5 "rate a few to unlock" nudge (interpolated)
+  autoPickUnlockHint: (totalRated: number, need: number) =>
+    `Rate 5+ in one mode to unlock "auto-pick" (${totalRated} so far). ~${need} more in the same mode.`,
+  autoPickLabel: (mode: string, pct: number) => `Auto-pick: ${mode} (${pct}% liked)`,
+  autoPickBasis: (n: number) => `Based on ${n} recent ratings`,
+  autoPickUse: "Use this mode",
+  modeAccuracyTitle: "🎯 Mode accuracy",
+  modeAccuracySummary: (rated: number, likes: number, dislikes: number) =>
+    `${rated} rated · 👍 ${likes} · 👎 ${dislikes}`,
+  weeklyLikeRateTitle: "Like rate by week (8w)",
+  hourlyLikeRateTitle: "Like rate by hour (KST)",
 };
 
 const ko: typeof en = {
@@ -179,6 +192,17 @@ const ko: typeof en = {
   bracketPatternCross: "🔀 장르 교차",
   bracketPatternHint:
     "무작위는 그냥 섞고, 최애끼리는 점수 높은 곡들을 먼저 붙이고, 정반대끼리는 점수 차이 큰 곡들을 맞붙입니다. 장르 교차는 '비슷한 곡'과 '안 들어본 장르' 추천을 번갈아 배치.",
+
+  autoPickUnlockHint: (totalRated: number, need: number) =>
+    `한 모드에서 5개 이상 평가하면 "자동 추천"이 켜져요 (지금까지 ${totalRated}개). 같은 모드로 ${need}개 더 평가해 보세요.`,
+  autoPickLabel: (mode: string, pct: number) => `자동 추천: ${mode} (좋아요 ${pct}%)`,
+  autoPickBasis: (n: number) => `최근 ${n}건의 평가 데이터 기반`,
+  autoPickUse: "이 모드로 추천",
+  modeAccuracyTitle: "🎯 모드별 정확도",
+  modeAccuracySummary: (rated: number, likes: number, dislikes: number) =>
+    `평가 ${rated}건 · 👍 ${likes} · 👎 ${dislikes}`,
+  weeklyLikeRateTitle: "주별 좋아요 비율 (8주)",
+  hourlyLikeRateTitle: "시간대별 좋아요 비율 (KST)",
 };
 
 export function recommendDict(locale: Locale) {

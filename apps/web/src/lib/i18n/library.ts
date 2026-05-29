@@ -132,6 +132,24 @@ const en = {
   deleteConfirmWarn: "This is permanent and cannot be undone. Are you sure?",
   deleteConfirmYes: "Yes, delete everything",
   deleteCancel: "Cancel",
+  // R40 — quick-actions strip labels (migrated from inline ternaries)
+  quickPsychology: "Psychology",
+  quickWorldCup: "World Cup",
+  quickDiscover: "Discover",
+  // Spotify-disabled hint under the connect card (synced=0 hero)
+  spotifyComingHint:
+    "👆 The extension is currently the only sync path. Spotify is coming soon.",
+  // Extension-sync staleness alert (interpolated with days-since-sync)
+  staleSync: (days: number) =>
+    `${days} days since the last sync. Open the Chrome extension and visit music.youtube.com — it auto-syncs from there.`,
+  // Recent-plays rollup (last 7 days)
+  recentPlaysTitle: "🎧 Last 7 days",
+  recentPlaysSummary: (plays: string, distinct: string) =>
+    `${plays} plays · ${distinct} distinct`,
+  // "Next step" AI-profile hook (shown when library synced but no profile)
+  nextStepLabel: "Next step",
+  nextStepTitle: "Let AI read your library and surface your taste →",
+  nextStepSub: "Persona · digging axes · era / region / genre map · zodiac. About 10 seconds.",
 };
 
 const ko: typeof en = {
@@ -245,6 +263,19 @@ const ko: typeof en = {
   deleteConfirmWarn: "영구 삭제되며 되돌릴 수 없습니다. 정말 삭제할까요?",
   deleteConfirmYes: "네, 전부 삭제",
   deleteCancel: "취소",
+  quickPsychology: "심리분석",
+  quickWorldCup: "월드컵",
+  quickDiscover: "추천",
+  spotifyComingHint:
+    "👆 지금은 익스텐션이 유일한 동기화 경로입니다. Spotify는 곧 추가돼요.",
+  staleSync: (days: number) =>
+    `마지막 sync로부터 ${days}일이 지났어요. Chrome 익스텐션을 한 번 열어주세요 — music.youtube.com 방문 시 자동 동기화됩니다.`,
+  recentPlaysTitle: "🎧 최근 7일 재생",
+  recentPlaysSummary: (plays: string, distinct: string) =>
+    `${plays}회 · 곡 ${distinct}개`,
+  nextStepLabel: "다음 단계",
+  nextStepTitle: "AI 가 라이브러리를 읽고 취향을 풀어줍니다 →",
+  nextStepSub: "취향 페르소나 · 디깅 점수 · 시대·신·장르 분석 · 별자리. 한 번에 약 10초.",
 };
 
 export function libraryDict(locale: Locale) {

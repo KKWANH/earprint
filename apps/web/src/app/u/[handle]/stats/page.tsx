@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { creatorDict } from "@/lib/i18n/creator";
 
 interface MonthlyRow { month: string; plays: number }
 interface ItemHallOfFame {
@@ -219,7 +220,7 @@ export default async function CreatorStats({
   const data = await loadStats(handle);
   if (!data) notFound();
   const locale = await getLocale();
-  const ko = locale === "ko";
+  const t = creatorDict(locale);
   const monthMax = Math.max(1, ...data.monthly.map((m) => m.plays));
 
   return (
@@ -232,17 +233,17 @@ export default async function CreatorStats({
       </Link>
 
       <header className="flex flex-col gap-2 rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-950/30 via-neutral-950 to-neutral-900 p-6">
-        <h1 className="text-2xl font-extrabold sm:text-3xl">@{handle} {ko ? "통계" : "stats"}</h1>
+        <h1 className="text-2xl font-extrabold sm:text-3xl">@{handle} {t.statsWord}</h1>
         <div className="flex flex-wrap gap-3 text-xs text-neutral-400">
           <span>
-            {ko ? "총 진행" : "Total plays"}:{" "}
+            {t.totalPlays}:{" "}
             <strong className="font-semibold text-white">
               {data.totalPlays.toLocaleString()}
             </strong>
           </span>
           <span>·</span>
           <span>
-            {ko ? "총 우승 횟수" : "Total champions crowned"}:{" "}
+            {t.totalChampions}:{" "}
             <strong className="font-semibold text-white">
               {data.totalChampions.toLocaleString()}
             </strong>
@@ -254,7 +255,7 @@ export default async function CreatorStats({
       {data.monthly.length > 0 && (
         <section className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-neutral-900 p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
-            {ko ? "월별 진행 (12개월)" : "Monthly plays (12 months)"}
+            {t.monthlyPlays}
           </h2>
           <div className="flex h-24 items-end gap-1.5">
             {data.monthly.map((m) => {
@@ -285,7 +286,7 @@ export default async function CreatorStats({
       {data.hallOfFame.length > 0 && (
         <section className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-950/15 p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-amber-300">
-            {ko ? "👑 우승 명예의 전당" : "👑 Hall of Fame"}
+            {t.hallOfFame}
           </h2>
           <ul className="flex flex-col gap-1.5">
             {data.hallOfFame.map((it, i) => (
@@ -330,7 +331,7 @@ export default async function CreatorStats({
       {data.worldcups.length > 0 && (
         <section className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-neutral-900 p-5">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
-            {ko ? "월드컵별 통계" : "Per-worldcup"}
+            {t.perWorldcup}
           </h2>
           <ul className="flex flex-col gap-1">
             {data.worldcups.map((w) => (
@@ -342,7 +343,7 @@ export default async function CreatorStats({
                   <span className="min-w-0 flex-1 truncate">{w.title}</span>
                   <span className="shrink-0 text-xs text-neutral-500">
                     {w.itemCount}
-                    {ko ? "강" : "-slot"}
+                    {t.slotSuffix}
                   </span>
                   <span className="shrink-0 text-xs text-neutral-400">
                     {w.playCount.toLocaleString()}

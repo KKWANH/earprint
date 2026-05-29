@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { creatorDict } from "@/lib/i18n/creator";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +81,7 @@ export default async function CreatorSearch({
   const q = (sp.q ?? "").trim().slice(0, 30);
   const rows = await searchCreators(q);
   const locale = await getLocale();
-  const ko = locale === "ko";
+  const t = creatorDict(locale);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-10">
@@ -88,49 +89,35 @@ export default async function CreatorSearch({
         href="/worldcup/community"
         className="text-xs text-neutral-500 hover:text-white"
       >
-        ← {ko ? "커뮤니티" : "Community"}
+        ← {t.community}
       </Link>
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold sm:text-3xl">
-          {ko ? "메이커 찾기" : "Find a creator"}
-        </h1>
-        <p className="text-sm text-neutral-400">
-          {ko
-            ? "월드컵을 만든 사람을 핸들로 검색하세요."
-            : "Search worldcup creators by their handle."}
-        </p>
+        <h1 className="text-2xl font-bold sm:text-3xl">{t.findCreator}</h1>
+        <p className="text-sm text-neutral-400">{t.findCreatorBody}</p>
       </header>
       <form method="GET" action="/u" className="flex items-center gap-2">
         <input
           type="search"
           name="q"
           defaultValue={q}
-          placeholder={ko ? "핸들 검색…" : "Search handle…"}
+          placeholder={t.searchPlaceholder}
           className="flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none"
         />
         <button
           type="submit"
           className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400"
         >
-          {ko ? "검색" : "Search"}
+          {t.search}
         </button>
       </form>
 
       <p className="text-xs text-neutral-500">
-        {q
-          ? ko
-            ? `"${q}" 검색 결과 ${rows.length}명`
-            : `${rows.length} match${rows.length === 1 ? "" : "es"} for "${q}"`
-          : ko
-            ? "인기 메이커 TOP 30"
-            : "Top 30 creators"}
+        {q ? t.matchesFor(q, rows.length) : t.topCreators}
       </p>
 
       {rows.length === 0 ? (
         <p className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-8 text-center text-sm text-neutral-500">
-          {q
-            ? ko ? "검색 결과 없음." : "No matches."
-            : ko ? "아직 메이커가 없어요." : "No creators yet."}
+          {q ? t.noMatches : t.noCreators}
         </p>
       ) : (
         <ul className="flex flex-col gap-1">
@@ -146,10 +133,7 @@ export default async function CreatorSearch({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">@{r.handle}</p>
                   <p className="text-[11px] text-neutral-500">
-                    {r.worldcupCount}
-                    {ko ? "개 월드컵 · " : " worldcups · "}
-                    {r.totalPlays.toLocaleString()}
-                    {ko ? "회 진행" : " plays"}
+                    {t.creatorMeta(r.worldcupCount, r.totalPlays)}
                   </p>
                 </div>
               </Link>

@@ -137,9 +137,7 @@ export default async function LibraryPage({
         <SpotifyConnectCard locale={locale} />
         {!SPOTIFY_ENABLED && (
           <p className="text-center text-[11px] text-neutral-500">
-            {locale === "ko"
-              ? "👆 지금은 익스텐션이 유일한 동기화 경로입니다. Spotify는 곧 추가돼요."
-              : "👆 The extension is currently the only sync path. Spotify is coming soon."}
+            {t.spotifyComingHint}
           </p>
         )}
       </main>
@@ -165,9 +163,7 @@ export default async function LibraryPage({
       {isStale && (
         <div className="rounded-md border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-100">
           ⏰{" "}
-          {locale === "ko"
-            ? `마지막 sync로부터 ${daysSinceSync}일이 지났어요. Chrome 익스텐션을 한 번 열어주세요 — music.youtube.com 방문 시 자동 동기화됩니다.`
-            : `${daysSinceSync} days since the last sync. Open the Chrome extension and visit music.youtube.com — it auto-syncs from there.`}
+          {t.staleSync(daysSinceSync!)}
         </div>
       )}
       <header className="flex flex-col gap-1">
@@ -185,17 +181,17 @@ export default async function LibraryPage({
           {
             href: "/profile",
             emoji: "🧠",
-            label: locale === "ko" ? "심리분석" : "Psychology",
+            label: t.quickPsychology,
           },
           {
             href: "/worldcup",
             emoji: "🏆",
-            label: locale === "ko" ? "월드컵" : "World Cup",
+            label: t.quickWorldCup,
           },
           {
             href: "/recommend",
             emoji: "✨",
-            label: locale === "ko" ? "추천" : "Discover",
+            label: t.quickDiscover,
           },
         ].map((a) => (
           <Link
@@ -229,12 +225,13 @@ export default async function LibraryPage({
         <section className="flex flex-col gap-3 rounded-2xl border border-sky-500/20 bg-sky-950/15 p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold text-sky-200">
-              {locale === "ko" ? "🎧 최근 7일 재생" : "🎧 Last 7 days"}
+              {t.recentPlaysTitle}
             </h2>
             <span className="text-[11px] text-neutral-500">
-              {locale === "ko"
-                ? `${recentPlays.weekTotal.toLocaleString()}회 · 곡 ${recentPlays.distinctTracks.toLocaleString()}개`
-                : `${recentPlays.weekTotal.toLocaleString()} plays · ${recentPlays.distinctTracks.toLocaleString()} distinct`}
+              {t.recentPlaysSummary(
+                recentPlays.weekTotal.toLocaleString(),
+                recentPlays.distinctTracks.toLocaleString(),
+              )}
             </span>
           </div>
           {recentPlays.topArtists.length > 0 && (
@@ -272,17 +269,13 @@ export default async function LibraryPage({
           className="group flex flex-col gap-1.5 rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-5 transition-colors hover:border-emerald-400/70 hover:bg-emerald-500/10"
         >
           <span className="text-xs font-semibold uppercase tracking-wider text-emerald-300">
-            {locale === "ko" ? "다음 단계" : "Next step"}
+            {t.nextStepLabel}
           </span>
           <span className="text-lg font-bold text-white sm:text-xl">
-            {locale === "ko"
-              ? "AI 가 라이브러리를 읽고 취향을 풀어줍니다 →"
-              : "Let AI read your library and surface your taste →"}
+            {t.nextStepTitle}
           </span>
           <span className="text-xs text-neutral-400">
-            {locale === "ko"
-              ? "취향 페르소나 · 디깅 점수 · 시대·신·장르 분석 · 별자리. 한 번에 약 10초."
-              : "Persona · digging axes · era / region / genre map · zodiac. About 10 seconds."}
+            {t.nextStepSub}
           </span>
         </Link>
       ) : null}

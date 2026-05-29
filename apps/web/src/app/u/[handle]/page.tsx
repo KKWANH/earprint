@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { creatorDict } from "@/lib/i18n/creator";
 
 interface CreatorPageProps {
   params: Promise<{ handle: string }>;
@@ -199,22 +200,21 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
   const shareId = await loadShareIdByHandle(handle);
   const locale = await getLocale();
   const ko = locale === "ko";
+  const t = creatorDict(locale);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <Link href="/worldcup/community" className="text-xs text-neutral-500 hover:text-white">
-        {ko ? "← 커뮤니티" : "← Community"}
+        {t.communityBack}
       </Link>
 
       <header className="flex flex-col gap-3 rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-950/30 via-neutral-950 to-neutral-900 p-6">
         <p className="text-xs font-bold uppercase tracking-wider text-sky-300">
-          {ko ? "Worldcup 메이커" : "Worldcup creator"}
+          {t.worldcupCreator}
         </p>
         <h1 className="text-2xl font-extrabold sm:text-3xl">@{handle}</h1>
         <p className="text-xs text-neutral-400">
-          {ko
-            ? `${data.worldcups.length}개 월드컵 · 총 ${data.totalPlays.toLocaleString()}회 진행`
-            : `${data.worldcups.length} worldcups · ${data.totalPlays.toLocaleString()} total plays`}
+          {t.profileMeta(data.worldcups.length, data.totalPlays)}
         </p>
         {/* R28f — 14-day sparkline. Hidden when there's no play
             activity at all (sum=0) since a flat line would be more
@@ -231,13 +231,13 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
               href={`/s/${shareId}`}
               className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/15"
             >
-              {ko ? "🎧 취향 보기" : "🎧 View their taste"}
+              {t.viewTaste}
             </Link>
             <Link
               href={`/compare?with=${shareId}`}
               className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400"
             >
-              {ko ? "↔ 내 취향과 비교" : "↔ Compare with mine"}
+              {t.compareWithMine}
             </Link>
           </div>
         )}
@@ -278,12 +278,12 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
               <div className="flex items-center gap-2 text-[11px] text-neutral-500">
                 <span>
                   {w.itemCount}
-                  {ko ? "강" : "-slot"}
+                  {t.slotSuffix}
                 </span>
                 <span className="text-neutral-700">·</span>
                 <span>
                   {w.playCount.toLocaleString()}
-                  {ko ? "회" : " plays"}
+                  {t.playsSuffix}
                 </span>
               </div>
             </div>
@@ -293,9 +293,7 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
 
       {data.worldcups.length === 60 && (
         <p className="text-center text-[11px] text-neutral-600">
-          {ko
-            ? "60개까지만 표시됩니다."
-            : "Showing the first 60 worldcups."}
+          {t.showingFirst60}
         </p>
       )}
 
@@ -306,7 +304,7 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
         href={`/u/${encodeURIComponent(handle)}/stats`}
         className="self-center text-xs text-sky-300 hover:text-sky-200 hover:underline"
       >
-        {ko ? "📊 상세 통계 보기 →" : "📊 View detailed stats →"}
+        {t.viewStats}
       </Link>
     </main>
   );
@@ -330,6 +328,7 @@ function Sparkline({
   data: { day: string; count: number }[];
   ko: boolean;
 }) {
+  const t = creatorDict(ko ? "ko" : "en");
   const total = data.reduce((s, d) => s + d.count, 0);
   const max = Math.max(1, ...data.map((d) => d.count));
   const W = 280;
@@ -341,11 +340,7 @@ function Sparkline({
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="h-10 w-full max-w-[280px]"
-        aria-label={
-          ko
-            ? `최근 14일 플레이 ${total.toLocaleString()}회`
-            : `last 14 days ${total.toLocaleString()} plays`
-        }
+        aria-label={t.sparklineAria(total)}
       >
         {data.map((d, i) => {
           const h = d.count > 0 ? (d.count / max) * (H - 2) : 0;
@@ -365,7 +360,7 @@ function Sparkline({
         })}
       </svg>
       <span className="shrink-0 text-[10px] text-neutral-500">
-        {ko ? "최근 14일" : "Last 14 days"}
+        {t.last14Days}
       </span>
     </div>
   );

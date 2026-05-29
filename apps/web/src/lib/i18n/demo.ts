@@ -28,6 +28,19 @@ const en = {
   bottomCtaTitle: "Want yours?",
   bottomCtaBody:
     "Sign in, install the Chrome extension (or use API sync on mobile), and a fuller version of this page is yours in about 10 minutes.",
+
+  // R38 demo worldcup widget
+  wcTitle: "Try the worldcup (sample)",
+  wcBody:
+    "Run an 8-track bracket to crown your #1. ▶ 30s previews · no sign-in — the real app runs on YOUR library.",
+  wcStart: "Start",
+  wcOpenTitle: "🏆 Sample worldcup",
+  wcClose: "Close",
+  wcChampionLabel: "Sample champion",
+  wcChampionBody:
+    "Fun, right? The real thing runs on YOUR YouTube Music / Spotify library.",
+  wcAgain: "Again",
+  wcDoMine: "Do it with mine →",
 };
 
 const ko: typeof en = {
@@ -58,6 +71,19 @@ const ko: typeof en = {
   bottomCtaTitle: "내 분석 받으려면",
   bottomCtaBody:
     "로그인 → Chrome 확장 설치 (모바일이면 API 동기화) → 10분 정도면 이 페이지의 본인 버전이 완성됩니다.",
+
+  // R38 demo worldcup widget
+  wcTitle: "월드컵 직접 해보기 (샘플)",
+  wcBody:
+    "8곡으로 토너먼트를 돌려 최애 1곡을 가려보세요. ▶ 30초 미리듣기 지원 · 로그인 불필요 — 실제 앱에선 내 라이브러리 곡으로 돌아갑니다.",
+  wcStart: "시작",
+  wcOpenTitle: "🏆 샘플 월드컵",
+  wcClose: "닫기",
+  wcChampionLabel: "샘플 우승",
+  wcChampionBody:
+    "재밌었죠? 실제 앱에선 내 YouTube Music / Spotify 라이브러리로 돌아갑니다.",
+  wcAgain: "다시",
+  wcDoMine: "내 걸로 시작 →",
 };
 
 export function demoDict(locale: Locale) {

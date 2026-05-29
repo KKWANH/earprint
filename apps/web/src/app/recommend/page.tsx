@@ -152,9 +152,7 @@ export default async function RecommendPage() {
           return (
             <section className="rounded-2xl border border-neutral-700/60 bg-neutral-900 px-4 py-3 text-xs text-neutral-400">
               🤖{" "}
-              {locale === "ko"
-                ? `한 모드에서 5개 이상 평가하면 "자동 추천"이 켜져요 (지금까지 ${totalRated}개). 같은 모드로 ${need}개 더 평가해 보세요.`
-                : `Rate 5+ in one mode to unlock "auto-pick" (${totalRated} so far). ~${need} more in the same mode.`}
+              {t.autoPickUnlockHint(totalRated, need)}
             </section>
           );
         }
@@ -167,15 +165,11 @@ export default async function RecommendPage() {
               <div className="flex items-baseline gap-2">
                 <span className="text-amber-300">🤖</span>
                 <span className="text-neutral-300">
-                  {locale === "ko"
-                    ? `자동 추천: ${best.mode} (좋아요 ${Math.round(best.rate * 100)}%)`
-                    : `Auto-pick: ${best.mode} (${Math.round(best.rate * 100)}% liked)`}
+                  {t.autoPickLabel(best.mode, Math.round(best.rate * 100))}
                 </span>
               </div>
               <span className="text-[10px] text-neutral-500">
-                {locale === "ko"
-                  ? `최근 ${best.rated}건의 평가 데이터 기반`
-                  : `Based on ${best.rated} recent ratings`}
+                {t.autoPickBasis(best.rated)}
               </span>
             </div>
             {/* Plain form submitting to a tiny API helper that
@@ -193,7 +187,7 @@ export default async function RecommendPage() {
                 type="submit"
                 className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-amber-400"
               >
-                {locale === "ko" ? "이 모드로 추천" : "Use this mode"}
+                {t.autoPickUse}
               </button>
             </form>
           </section>
@@ -208,12 +202,10 @@ export default async function RecommendPage() {
         <section className="flex flex-col gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold text-emerald-200">
-              {locale === "ko" ? "🎯 모드별 정확도" : "🎯 Mode accuracy"}
+              {t.modeAccuracyTitle}
             </h2>
             <span className="text-[11px] text-neutral-500">
-              {locale === "ko"
-                ? `평가 ${stat[0].rated}건 · 👍 ${stat[0].likes} · 👎 ${stat[0].dislikes}`
-                : `${stat[0].rated} rated · 👍 ${stat[0].likes} · 👎 ${stat[0].dislikes}`}
+              {t.modeAccuracySummary(stat[0].rated, stat[0].likes, stat[0].dislikes)}
             </span>
           </div>
           <div className="flex flex-col gap-1">
@@ -254,7 +246,7 @@ export default async function RecommendPage() {
           {weeklyQuality.some((w) => Number(w.rated ?? 0) > 0) && (
             <div className="mt-3 flex flex-col gap-1">
               <p className="text-[11px] uppercase tracking-wider text-neutral-500">
-                {locale === "ko" ? "주별 좋아요 비율 (8주)" : "Like rate by week (8w)"}
+                {t.weeklyLikeRateTitle}
               </p>
               <div className="flex h-12 items-end gap-1">
                 {weeklyQuality.map((w) => {
@@ -316,9 +308,7 @@ export default async function RecommendPage() {
             return (
               <div className="mt-3 flex flex-col gap-1">
                 <p className="text-[11px] uppercase tracking-wider text-neutral-500">
-                  {locale === "ko"
-                    ? "시간대별 좋아요 비율 (KST)"
-                    : "Like rate by hour (KST)"}
+                  {t.hourlyLikeRateTitle}
                 </p>
                 <div className="grid grid-cols-12 gap-px sm:grid-cols-24">
                   {Array.from({ length: 24 }).map((_, h) => {

@@ -5,6 +5,7 @@ import { requireOnboarded } from "@/lib/onboarding";
 import { getSql } from "@/lib/db";
 import { getLibraryStats } from "@/lib/library";
 import { getLocale } from "@/lib/i18n-server";
+import { compareDict } from "@/lib/i18n/compare";
 import { compareTaste, type TasteVector } from "@/lib/tasteCompare";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ export default async function ComparePage({
   searchParams: Promise<{ with?: string }>;
 }) {
   const locale = await getLocale();
-  const ko = locale === "ko";
+  const t = compareDict(locale);
   const session = await auth();
   if (!session?.user) {
     return (
@@ -57,7 +58,7 @@ export default async function ComparePage({
           }}
         >
           <button className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-900">
-            {ko ? "Google 로 로그인" : "Sign in with Google"}
+            {t.signInGoogle}
           </button>
         </form>
       </main>
@@ -72,34 +73,24 @@ export default async function ComparePage({
     return (
       <main className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 py-10 sm:px-6 sm:py-16">
         <header className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold">
-            {ko ? "취향 비교" : "Compare taste"}
-          </h1>
-          <p className="text-sm text-neutral-400">
-            {ko
-              ? "친구의 공유 링크를 붙여넣으면 두 사람의 취향이 얼마나 겹치는지 보여드려요. (상대가 프로필을 공유했을 때만 가능)"
-              : "Paste a friend's share link to see how much your tastes overlap. (Only works when they've shared their profile.)"}
-          </p>
+          <h1 className="text-2xl font-bold">{t.title}</h1>
+          <p className="text-sm text-neutral-400">{t.entryBody}</p>
         </header>
         <form method="GET" action="/compare" className="flex flex-col gap-2">
           <input
             type="text"
             name="with"
-            placeholder={ko ? "공유 링크 또는 share id" : "Share link or share id"}
+            placeholder={t.sharePlaceholder}
             className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
           />
           <button
             type="submit"
             className="self-start rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
           >
-            {ko ? "비교하기" : "Compare"}
+            {t.compare}
           </button>
         </form>
-        <p className="text-xs text-neutral-600">
-          {ko
-            ? "내 공유 링크는 심리분석(/profile) 페이지에서 만들 수 있어요."
-            : "Make your own share link from the Psychology (/profile) page."}
-        </p>
+        <p className="text-xs text-neutral-600">{t.makeOwnShare}</p>
       </main>
     );
   }
@@ -123,16 +114,10 @@ export default async function ComparePage({
   if (!targetUserId) {
     return (
       <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-16 text-center">
-        <h1 className="text-xl font-bold">
-          {ko ? "공유 링크를 찾을 수 없어요" : "Share link not found"}
-        </h1>
-        <p className="text-sm text-neutral-400">
-          {ko
-            ? "링크가 맞는지 확인하거나, 상대에게 프로필 공유를 켜달라고 해보세요."
-            : "Double-check the link, or ask them to enable profile sharing."}
-        </p>
+        <h1 className="text-xl font-bold">{t.shareNotFound}</h1>
+        <p className="text-sm text-neutral-400">{t.shareNotFoundBody}</p>
         <Link href="/compare" className="text-sm text-emerald-300 hover:underline">
-          {ko ? "← 다시 시도" : "← Try again"}
+          {t.tryAgain}
         </Link>
       </main>
     );
@@ -141,16 +126,10 @@ export default async function ComparePage({
   if (targetUserId === userId) {
     return (
       <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-16 text-center">
-        <h1 className="text-xl font-bold">
-          {ko ? "어라, 본인인걸요? 🙂" : "Hey, that's you 🙂"}
-        </h1>
-        <p className="text-sm text-neutral-400">
-          {ko
-            ? "친구의 공유 링크를 붙여넣으면 두 사람 취향이 얼마나 닮았는지 볼 수 있어요."
-            : "Paste a friend's share link to see how alike your tastes are."}
-        </p>
+        <h1 className="text-xl font-bold">{t.thatsYou}</h1>
+        <p className="text-sm text-neutral-400">{t.thatsYouBody}</p>
         <Link href="/compare" className="text-sm text-emerald-300 hover:underline">
-          {ko ? "다른 사람과 비교하기" : "Compare with someone else"}
+          {t.compareSomeoneElse}
         </Link>
       </main>
     );
@@ -163,40 +142,36 @@ export default async function ComparePage({
   const result = compareTaste(toVector(mine), toVector(theirs));
   const pct = Math.round(result.score * 100);
 
-  const tierCopy: Record<typeof result.tier, { ko: string; en: string; emoji: string }> = {
-    twin: { ko: "취향 쌍둥이", en: "Taste twins", emoji: "👯" },
-    close: { ko: "꽤 비슷함", en: "Pretty close", emoji: "🤝" },
-    some: { ko: "약간 겹침", en: "Some overlap", emoji: "🎚" },
-    distant: { ko: "꽤 다름", en: "Quite different", emoji: "🌗" },
+  const tierEmoji: Record<typeof result.tier, string> = {
+    twin: "👯",
+    close: "🤝",
+    some: "🎚",
+    distant: "🌗",
   };
-  const tc = tierCopy[result.tier];
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <Link href="/compare" className="text-xs text-neutral-500 hover:text-white">
-        ← {ko ? "다른 사람과 비교" : "Compare someone else"}
+        ← {t.compareSomeoneElseShort}
       </Link>
 
       <section className="flex flex-col items-center gap-2 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900 p-8 text-center">
-        <span className="text-5xl">{tc.emoji}</span>
+        <span className="text-5xl">{tierEmoji[result.tier]}</span>
         <p className="text-4xl font-extrabold text-emerald-300">{pct}%</p>
-        <p className="text-lg font-bold">{ko ? tc.ko : tc.en}</p>
+        <p className="text-lg font-bold">{t.tier[result.tier]}</p>
         <p className="text-xs text-neutral-500">
-          {ko
-            ? `아티스트 ${Math.round(result.artistJaccard * 100)}% · 장르 ${Math.round(result.genreJaccard * 100)}%`
-            : `artists ${Math.round(result.artistJaccard * 100)}% · genres ${Math.round(result.genreJaccard * 100)}%`}
+          {t.breakdown(
+            Math.round(result.artistJaccard * 100),
+            Math.round(result.genreJaccard * 100),
+          )}
           {result.feelSimilarity != null &&
-            (ko
-              ? ` · 사운드 ${Math.round(result.feelSimilarity * 100)}%`
-              : ` · sound ${Math.round(result.feelSimilarity * 100)}%`)}
+            t.soundSuffix(Math.round(result.feelSimilarity * 100))}
         </p>
       </section>
 
       {result.sharedArtists.length > 0 && (
         <section className="flex flex-col gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-          <h2 className="text-sm font-semibold">
-            {ko ? "공통 아티스트" : "Artists you both love"}
-          </h2>
+          <h2 className="text-sm font-semibold">{t.sharedArtistsTitle}</h2>
           <div className="flex flex-wrap gap-1.5">
             {result.sharedArtists.map((a) => (
               <Link
@@ -213,9 +188,7 @@ export default async function ComparePage({
 
       {result.sharedGenres.length > 0 && (
         <section className="flex flex-col gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-          <h2 className="text-sm font-semibold">
-            {ko ? "공통 장르" : "Genres you share"}
-          </h2>
+          <h2 className="text-sm font-semibold">{t.sharedGenresTitle}</h2>
           <div className="flex flex-wrap gap-1.5">
             {result.sharedGenres.map((g) => (
               <Link
@@ -232,9 +205,7 @@ export default async function ComparePage({
 
       {result.sharedArtists.length === 0 && result.sharedGenres.length === 0 && (
         <p className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-6 text-center text-sm text-neutral-500">
-          {ko
-            ? "공통점이 거의 없네요 — 서로의 라이브러리에서 새 곡을 발견할 기회!"
-            : "Almost no overlap — a chance to discover new music from each other!"}
+          {t.noOverlap}
         </p>
       )}
     </main>

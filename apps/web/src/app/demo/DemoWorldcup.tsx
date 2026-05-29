@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n";
+import { demoDict } from "@/lib/i18n/demo";
 import { Bracket, type Rec } from "../worldcup/Bracket";
 import { PreviewButton } from "../library/PreviewButton";
 
@@ -34,26 +35,20 @@ const SAMPLE: Rec[] = [
 ];
 
 export function DemoWorldcup({ locale }: { locale: Locale }) {
-  const ko = locale === "ko";
+  const t = demoDict(locale);
   const [open, setOpen] = useState(false);
 
   if (!open) {
     return (
       <section className="flex flex-col items-start gap-2 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/30 via-neutral-950 to-neutral-900 p-5">
         <span className="text-2xl">🏆</span>
-        <h2 className="text-sm font-bold text-white">
-          {ko ? "월드컵 직접 해보기 (샘플)" : "Try the worldcup (sample)"}
-        </h2>
-        <p className="text-xs text-neutral-400">
-          {ko
-            ? "8곡으로 토너먼트를 돌려 최애 1곡을 가려보세요. ▶ 30초 미리듣기 지원 · 로그인 불필요 — 실제 앱에선 내 라이브러리 곡으로 돌아갑니다."
-            : "Run an 8-track bracket to crown your #1. ▶ 30s previews · no sign-in — the real app runs on YOUR library."}
-        </p>
+        <h2 className="text-sm font-bold text-white">{t.wcTitle}</h2>
+        <p className="text-xs text-neutral-400">{t.wcBody}</p>
         <button
           onClick={() => setOpen(true)}
           className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400"
         >
-          {ko ? "시작" : "Start"}
+          {t.wcStart}
         </button>
       </section>
     );
@@ -62,14 +57,12 @@ export function DemoWorldcup({ locale }: { locale: Locale }) {
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-neutral-950 p-4">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-bold text-amber-200">
-          {ko ? "🏆 샘플 월드컵" : "🏆 Sample worldcup"}
-        </h2>
+        <h2 className="text-sm font-bold text-amber-200">{t.wcOpenTitle}</h2>
         <button
           onClick={() => setOpen(false)}
           className="text-xs text-neutral-500 hover:text-white"
         >
-          {ko ? "닫기" : "Close"}
+          {t.wcClose}
         </button>
       </div>
       <Bracket
@@ -105,7 +98,7 @@ export function DemoWorldcup({ locale }: { locale: Locale }) {
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-950/40 via-neutral-950 to-neutral-900 p-8 text-center">
             <span className="text-5xl">🏆</span>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
-              {ko ? "샘플 우승" : "Sample champion"}
+              {t.wcChampionLabel}
             </p>
             <h3 className="text-2xl font-extrabold">
               {champion.title}
@@ -113,23 +106,19 @@ export function DemoWorldcup({ locale }: { locale: Locale }) {
                 {champion.artist}
               </span>
             </h3>
-            <p className="max-w-xs text-xs text-neutral-500">
-              {ko
-                ? "재밌었죠? 실제 앱에선 내 YouTube Music / Spotify 라이브러리로 돌아갑니다."
-                : "Fun, right? The real thing runs on YOUR YouTube Music / Spotify library."}
-            </p>
+            <p className="max-w-xs text-xs text-neutral-500">{t.wcChampionBody}</p>
             <div className="flex gap-2">
               <button
                 onClick={onRestart}
                 className="rounded-md border border-white/10 px-4 py-2 text-sm text-neutral-300 hover:bg-white/5"
               >
-                {ko ? "다시" : "Again"}
+                {t.wcAgain}
               </button>
               <Link
                 href="/library"
                 className="rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
               >
-                {ko ? "내 걸로 시작 →" : "Do it with mine →"}
+                {t.wcDoMine}
               </Link>
             </div>
           </div>
