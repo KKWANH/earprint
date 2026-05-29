@@ -8,6 +8,7 @@ import { getLocale } from "@/lib/i18n-server";
 import { demoDict } from "@/lib/i18n/demo";
 import { getMusicZodiac } from "@/lib/musicZodiac";
 import { SAMPLE_PROFILE, SAMPLE_STATS } from "@/lib/sampleData";
+import { DemoWorldcup } from "./DemoWorldcup";
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
