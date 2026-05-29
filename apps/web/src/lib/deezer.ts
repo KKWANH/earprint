@@ -35,8 +35,9 @@ const EMPTY: DeezerMatch = {
   matchConfidence: 0,
 };
 
-/** Normalize for matching/scoring: lowercase, strip brackets/feat/symbols (keep CJK). */
-function norm(s: string): string {
+/** Normalize for matching/scoring: lowercase, strip brackets/feat/symbols (keep CJK).
+ *  Exported for unit testing (R37) — also used internally. */
+export function norm(s: string): string {
   return s
     .toLowerCase()
     .replace(/\([^)]*\)|\[[^\]]*\]/g, " ")
@@ -45,7 +46,8 @@ function norm(s: string): string {
     .trim();
 }
 
-function scoreMatch(a: string, b: string): number {
+/** Title/artist similarity 0.4–0.95. Exported for unit testing (R37). */
+export function scoreMatch(a: string, b: string): number {
   const x = norm(a);
   const y = norm(b);
   if (!x || !y) return 0.4;

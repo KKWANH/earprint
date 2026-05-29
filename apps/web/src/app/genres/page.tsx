@@ -11,6 +11,11 @@ import { getSql } from "@/lib/db";
 import { getExcludedArtists } from "@/lib/library";
 import { getLocale } from "@/lib/i18n-server";
 import { genresIndexDict } from "@/lib/i18n/genresIndex";
+import {
+  canonicalGenreKey,
+  canonicalGenreLabel,
+  genreFamilyLabel,
+} from "@/lib/genreDict";
 import { RequestForm } from "./RequestForm";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -19,7 +24,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 interface GenreRow {
+  /** Canonical display label (variant spellings already merged). */
   name: string;
+  /** Canonical key used for the /genre/[name] link + dedup. */
+  key: string;
   count: number;
 }
 
@@ -31,27 +39,60 @@ interface GenreRow {
  * the old query iterated EVERY key regardless of weight, so a track
  * with a 0.05 weight on "shoegaze" surfaced "shoegaze" in the user's
  * list even though the AI's signal was weak. Threshold = 0.30 cuts the
- * noise floor without losing real signal (the AI is usually 0.6+
- * confident on dominant tags). User-reported as "왜 들어본적 없는 장르
- * 까지 있는가" — that's exactly this.
+ * noise floor without losing real signal.
+ *
+ * R37 — the JSONB stores RAW Gemini keys, so "synthpop" and
+ * "synth-pop" are separate keys from different tracks. We canonicalize
+ * each key through genreDict (canonicalGenreKey / canonicalGenreLabel)
+ * and re-aggregate in JS so variant spellings merge into one row with
+ * a summed count.
  */
 const GENRE_WEIGHT_FLOOR = 0.30;
 
 async function getAllGenres(userId: string): Promise<GenreRow[]> {
   const sql = getSql();
   const excluded = await getExcludedArtists(userId);
-  const rows = await sql`
-    SELECT k.key AS name, count(*)::int AS count
-    FROM analysis a
-    JOIN user_tracks ut ON ut.track_id = a.track_id
-    JOIN tracks t ON t.id = a.track_id
-    CROSS JOIN LATERAL jsonb_each(a.genres) AS k(key, value)
-    WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
-      AND t.artist <> ALL(${excluded}::text[])
-      AND (k.value)::text::float >= ${GENRE_WEIGHT_FLOOR}
-    GROUP BY k.key
-    ORDER BY count DESC, k.key ASC`;
-  return rows.map((r) => ({ name: r.name as string, count: r.count as number }));
+  // R37 — guard the ::float cast with a jsonb_typeof CASE. Postgres
+  // does NOT guarantee AND short-circuits, so a non-number weight
+  // (a legacy string value) would otherwise throw and 500 the page.
+  // CASE forces the cast to run only on actual numbers. Whole call
+  // is also try/catch'd so a schema surprise degrades to "no genres"
+  // rather than an error page.
+  let rows: Array<{ name: string; count: number }> = [];
+  try {
+    rows = (await sql`
+      SELECT k.key AS name, count(*)::int AS count
+      FROM analysis a
+      JOIN user_tracks ut ON ut.track_id = a.track_id
+      JOIN tracks t ON t.id = a.track_id
+      CROSS JOIN LATERAL jsonb_each(a.genres) AS k(key, value)
+      WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
+        AND t.artist <> ALL(${excluded}::text[])
+        AND (CASE WHEN jsonb_typeof(k.value) = 'number'
+                  THEN (k.value)::text::float ELSE 0 END) >= ${GENRE_WEIGHT_FLOOR}
+      GROUP BY k.key
+      ORDER BY count DESC, k.key ASC`) as Array<{ name: string; count: number }>;
+  } catch (e) {
+    console.error("[genres] getAllGenres failed:", e);
+    return [];
+  }
+
+  // Re-aggregate by canonical key so variant spellings merge.
+  const merged = new Map<string, { name: string; count: number }>();
+  for (const r of rows) {
+    const raw = r.name as string;
+    const cnt = r.count as number;
+    const key = canonicalGenreKey(raw);
+    const existing = merged.get(key);
+    if (existing) {
+      existing.count += cnt;
+    } else {
+      merged.set(key, { name: canonicalGenreLabel(raw), count: cnt });
+    }
+  }
+  return [...merged.entries()]
+    .map(([key, v]) => ({ key, name: v.name, count: v.count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
 type Sort = "count" | "alpha";
@@ -201,27 +242,71 @@ export default async function GenresIndexPage({
               ? `${filtered.length.toLocaleString()}개`
               : `${filtered.length.toLocaleString()} genres`}
           </p>
-          <section className="flex flex-col gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
-            {filtered.map((g) => (
-              <div key={g.name} className="flex items-center gap-3 text-sm">
-                <Link
-                  href={`/genre/${encodeURIComponent(g.name)}`}
-                  className="w-40 shrink-0 truncate text-neutral-300 hover:text-white hover:underline"
-                >
-                  {g.name}
-                </Link>
-                <div className="h-4 flex-1 overflow-hidden rounded bg-neutral-800">
-                  <div
-                    className="h-full bg-indigo-500"
-                    style={{ width: `${(g.count / max) * 100}%` }}
-                  />
-                </div>
-                <span className="w-10 shrink-0 text-right text-neutral-500">
-                  {g.count}
-                </span>
+          {(() => {
+            // R37 — group the (already-canonicalized) genres by
+            // family. Unmatched long-tail genres fall into an
+            // "Other" bucket at the bottom. When alpha-sorting we
+            // sort families alphabetically too; for count-sort we
+            // order families by their total track count desc.
+            const OTHER = ko ? "기타" : "Other";
+            const groups = new Map<
+              string,
+              { label: string; items: GenreRow[]; total: number }
+            >();
+            for (const g of filtered) {
+              const fam = genreFamilyLabel(g.key, ko ? "ko" : "en");
+              const id = fam?.id ?? "__other";
+              const label = fam?.label ?? OTHER;
+              const grp = groups.get(id) ?? { label, items: [], total: 0 };
+              grp.items.push(g);
+              grp.total += g.count;
+              groups.set(id, grp);
+            }
+            const ordered = [...groups.values()].sort((a, b) => {
+              // Always push Other last.
+              if (a.label === OTHER) return 1;
+              if (b.label === OTHER) return -1;
+              return sort === "alpha"
+                ? a.label.localeCompare(b.label)
+                : b.total - a.total;
+            });
+            return (
+              <div className="flex flex-col gap-4">
+                {ordered.map((grp) => (
+                  <section
+                    key={grp.label}
+                    className="flex flex-col gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900 p-5"
+                  >
+                    <h2 className="flex items-baseline justify-between text-xs font-semibold uppercase tracking-wider text-emerald-300">
+                      <span>{grp.label}</span>
+                      <span className="text-neutral-600">
+                        {grp.items.length}
+                      </span>
+                    </h2>
+                    {grp.items.map((g) => (
+                      <div key={g.key} className="flex items-center gap-3 text-sm">
+                        <Link
+                          href={`/genre/${encodeURIComponent(g.name)}`}
+                          className="w-40 shrink-0 truncate text-neutral-300 hover:text-white hover:underline"
+                        >
+                          {g.name}
+                        </Link>
+                        <div className="h-4 flex-1 overflow-hidden rounded bg-neutral-800">
+                          <div
+                            className="h-full bg-indigo-500"
+                            style={{ width: `${(g.count / max) * 100}%` }}
+                          />
+                        </div>
+                        <span className="w-10 shrink-0 text-right text-neutral-500">
+                          {g.count}
+                        </span>
+                      </div>
+                    ))}
+                  </section>
+                ))}
               </div>
-            ))}
-          </section>
+            );
+          })()}
         </>
       )}
 

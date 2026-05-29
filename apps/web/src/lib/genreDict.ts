@@ -203,10 +203,10 @@ const SUB_GENRES: readonly GenreNode[] = [
     aliases: ["synth pop", "synth-pop", "synthpop", "new romantic"],
     zodiac: { gemini: 0.4, aquarius: 0.4 } },
   { id: "power_pop",         label: "Power Pop",          family: "pop",
-    aliases: ["power pop", "pop rock"],
+    aliases: ["power pop"],
     zodiac: { gemini: 0.4, capricorn: 0.3 } },
   { id: "soft_pop",          label: "Soft Pop",           family: "pop",
-    aliases: ["soft pop", "sophisti pop", "sophisti-pop", "soft rock", "yacht rock", "aor", "adult contemporary"],
+    aliases: ["soft pop", "sophisti pop", "sophisti-pop", "yacht rock", "aor"],
     zodiac: { libra: 0.75, gemini: 0.1 } },
   { id: "hyperpop",          label: "Hyperpop",           family: "pop",
     aliases: ["hyperpop", "bubblegum bass", "digicore"],
@@ -702,6 +702,36 @@ const SUB_GENRES: readonly GenreNode[] = [
     aliases: ["children music", "children's music", "nursery rhymes", "kids music"] },
   { id: "novelty",           label: "Novelty",            family: "children",
     aliases: ["novelty", "novelty song", "parody"] },
+
+  // ── R37 additions — genuinely-new genres (not already covered by
+  //    the existing 208 entries) that we saw landing unmatched as
+  //    raw long-tail keys in analysis.genres. Dupe ids (trap,
+  //    boom_bap, pop_rap, neo_soul, synthwave, future_bass,
+  //    blues_rock) were dropped — they already exist. Alias conflicts
+  //    with power_pop("pop rock") + soft_pop("soft rock") are resolved
+  //    by removing those aliases from the older entries (see below) so
+  //    the dedicated rock-family entries win.
+  { id: "pop_rock",          label: "Pop Rock",           family: "rock",
+    aliases: ["pop rock", "pop-rock"],
+    zodiac: { gemini: 0.4, capricorn: 0.35 } },
+  { id: "soft_rock",         label: "Soft Rock",          family: "rock",
+    aliases: ["soft rock"],
+    zodiac: { libra: 0.6, capricorn: 0.2 } },
+  { id: "arena_rock",        label: "Arena Rock",         family: "rock",
+    aliases: ["arena rock", "stadium rock"],
+    zodiac: { capricorn: 0.6, leo: 0.2 } },
+  { id: "instrumental",      label: "Instrumental",       family: "ambient_experimental",
+    aliases: ["instrumental"],
+    zodiac: { virgo: 0.4, pisces: 0.3 } },
+  { id: "piano",             label: "Piano",              family: "classical",
+    aliases: ["piano", "piano solo", "solo piano", "modern classical piano"],
+    zodiac: { virgo: 0.6, pisces: 0.2 } },
+  // NOTE: arena_rock / contemporary_rnb / soundtrack_score / acoustic
+  // were dropped — their aliases ("arena rock", "contemporary r&b",
+  // "ost"/"film score", "acoustic"/"acoustic pop") already resolve to
+  // pre-existing entries (hard_rock / an rnb node / an existing
+  // soundtrack node / singer-songwriter). The test suite caught the
+  // shadow. Adding them would just create unreachable dead nodes.
 ];
 
 // ─────────────────────────────────────────────────────────────────────
@@ -711,6 +741,21 @@ const SUB_GENRES: readonly GenreNode[] = [
 const GENRES_BY_ID: ReadonlyMap<string, GenreNode> = new Map(
   SUB_GENRES.map((g) => [g.id, g]),
 );
+
+// R37 — module-load duplicate-id guard. A duplicate sub-genre id
+// would silently make GENRES_BY_ID drop the earlier entry; this
+// throws at import time instead so a bad edit fails the build /
+// dev server immediately. (Caught an accidental dup during the
+// R37 expansion before it shipped.)
+if (GENRES_BY_ID.size !== SUB_GENRES.length) {
+  const seen = new Set<string>();
+  const dupes: string[] = [];
+  for (const g of SUB_GENRES) {
+    if (seen.has(g.id)) dupes.push(g.id);
+    seen.add(g.id);
+  }
+  throw new Error(`genreDict: duplicate sub-genre ids: ${dupes.join(", ")}`);
+}
 
 /** Normalises a string for alias matching: lowercase, replace
  *  punctuation with single space, trim. Mirrors the input shape we
@@ -787,6 +832,84 @@ export function findGenre(input: string): GenreNode | null {
 /** Family lookup that survives unknown inputs by returning null. */
 export function genreFamily(input: string): string | null {
   return findGenre(input)?.family ?? null;
+}
+
+/**
+ * R37 — canonical DISPLAY label for a raw genre string. Used by the
+ * genre pages to merge variant spellings: "synthpop", "synth-pop",
+ * "Synth Pop" all → "Synth-Pop". When the input doesn't match any
+ * known genre, returns a title-cased version of the original so the
+ * long tail still renders readably instead of "k-pop foo" lowercase.
+ *
+ * This is the read-time normalizer that fixes the "왜 synthpop이랑
+ * synth-pop이 따로 보이지" problem — analysis.genres JSONB stores raw
+ * Gemini keys, and the genre list/detail pages canonicalize through
+ * this before aggregating.
+ */
+export function canonicalGenreLabel(input: string): string {
+  const node = findGenre(input);
+  if (node) return node.label;
+  // Unmatched — title-case the raw input as a fallback.
+  return input
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w ? w[0]!.toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
+/**
+ * R37 — canonical genre KEY for aggregation. Returns the genre node
+ * id when matched (so "synthpop"/"synth-pop" collapse to one key),
+ * or the lowercased trimmed raw string when unmatched (so the long
+ * tail still groups consistently with itself).
+ */
+export function canonicalGenreKey(input: string): string {
+  const node = findGenre(input);
+  if (node) return node.id;
+  return input.toLowerCase().trim();
+}
+
+/**
+ * R37 — every normalized key a genre might appear under in the raw
+ * `analysis.genres` JSONB. When the input resolves to a known node,
+ * returns the node's id-as-spaces + normalized label + all
+ * normalized aliases (so a query can match "synth-pop", "synthpop",
+ * "synth pop" — all of which normalize to "synth pop"). When
+ * unmatched, returns just the single normalized input.
+ *
+ * The genre detail page passes these to a SQL query that normalizes
+ * each JSONB key the same way and checks membership, so a track
+ * tagged with ANY spelling variant of the genre is included.
+ */
+export function genreMatchKeys(input: string): string[] {
+  const node = findGenre(input);
+  if (!node) {
+    const n = normaliseGenreInput(input);
+    return n ? [n] : [];
+  }
+  const set = new Set<string>();
+  const add = (s: string) => {
+    const n = normaliseGenreInput(s);
+    if (n) set.add(n);
+  };
+  add(node.id.replace(/_/g, " "));
+  add(node.label);
+  for (const a of node.aliases) add(a);
+  return [...set];
+}
+
+/** R37 — localized family label for a raw genre string, or null when
+ *  the genre doesn't resolve to a known family. Used to group the
+ *  /genres list by family. */
+export function genreFamilyLabel(
+  input: string,
+  locale: "en" | "ko",
+): { id: string; label: string } | null {
+  const fam = genreFamily(input);
+  if (!fam) return null;
+  const def = FAMILY_BY_ID.get(fam);
+  if (!def) return null;
+  return { id: def.id, label: locale === "ko" ? def.labelKo : def.label };
 }
 
 /** Get the zodiac weight vector for a genre input. Resolves through:

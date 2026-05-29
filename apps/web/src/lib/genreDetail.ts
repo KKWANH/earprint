@@ -2,6 +2,7 @@ import { getSql } from "./db";
 import { getJson } from "./http";
 import { z } from "zod";
 import { aiJson, sanitizeAiString } from "./ai";
+import { genreMatchKeys } from "./genreDict";
 
 const GenreDescZ = z.object({
   en: z.string().max(800).transform(sanitizeAiString),
@@ -219,6 +220,15 @@ export async function getGenreDetail(
   // tag is noise and surfacing the track misleadingly puts it in
   // genres the user doesn't actually associate with.
   const GENRE_WEIGHT_FLOOR = 0.30;
+  // R37 — alias-aware matching. The slug might be a canonical label
+  // ("Synth-Pop") while the JSONB stores raw Gemini keys
+  // ("synth-pop" / "synthpop"). genreMatchKeys() returns every
+  // normalized variant; the SQL normalizes each JSONB key the same
+  // way (lower + collapse [-_/&] + whitespace) and checks membership
+  // so any spelling variant matches. matchKeys is never empty (falls
+  // back to the normalized slug for unknown genres).
+  const matchKeys = genreMatchKeys(genre);
+  const matchKeysArr = matchKeys.length > 0 ? matchKeys : [lc];
   const [trackRows, info, feelRows] = await Promise.all([
     sql`
       SELECT t.title, t.artist, t.deezer_id, t.deezer_rank, ut.captured_at
@@ -227,7 +237,12 @@ export async function getGenreDetail(
       JOIN analysis a ON a.track_id = t.id AND a.analysis_version = 1
       WHERE ut.user_id = ${userId}
         AND a.genres IS NOT NULL
-        AND (a.genres ->> ${lc})::float >= ${GENRE_WEIGHT_FLOOR}
+        AND EXISTS (
+          SELECT 1 FROM jsonb_each(a.genres) e
+          WHERE trim(regexp_replace(regexp_replace(lower(e.key), '[-_/&]+', ' ', 'g'), '\\s+', ' ', 'g'))
+                = ANY(${matchKeysArr}::text[])
+            AND (CASE WHEN jsonb_typeof(e.value) = 'number' THEN (e.value)::text::float ELSE 0 END) >= ${GENRE_WEIGHT_FLOOR}
+        )
       ORDER BY t.artist, t.title
       LIMIT 60`,
     loadGenreInfo(genre),
@@ -243,7 +258,12 @@ export async function getGenreDetail(
       JOIN analysis a ON a.track_id = ut.track_id AND a.analysis_version = 1
       WHERE ut.user_id = ${userId}
         AND a.genres IS NOT NULL
-        AND (a.genres ->> ${lc})::float >= ${GENRE_WEIGHT_FLOOR}
+        AND EXISTS (
+          SELECT 1 FROM jsonb_each(a.genres) e
+          WHERE trim(regexp_replace(regexp_replace(lower(e.key), '[-_/&]+', ' ', 'g'), '\\s+', ' ', 'g'))
+                = ANY(${matchKeysArr}::text[])
+            AND (CASE WHEN jsonb_typeof(e.value) = 'number' THEN (e.value)::text::float ELSE 0 END) >= ${GENRE_WEIGHT_FLOOR}
+        )
         AND a.audio_feel ? 'energy'`,
   ]);
   const userTracks: GenreTrack[] = trackRows.map((r) => ({
