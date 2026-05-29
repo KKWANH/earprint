@@ -15,7 +15,8 @@
     "cf-typegen": "wrangler types",
     "analyze:local": "node --env-file=.dev.vars scripts/analyze-local.mjs",
     "backfill:years": "node --env-file=.dev.vars scripts/backfill-mb-years.mjs",
-    "import:takeout": "node --env-file=.dev.vars scripts/import-takeout.mjs"
+    "import:takeout": "node --env-file=.dev.vars scripts/import-takeout.mjs",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.19.0",
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",

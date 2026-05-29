@@ -114,6 +114,17 @@ export default async function LandingPage() {
             </Link>
           )}
         </div>
+        {/* R39 — friction-reducing trust line. The hero asked for a
+            Google sign-in with no reassurance; this makes the
+            no-commitment path explicit so first-time visitors take the
+            demo instead of bouncing at the auth wall. */}
+        {!signedIn && (
+          <p className="mt-3 text-xs text-neutral-500">
+            {locale === "ko"
+              ? "무료 · 신용카드 불필요 · 데모는 가입 없이 둘러볼 수 있어요"
+              : "Free · no credit card · the demo needs no sign-up"}
+          </p>
+        )}
         {signedIn && (
           <p className="mt-3 text-xs text-neutral-500">
             {t.signedInAs} {session!.user!.email}
