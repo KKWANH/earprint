@@ -224,6 +224,67 @@ export default async function GenrePage({
         </Section>
       )}
 
+      {/* R29b — audio feel summary for this user's tracks in this
+          genre. Three sky-toned bars (energy / tempo / acousticness)
+          with the average value rendered as a fill width. Hidden
+          when none of the user's matching tracks have been
+          audio_feel-analyzed yet, since "0 analyzed" would mean
+          empty bars. */}
+      {d.audioFeel && (
+        <Section
+          title={
+            locale === "ko"
+              ? `이 장르의 사운드 (${d.audioFeel.analyzed}곡 평균)`
+              : `Sound of this genre (avg of ${d.audioFeel.analyzed} of your tracks)`
+          }
+        >
+          <div className="flex flex-col gap-3">
+            {(
+              [
+                {
+                  label: locale === "ko" ? "에너지" : "Energy",
+                  lo: locale === "ko" ? "차분" : "Calm",
+                  hi: locale === "ko" ? "강렬" : "Intense",
+                  v: d.audioFeel.energy,
+                },
+                {
+                  label: locale === "ko" ? "템포" : "Tempo",
+                  lo: locale === "ko" ? "느림" : "Slow",
+                  hi: locale === "ko" ? "빠름" : "Fast",
+                  v: d.audioFeel.tempo,
+                },
+                {
+                  label: locale === "ko" ? "음색" : "Sound",
+                  lo: locale === "ko" ? "전자음" : "Electronic",
+                  hi: locale === "ko" ? "어쿠스틱" : "Acoustic",
+                  v: d.audioFeel.acousticness,
+                },
+              ] as const
+            ).map((axis) => (
+              <div key={axis.label} className="flex items-center gap-3 text-xs">
+                <span className="w-12 shrink-0 text-neutral-300">
+                  {axis.label}
+                </span>
+                <span className="w-12 shrink-0 text-right text-[10px] text-neutral-600">
+                  {axis.lo}
+                </span>
+                <div className="relative h-2 flex-1 rounded-full bg-neutral-800">
+                  <div
+                    className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-sky-400"
+                    style={{
+                      left: `calc(${Math.round(Math.max(0, Math.min(1, axis.v)) * 100)}% - 7px)`,
+                    }}
+                  />
+                </div>
+                <span className="w-12 shrink-0 text-[10px] text-neutral-600">
+                  {axis.hi}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
       {d.userTracks.length > 0 && (
         <Section title={t.yourTracks}>
           <div className="flex flex-col gap-1">

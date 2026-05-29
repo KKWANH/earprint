@@ -3,6 +3,7 @@ import { json } from "@/lib/http";
 import { finishJob, isComplete, runAnalyzeBatch } from "@/lib/jobs";
 import { runMirBackfillIfDue } from "@/lib/mirBackfill";
 import { runRetentionIfDue } from "@/lib/retention";
+import { runSpotifySyncIfDue } from "@/lib/spotify-cron";
 import { captureError } from "@/lib/sentry";
 
 /**
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
   // retention silently failing would leave inactive accounts alive past
   // their deletion deadline, which is a privacy commitment we made on
   // /privacy. Same for mirBackfill once it's wired up to a real worker.
-  const [retention, mirBackfill] = await Promise.all([
+  const [retention, mirBackfill, spotify] = await Promise.all([
     runRetentionIfDue().catch((e) => {
       captureError(e, { tag: "cron.retention", severity: "critical" });
       return null;
@@ -66,10 +67,27 @@ export async function POST(req: Request) {
       captureError(e, { tag: "cron.mir-backfill" });
       return null;
     }),
+    // R29c — light weekly /me/tracks top-up for users whose
+    // last_synced_at is older than the staleness window. Capped per
+    // tick to keep subrequest budget predictable; revoked-token
+    // users get their spotify_connections row deleted so the cron
+    // stops nagging them. Errors capture-only, no throw.
+    runSpotifySyncIfDue().catch((e) => {
+      captureError(e, { tag: "cron.spotify-sync" });
+      return null;
+    }),
   ]);
 
   return json(
-    { ok: true, jobs: jobs.length, processed, retention, mirBackfill, analyzeDisabled },
+    {
+      ok: true,
+      jobs: jobs.length,
+      processed,
+      retention,
+      mirBackfill,
+      spotify,
+      analyzeDisabled,
+    },
     200,
   );
 }

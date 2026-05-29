@@ -25,6 +25,15 @@ export interface GenreDetail {
   descriptionKo: string | null;
   topArtists: string[];
   topTracks: { artist: string; title: string }[];
+  /** R29b — energy / tempo / acousticness averages over the user's
+   *  tracks in this genre. null when none of them have been
+   *  audio_feel-analyzed yet. */
+  audioFeel: {
+    analyzed: number;
+    energy: number;
+    tempo: number;
+    acousticness: number;
+  } | null;
 }
 
 const DESC_SCHEMA = {
@@ -199,23 +208,47 @@ export async function getGenreDetail(
   genre: string,
 ): Promise<GenreDetail> {
   const sql = getSql();
-  const [trackRows, info] = await Promise.all([
+  const lc = genre.toLowerCase();
+  const [trackRows, info, feelRows] = await Promise.all([
     sql`
       SELECT t.title, t.artist, t.deezer_id
       FROM user_tracks ut
       JOIN tracks t ON t.id = ut.track_id
       JOIN analysis a ON a.track_id = t.id AND a.analysis_version = 1
       WHERE ut.user_id = ${userId}
-        AND jsonb_exists(a.genres, ${genre.toLowerCase()})
+        AND jsonb_exists(a.genres, ${lc})
       ORDER BY t.artist, t.title
       LIMIT 60`,
     loadGenreInfo(genre),
+    // R29b — energy/tempo/acousticness averages across this user's
+    // analyzed tracks in this genre. Returns no rows when none of
+    // the matching tracks have audio_feel populated yet.
+    sql`
+      SELECT count(*)::int                                 AS analyzed,
+             avg((a.audio_feel ->> 'energy')::float)       AS energy,
+             avg((a.audio_feel ->> 'tempo')::float)        AS tempo,
+             avg((a.audio_feel ->> 'acousticness')::float) AS acousticness
+      FROM user_tracks ut
+      JOIN analysis a ON a.track_id = ut.track_id AND a.analysis_version = 1
+      WHERE ut.user_id = ${userId}
+        AND jsonb_exists(a.genres, ${lc})
+        AND a.audio_feel ? 'energy'`,
   ]);
   const userTracks: GenreTrack[] = trackRows.map((r) => ({
     title: r.title as string,
     artist: r.artist as string,
     deezerId: (r.deezer_id as number) ?? null,
   }));
+  const fr = feelRows[0];
+  const audioFeel =
+    fr && Number(fr.analyzed ?? 0) > 0
+      ? {
+          analyzed: Number(fr.analyzed),
+          energy: Number(fr.energy ?? 0),
+          tempo: Number(fr.tempo ?? 0),
+          acousticness: Number(fr.acousticness ?? 0),
+        }
+      : null;
   return {
     name: genre,
     inLibrary: userTracks.length > 0,
@@ -225,5 +258,6 @@ export async function getGenreDetail(
     descriptionKo: info.descriptionKo,
     topArtists: info.topArtists,
     topTracks: info.topTracks,
+    audioFeel,
   };
 }

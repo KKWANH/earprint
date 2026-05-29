@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { CommunityRunner } from "./CommunityRunner";
+import { EmbedCodeButton } from "./stats/EmbedCodeButton";
 
 export async function generateMetadata({
   params,
@@ -103,10 +104,17 @@ export default async function CommunityPlay({
           thumbnail: (r.thumbnail_url as string) ?? null,
         }))}
       />
-      <p className="text-xs text-neutral-500">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-500">
         <Link href={`/worldcup/community/${id}/stats`} className="hover:text-white hover:underline">
           {ko ? "통계 보기 →" : "View stats →"}
         </Link>
+        {/* R29e — embed CTA moved up from stats-only so creators
+            can grab the iframe code right after playing without
+            navigating into stats. Component renders a copy button
+            + the snippet inline. */}
+        <EmbedCodeButton worldcupId={id} locale={locale} />
+      </div>
+      <p className="hidden text-xs text-neutral-500">
       </p>
     </main>
   );
