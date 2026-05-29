@@ -299,6 +299,17 @@ async function getDiscoverCandidates(
   size: number,
 ): Promise<BracketCandidate[]> {
   const sql = getSql();
+  // R39 — fix "discover worldcup == /recommend list, identical".
+  // Both read the same `recommendations` table; the old query took
+  // the deterministic top-N by score, which for a ~20-row table is
+  // exactly /recommend's newest-20. Two changes:
+  //   1. Drop already-disliked recs — a discovery bracket of stuff
+  //      you rejected is pointless (unrated + liked stay).
+  //   2. Pull a wider score-ranked pool (3× size, min 48), then
+  //      randomly sample `size` from it. Each bracket is a fresh
+  //      mix of strong candidates rather than the identical top-N,
+  //      so it diverges from the /recommend swipe list.
+  const poolSize = Math.max(48, size * 3);
   const rows = await sql`
     SELECT id::text             AS id,
            artist,
@@ -309,9 +320,16 @@ async function getDiscoverCandidates(
            rec_type              AS rec_type
     FROM recommendations
     WHERE user_id = ${userId}
+      AND (rating IS NULL OR rating NOT IN ('dislike', 'strong_dislike'))
     ORDER BY score DESC NULLS LAST, created_at DESC
-    LIMIT ${size}`;
-  return rows.map((r) => ({
+    LIMIT ${poolSize}`;
+  // Fisher-Yates the score-ranked pool, then slice `size`.
+  const pool = rows.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+  }
+  return pool.slice(0, size).map((r) => ({
     id: r.id as string,
     artist: r.artist as string,
     title: r.title as string,

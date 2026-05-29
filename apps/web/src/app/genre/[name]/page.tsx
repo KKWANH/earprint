@@ -80,17 +80,18 @@ export default async function GenrePage({
   // R31f — viewer counter. Best-effort upsert + select. Failure
   // returns null and the view chip just hides. Independent from
   // getGenreDetail to keep the page hot-path light.
+  // R39 (EC-3) — READ-ONLY here. The increment moved to a client
+  // ping (<GenreViewPing>) so bots (no JS) don't inflate the count
+  // and a per-session sessionStorage guard dedups the owner's repeat
+  // visits. The server render only reads the current total (slightly
+  // stale by one view — fine for a vanity metric).
   const viewCountPromise = (async (): Promise<number | null> => {
     try {
       const sqlInner = (await import("@/lib/db")).getSql();
       const rows = await sqlInner`
-        INSERT INTO genre_views (genre, view_count)
-        VALUES (${name.toLowerCase().trim()}, 1)
-        ON CONFLICT (genre) DO UPDATE
-          SET view_count = genre_views.view_count + 1,
-              updated_at = now()
-        RETURNING view_count`;
-      return Number((rows[0]?.view_count as number) ?? 0);
+        SELECT view_count FROM genre_views
+        WHERE genre = ${name.toLowerCase().trim()}`;
+      return rows.length > 0 ? Number((rows[0]?.view_count as number) ?? 0) : null;
     } catch {
       return null;
     }
@@ -142,6 +143,8 @@ export default async function GenrePage({
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
+      {/* R39 (EC-3) — client view ping, once per session, bots excluded. */}
+      <GenreViewPing genre={name} />
       <div className="flex items-center justify-between gap-3">
         <BackLink label={t.back} fallbackHref="/library" />
         <div className="flex items-center gap-2">

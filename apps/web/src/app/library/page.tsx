@@ -175,6 +175,42 @@ export default async function LibraryPage({
         <p className="truncate text-xs text-neutral-500">{session.user.email}</p>
       </header>
 
+      {/* R39 — quick-actions strip. A returning user landing on
+          /library used to face a wall of stats with no obvious "now
+          what?". These 3 cards surface the actual destinations
+          (psychology / worldcup / recommend) up front so the page
+          reads as a hub, not just a dashboard. */}
+      <nav className="grid grid-cols-3 gap-2 sm:gap-3">
+        {[
+          {
+            href: "/profile",
+            emoji: "🧠",
+            label: locale === "ko" ? "심리분석" : "Psychology",
+          },
+          {
+            href: "/worldcup",
+            emoji: "🏆",
+            label: locale === "ko" ? "월드컵" : "World Cup",
+          },
+          {
+            href: "/recommend",
+            emoji: "✨",
+            label: locale === "ko" ? "추천" : "Discover",
+          },
+        ].map((a) => (
+          <Link
+            key={a.href}
+            href={a.href}
+            className="flex flex-col items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-center transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/5"
+          >
+            <span className="text-xl">{a.emoji}</span>
+            <span className="text-xs font-medium text-neutral-200">
+              {a.label}
+            </span>
+          </Link>
+        ))}
+      </nav>
+
       <AnalyzePanel locale={locale} />
 
       {/* Spotify connect / sync card — same shell as YT Music

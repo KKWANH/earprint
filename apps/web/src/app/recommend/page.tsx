@@ -138,7 +138,26 @@ export default async function RecommendPage() {
           .filter((x) => x.rated >= 5)
           .sort((a, b) => b.rate - a.rate);
         const best = eligible[0];
-        if (!best) return null;
+        if (!best) {
+          // R39 (EC-5) — "rate a few to unlock" nudge. No mode has
+          // ≥5 ratings yet, so the auto-pick can't be confident.
+          // Tell the user how close they are instead of showing
+          // nothing (the old behaviour left new users confused about
+          // why the auto-pick never appeared). Hidden entirely until
+          // they've rated at least one (rated=0 → fresh user, the
+          // empty deck CTA covers them).
+          const totalRated = Number(stat[0].rated ?? 0);
+          if (totalRated === 0) return null;
+          const need = 5 - Math.min(5, totalRated);
+          return (
+            <section className="rounded-2xl border border-neutral-700/60 bg-neutral-900 px-4 py-3 text-xs text-neutral-400">
+              🤖{" "}
+              {locale === "ko"
+                ? `한 모드에서 5개 이상 평가하면 "자동 추천"이 켜져요 (지금까지 ${totalRated}개). 같은 모드로 ${need}개 더 평가해 보세요.`
+                : `Rate 5+ in one mode to unlock "auto-pick" (${totalRated} so far). ~${need} more in the same mode.`}
+            </section>
+          );
+        }
         // R35 — surface the sample size alongside the rate. Users
         // had been asking "based on what?"; now the chip reads
         // '78% liked · 30 ratings' so the confidence is explicit.
