@@ -21,7 +21,27 @@ export interface PlanState {
   isPro: boolean;
 }
 
-export async function getPlanState(userId: string): Promise<PlanState> {
+/**
+ * R35 — operator/admin "preview as free" mode. When called with
+ * `previewAsFree = true`, returns the state a free-tier user would
+ * see EVEN IF the caller is allowlisted or PAYMENTS_ENABLED is off.
+ * Used by /account to simulate what a regular user sees before
+ * flipping payments mode on. Doesn't change DB state — pure render-
+ * time projection.
+ */
+export async function getPlanState(
+  userId: string,
+  opts: { previewAsFree?: boolean } = {},
+): Promise<PlanState> {
+  if (opts.previewAsFree) {
+    return {
+      plan: "free",
+      isLifetime: false,
+      planUntil: null,
+      credits: 0,
+      isPro: false,
+    };
+  }
   const sql = getSql();
   const rows = await sql`
     SELECT plan, plan_until, is_lifetime, credits, email

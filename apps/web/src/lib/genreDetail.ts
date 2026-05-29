@@ -214,6 +214,11 @@ export async function getGenreDetail(
 ): Promise<GenreDetail> {
   const sql = getSql();
   const lc = genre.toLowerCase();
+  // R35 — same 0.30 weight floor as /genres. A track only counts as
+  // "in" a genre when the AI's confidence is ≥ 0.30; below that the
+  // tag is noise and surfacing the track misleadingly puts it in
+  // genres the user doesn't actually associate with.
+  const GENRE_WEIGHT_FLOOR = 0.30;
   const [trackRows, info, feelRows] = await Promise.all([
     sql`
       SELECT t.title, t.artist, t.deezer_id, t.deezer_rank, ut.captured_at
@@ -221,7 +226,8 @@ export async function getGenreDetail(
       JOIN tracks t ON t.id = ut.track_id
       JOIN analysis a ON a.track_id = t.id AND a.analysis_version = 1
       WHERE ut.user_id = ${userId}
-        AND jsonb_exists(a.genres, ${lc})
+        AND a.genres IS NOT NULL
+        AND (a.genres ->> ${lc})::float >= ${GENRE_WEIGHT_FLOOR}
       ORDER BY t.artist, t.title
       LIMIT 60`,
     loadGenreInfo(genre),
@@ -236,7 +242,8 @@ export async function getGenreDetail(
       FROM user_tracks ut
       JOIN analysis a ON a.track_id = ut.track_id AND a.analysis_version = 1
       WHERE ut.user_id = ${userId}
-        AND jsonb_exists(a.genres, ${lc})
+        AND a.genres IS NOT NULL
+        AND (a.genres ->> ${lc})::float >= ${GENRE_WEIGHT_FLOOR}
         AND a.audio_feel ? 'energy'`,
   ]);
   const userTracks: GenreTrack[] = trackRows.map((r) => ({

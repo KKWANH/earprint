@@ -73,12 +73,21 @@ export default async function LibraryPage({
   // surface the share UI when one already exists, so the user doesn't
   // see a "share my analysis" button before they've actually run an
   // analysis. Cheap one-column SELECT.
-  const [stats, tracksPage, shareRow, recentPlays] = await Promise.all([
+  const [stats, tracksPage, shareRow, recentPlays, lastSyncRow] = await Promise.all([
     getLibraryStats(userId),
     getLibraryTracks(userId, { q, page: pageNum, pageSize: 50 }),
     sql`SELECT share_id FROM taste_profiles WHERE user_id = ${userId}`,
     recentPlaysPromise,
+    // R35 — staleness signal. max(captured_at) across user_tracks
+    // tells us when the extension last pushed anything; >10 days
+    // → banner asking user to re-open the extension.
+    sql`SELECT max(captured_at) AS last_sync FROM user_tracks WHERE user_id = ${userId}`,
   ]);
+  const lastSync = (lastSyncRow[0]?.last_sync as string | undefined) ?? null;
+  const daysSinceSync = lastSync
+    ? Math.floor((Date.now() - new Date(lastSync).getTime()) / 86_400_000)
+    : null;
+  const isStale = daysSinceSync != null && daysSinceSync >= 10;
   const shareId = (shareRow[0]?.share_id as string | undefined) ?? null;
   const totalPages = Math.max(1, Math.ceil(tracksPage.total / tracksPage.pageSize));
   const pt = profileDict(locale);
@@ -145,6 +154,20 @@ export default async function LibraryPage({
       {PAYMENT_DOWNGRADE_NOTICE && (
         <div className="rounded-md border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-100">
           ⚠ {PAYMENT_DOWNGRADE_NOTICE}
+        </div>
+      )}
+
+      {/* R35 — extension-sync staleness alert. Fires when no
+          user_tracks rows have been captured in the last 10+ days
+          (the extension is the only path that bumps captured_at,
+          so absence of new rows = extension probably isn't running
+          OR the user hasn't visited music.youtube.com lately). */}
+      {isStale && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-100">
+          ⏰{" "}
+          {locale === "ko"
+            ? `마지막 sync로부터 ${daysSinceSync}일이 지났어요. Chrome 익스텐션을 한 번 열어주세요 — music.youtube.com 방문 시 자동 동기화됩니다.`
+            : `${daysSinceSync} days since the last sync. Open the Chrome extension and visit music.youtube.com — it auto-syncs from there.`}
         </div>
       )}
       <header className="flex flex-col gap-1">

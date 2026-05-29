@@ -40,14 +40,16 @@ export function MyWorldcupsRow({
           </Link>
         )}
       </div>
-      <div className="grid gap-3 sm:grid-cols-4">
+      {/* R35 — same layout reset as TrendingCommunityRow: vertical
+          stack on mobile, sticky-side image on sm+. */}
+      <div className="flex flex-col gap-3">
         {items.map((b) => (
           <Link
             key={b.id}
             href={`/worldcup/community/${b.id}`}
-            className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/30 via-neutral-950 to-neutral-900 transition-colors hover:border-emerald-400/60 hover:bg-emerald-500/10"
+            className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/30 via-neutral-950 to-neutral-900 transition-colors hover:border-emerald-400/60 hover:bg-emerald-500/10 sm:flex-row sm:items-center"
           >
-            <div className="grid aspect-[4/3] grid-cols-2 grid-rows-2 gap-px bg-black/40">
+            <div className="grid aspect-[4/3] shrink-0 grid-cols-2 grid-rows-2 gap-px bg-black/40 sm:aspect-square sm:w-32">
               {Array.from({ length: 4 }).map((_, i) => {
                 const p = b.previews[i];
                 return p?.thumbnailUrl ? (

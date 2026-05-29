@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
-import { PAYMENTS_ENABLED, SPOTIFY_ENABLED, PAYMENT_DOWNGRADE_NOTICE } from "@/lib/constants";
+import {
+  PAYMENTS_ENABLED,
+  SPOTIFY_ENABLED,
+  PAYMENT_DOWNGRADE_NOTICE,
+  isAdminEmail,
+} from "@/lib/constants";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { accountDict } from "@/lib/i18n/account";
@@ -51,7 +56,15 @@ async function loadAccount(userId: string): Promise<AccountRow> {
  * Surfaces every privacy-relevant control in one place so users (and Google
  * verification reviewers) can see how to disconnect / delete their data.
  */
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  // R35 — `?previewAs=free` admin-only switch that renders the
+  // page as if the user were on the free tier, even if they're
+  // allowlisted or PAYMENTS_ENABLED is off. Used to preview what
+  // a regular user sees before turning payments on.
+  searchParams: Promise<{ previewAs?: string }>;
+}) {
   const locale = await getLocale();
   const t = accountDict(locale);
   const session = await auth();
@@ -76,7 +89,12 @@ export default async function AccountPage() {
   const conn = await ensureConnection();
   const userId = conn.userId;
   const data = await loadAccount(userId);
-  const planState = await getPlanState(userId);
+  // R35 — honor preview only when the caller is allowlisted, so a
+  // crafted URL can't bypass entitlement on someone else's account.
+  const sp = await searchParams;
+  const previewAsFree =
+    sp.previewAs === "free" && isAdminEmail(session.user.email ?? "");
+  const planState = await getPlanState(userId, { previewAsFree });
   const aiConsent = conn.aiConsent;
   const lang = locale === "ko" ? "ko-KR" : "en-US";
 
@@ -93,6 +111,40 @@ export default async function AccountPage() {
       {PAYMENT_DOWNGRADE_NOTICE && (
         <div className="rounded-md border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-100">
           ⚠ {PAYMENT_DOWNGRADE_NOTICE}
+        </div>
+      )}
+
+      {/* R35 — admin-only Plan preview toggle. Renders only for
+          allowlisted operators; lets them see what the page looks
+          like in 'free' mode without flipping PAYMENTS_ENABLED for
+          everyone. The actual entitlement isn't changed — pure
+          render-time projection via getPlanState's previewAsFree
+          flag. */}
+      {isAdminEmail(session.user.email) && (
+        <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-md border border-violet-500/40 bg-violet-950/30 px-4 py-2 text-xs text-violet-100">
+          <span>
+            🧪 {locale === "ko" ? "어드민 미리보기:" : "Admin preview:"}{" "}
+            <strong>
+              {previewAsFree
+                ? locale === "ko" ? "free 모드" : "free mode"
+                : locale === "ko" ? "실제 상태" : "actual state"}
+            </strong>
+          </span>
+          {previewAsFree ? (
+            <Link
+              href="/account"
+              className="rounded-md border border-violet-500/40 px-2 py-0.5 text-[11px] text-violet-100 hover:bg-violet-900/40"
+            >
+              {locale === "ko" ? "실제 상태로" : "Back to actual"}
+            </Link>
+          ) : (
+            <Link
+              href="/account?previewAs=free"
+              className="rounded-md border border-violet-500/40 px-2 py-0.5 text-[11px] text-violet-100 hover:bg-violet-900/40"
+            >
+              {locale === "ko" ? "free 모드 미리보기" : "Preview as free"}
+            </Link>
+          )}
         </div>
       )}
 

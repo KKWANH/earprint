@@ -139,14 +139,24 @@ export default async function RecommendPage() {
           .sort((a, b) => b.rate - a.rate);
         const best = eligible[0];
         if (!best) return null;
+        // R35 — surface the sample size alongside the rate. Users
+        // had been asking "based on what?"; now the chip reads
+        // '78% liked · 30 ratings' so the confidence is explicit.
         return (
           <section className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-950/15 px-4 py-3">
-            <div className="flex items-baseline gap-2 text-xs">
-              <span className="text-amber-300">🤖</span>
-              <span className="text-neutral-300">
+            <div className="flex flex-col gap-0.5 text-xs">
+              <div className="flex items-baseline gap-2">
+                <span className="text-amber-300">🤖</span>
+                <span className="text-neutral-300">
+                  {locale === "ko"
+                    ? `자동 추천: ${best.mode} (좋아요 ${Math.round(best.rate * 100)}%)`
+                    : `Auto-pick: ${best.mode} (${Math.round(best.rate * 100)}% liked)`}
+                </span>
+              </div>
+              <span className="text-[10px] text-neutral-500">
                 {locale === "ko"
-                  ? `자동 추천: ${best.mode} (좋아요 비율 ${Math.round(best.rate * 100)}%)`
-                  : `Auto-pick: ${best.mode} (${Math.round(best.rate * 100)}% liked)`}
+                  ? `최근 ${best.rated}건의 평가 데이터 기반`
+                  : `Based on ${best.rated} recent ratings`}
               </span>
             </div>
             {/* Plain form submitting to a tiny API helper that

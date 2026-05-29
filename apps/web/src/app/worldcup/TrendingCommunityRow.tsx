@@ -33,18 +33,25 @@ export function TrendingCommunityRow({
           {ko ? "더 보기 →" : "More →"}
         </Link>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      {/* R35 — switched from sm:grid-cols-3 (horizontal 3-up) to a
+          vertical stack. User feedback: the horizontal layout cut
+          the title to 2 words and felt cramped on mobile; the
+          vertical stack gives each card breathing room + the
+          thumbnail collage becomes wider. */}
+      <div className="flex flex-col gap-3">
         {trending.map((b) => (
           <Link
             key={b.id}
             href={`/worldcup/community/${b.id}`}
-            className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/30 via-neutral-950 to-neutral-900 transition-colors hover:border-amber-400/60 hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
+            className="group flex flex-col gap-2 overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/30 via-neutral-950 to-neutral-900 transition-colors hover:border-amber-400/60 hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40 sm:flex-row sm:items-center"
           >
             {/* 2×2 thumbnail collage from the first 4 items. Falls
                 back to a flat amber tile when oEmbed didn't capture
                 a thumbnail (rare but happens for member-private YT
-                videos that became public later). */}
-            <div className="grid aspect-[4/2] grid-cols-2 grid-rows-2 gap-px bg-black/40">
+                videos that became public later). Aspect ratio kept
+                square on sm+ so the title row gets more horizontal
+                space. */}
+            <div className="grid aspect-[4/2] shrink-0 grid-cols-2 grid-rows-2 gap-px bg-black/40 sm:aspect-square sm:w-32">
               {Array.from({ length: 4 }).map((_, i) => {
                 const p = b.previews[i];
                 return p?.thumbnailUrl ? (

@@ -1,4 +1,6 @@
 import { getSql } from "./db";
+import { aiJson, sanitizeAiString } from "./ai";
+import { z } from "zod";
 
 /**
  * Wikipedia REST API lookup with DB cache. We hit the page-summary
@@ -68,6 +70,44 @@ async function fetchOne(
   }
 }
 
+/**
+ * R35 — Gemini-backed translation. Used when en.wikipedia has an
+ * article but ko.wikipedia doesn't (the common case for English-
+ * dominant music subgenres). Caches into the same wiki_extract_ko
+ * column so it's indistinguishable from a native ko.wikipedia hit
+ * downstream — the citation chip on the page still cites the EN
+ * source URL because that's where the content actually came from.
+ *
+ * The genre page (KO locale) ends up with a translation only if:
+ *   1. EN extract exists (Wikipedia REST hit something)
+ *   2. KO extract is empty (no ko.wikipedia article)
+ *   3. Gemini is available + within budget
+ * Failure falls through silently — KO user just sees the EN
+ * extract instead.
+ */
+const TranslateZ = z.object({
+  ko: z.string().max(800).transform(sanitizeAiString),
+});
+
+async function translateToKorean(en: string): Promise<string | null> {
+  try {
+    const prompt =
+      `다음 영문 텍스트를 자연스러운 한국어로 번역. ` +
+      `음악 장르를 설명하는 문장이므로 음악 용어는 한국어 음악 업계에서 ` +
+      `통용되는 표기를 사용 (예: "synth-pop" → "신스팝", "city pop" → "시티팝"). ` +
+      `과도한 의역 금지 — 원문의 정보만 정확히 옮길 것.\n\n${en}`;
+    const raw = await aiJson<unknown>(
+      prompt,
+      { type: "OBJECT", properties: { ko: { type: "STRING" } }, required: ["ko"] },
+    );
+    const v = TranslateZ.safeParse(raw);
+    if (!v.success) return null;
+    return v.data.ko?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadWikiSummary(genre: string): Promise<WikiSummary> {
   const sql = getSql();
   const key = genre.toLowerCase().trim();
@@ -122,9 +162,18 @@ export async function loadWikiSummary(genre: string): Promise<WikiSummary> {
     fetchOne("en", genre),
     fetchOne("ko", genre),
   ]);
+  // R35 — auto-translate path. When EN exists but KO doesn't,
+  // ask Gemini to translate. Result lands in extractKo so the
+  // genre page renders it for KO users; the EN url is still cited
+  // (source of truth). One translation per genre per 30-day window
+  // — same TTL as the wiki cache itself.
+  let translatedKo: string | null = null;
+  if (en?.extract && !ko?.extract) {
+    translatedKo = await translateToKorean(en.extract);
+  }
   const out: WikiSummary = {
     extractEn: en?.extract ?? "",
-    extractKo: ko?.extract ?? "",
+    extractKo: ko?.extract ?? translatedKo ?? "",
     urlEn: en?.url ?? "",
     urlKo: ko?.url ?? "",
   };

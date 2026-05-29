@@ -23,7 +23,20 @@ interface GenreRow {
   count: number;
 }
 
-/** Every genre that ever appeared in the user's library, sorted by frequency. */
+/**
+ * Every genre that ever appeared in the user's library, sorted by frequency.
+ *
+ * R35 — only counts genres where the AI's confidence weight is ≥ 0.30.
+ * The `analysis.genres` JSONB is shaped `{"k-pop": 0.85, "lofi": 0.05}`;
+ * the old query iterated EVERY key regardless of weight, so a track
+ * with a 0.05 weight on "shoegaze" surfaced "shoegaze" in the user's
+ * list even though the AI's signal was weak. Threshold = 0.30 cuts the
+ * noise floor without losing real signal (the AI is usually 0.6+
+ * confident on dominant tags). User-reported as "왜 들어본적 없는 장르
+ * 까지 있는가" — that's exactly this.
+ */
+const GENRE_WEIGHT_FLOOR = 0.30;
+
 async function getAllGenres(userId: string): Promise<GenreRow[]> {
   const sql = getSql();
   const excluded = await getExcludedArtists(userId);
@@ -32,9 +45,10 @@ async function getAllGenres(userId: string): Promise<GenreRow[]> {
     FROM analysis a
     JOIN user_tracks ut ON ut.track_id = a.track_id
     JOIN tracks t ON t.id = a.track_id
-    CROSS JOIN LATERAL jsonb_object_keys(a.genres) AS k(key)
+    CROSS JOIN LATERAL jsonb_each(a.genres) AS k(key, value)
     WHERE ut.user_id = ${userId} AND a.genres IS NOT NULL
       AND t.artist <> ALL(${excluded}::text[])
+      AND (k.value)::text::float >= ${GENRE_WEIGHT_FLOOR}
     GROUP BY k.key
     ORDER BY count DESC, k.key ASC`;
   return rows.map((r) => ({ name: r.name as string, count: r.count as number }));
