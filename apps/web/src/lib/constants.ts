@@ -66,6 +66,25 @@ export const SPOTIFY_ENABLED =
   (process.env.SPOTIFY_ENABLED ?? "false").toLowerCase() === "true";
 
 /**
+ * Optional ETA for Spotify activation — when set, the SpotifyConnectCard
+ * "Coming soon" state shows a countdown to this datetime instead of
+ * a static "준비 중". Useful right after subscribing to Premium so
+ * users see "auto-activates in ~3h" rather than wondering.
+ *
+ * ISO 8601 string. Set via:
+ *   wrangler secret put SPOTIFY_ENABLE_ETA   (input "2026-05-30T12:00:00Z")
+ * Once SPOTIFY_ENABLED flips to true the ETA is moot — the card
+ * stops rendering the disabled state altogether.
+ */
+export const SPOTIFY_ENABLE_ETA = (() => {
+  const raw = process.env.SPOTIFY_ENABLE_ETA?.trim();
+  if (!raw) return null;
+  const t = Date.parse(raw);
+  if (Number.isNaN(t)) return null;
+  return new Date(t);
+})();
+
+/**
  * Emails that always get Pro entitlement, regardless of PAYMENTS_ENABLED
  * or the user's stored `plan` column. Used for operator accounts +
  * any pre-paid early supporters we want to comp without going through

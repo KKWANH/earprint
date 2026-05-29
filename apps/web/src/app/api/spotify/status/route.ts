@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { json } from "@/lib/http";
-import { SPOTIFY_ENABLED } from "@/lib/constants";
+import { SPOTIFY_ENABLED, SPOTIFY_ENABLE_ETA } from "@/lib/constants";
 
 /**
  * GET /api/spotify/status
@@ -26,6 +26,7 @@ export async function GET() {
       FROM spotify_connections
       WHERE user_id = ${userId}::uuid
       LIMIT 1`;
+    const etaIso = SPOTIFY_ENABLE_ETA?.toISOString() ?? null;
     if (rows.length === 0) {
       return json(
         {
@@ -33,6 +34,7 @@ export async function GET() {
           lastSyncedAt: null,
           scope: null,
           featureEnabled: SPOTIFY_ENABLED,
+          enableEta: etaIso,
         },
         200,
       );
@@ -46,6 +48,7 @@ export async function GET() {
           ? new Date(r.last_synced_at as string).toISOString()
           : null,
         featureEnabled: SPOTIFY_ENABLED,
+        enableEta: etaIso,
       },
       200,
     );
@@ -58,6 +61,7 @@ export async function GET() {
         lastSyncedAt: null,
         scope: null,
         featureEnabled: SPOTIFY_ENABLED,
+        enableEta: SPOTIFY_ENABLE_ETA?.toISOString() ?? null,
       },
       200,
     );

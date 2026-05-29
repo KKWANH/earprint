@@ -241,12 +241,20 @@ export default async function CommunityList({
               : "Tournaments other people made. Anyone can play."}
           </p>
         </div>
-        <Link
-          href="/worldcup/community/create"
-          className="shrink-0 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
-        >
-          {ko ? "+ 만들기" : "+ Create"}
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href="/worldcup/community/recent"
+            className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-neutral-300 hover:bg-white/5 hover:text-white"
+          >
+            {ko ? "🏁 최근 결과" : "🏁 Recent"}
+          </Link>
+          <Link
+            href="/worldcup/community/create"
+            className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
+          >
+            {ko ? "+ 만들기" : "+ Create"}
+          </Link>
+        </div>
       </header>
 
       {/* R30e — text search across title / tags / description. GET

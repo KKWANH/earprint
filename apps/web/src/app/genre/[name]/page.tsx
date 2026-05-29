@@ -238,25 +238,40 @@ export default async function GenrePage({
         />
       </Section>
 
-      {/* R32e — Wikipedia summary. Pulled from the REST API and
-          cached in genre_info for 30 days. Renders after the
-          short About blurb so it complements rather than competes.
-          Hidden when both languages 404'd or returned empty. */}
+      {/* R32e — Wikipedia summary + R33 attribution. Wikipedia
+          content is CC BY-SA 4.0; surfacing the source domain +
+          license tag inline makes the citation visible without
+          a separate "credits" page. */}
       {wikiExtract && (
         <Section title={locale === "ko" ? "Wikipedia 소개" : "From Wikipedia"}>
           <p className="text-sm leading-relaxed text-neutral-300">
             {wikiExtract}
           </p>
-          {wikiUrl && (
-            <a
-              href={wikiUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="self-start text-xs text-sky-300 hover:text-sky-200 hover:underline"
-            >
-              {locale === "ko" ? "Wikipedia에서 더 보기 →" : "Read on Wikipedia →"}
-            </a>
-          )}
+          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+            {wikiUrl && (
+              <a
+                href={wikiUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sky-300 hover:text-sky-200 hover:underline"
+              >
+                {locale === "ko" ? "Wikipedia에서 더 보기 →" : "Read on Wikipedia →"}
+              </a>
+            )}
+            <span className="text-neutral-700">·</span>
+            <span className="text-neutral-600">
+              {locale === "ko" ? "출처: " : "Source: "}
+              {wikiUrl ? new URL(wikiUrl).hostname : "wikipedia.org"} ·{" "}
+              <a
+                href="https://creativecommons.org/licenses/by-sa/4.0/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-neutral-400 hover:underline"
+              >
+                CC BY-SA 4.0
+              </a>
+            </span>
+          </div>
         </Section>
       )}
 

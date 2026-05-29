@@ -107,6 +107,24 @@ async function loadStats(table: string): Promise<CacheTableStats> {
           : null,
       };
     }
+    if (table === "wiki_summaries") {
+      // R33 — Wikipedia REST cache lives inside genre_info via the
+      // wiki_* columns added in R32e. Count rows where wiki_fetched_at
+      // is set; recency = within 24h. newest reflects the most recent
+      // fetch.
+      const r = await sql`
+        SELECT count(*) FILTER (WHERE wiki_fetched_at IS NOT NULL)::int AS n,
+               count(*) FILTER (WHERE wiki_fetched_at > now() - interval '24 hours')::int AS recent,
+               max(wiki_fetched_at) AS newest
+        FROM genre_info`;
+      return {
+        rowCount: Number(r[0]?.n ?? 0),
+        last24h: Number(r[0]?.recent ?? 0),
+        newest: r[0]?.newest
+          ? new Date(r[0].newest as string).toISOString()
+          : null,
+      };
+    }
     return { rowCount: 0, last24h: 0, newest: null };
   } catch {
     return { rowCount: 0, last24h: 0, newest: null };
@@ -122,6 +140,7 @@ export default async function CacheAdmin() {
   const TABLES = [
     { table: "track_blurbs",     label: "Recommend descriptions (R28j)" },
     { table: "genre_info",       label: "Genre AI descriptions" },
+    { table: "wiki_summaries",   label: "Wikipedia summaries (R32e)" },
     { table: "lastfm_cache",     label: "Last.fm similar/top" },
     { table: "deezer_match",     label: "Deezer search/track" },
     { table: "yt_search_cache",  label: "YT search → videoId" },

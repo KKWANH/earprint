@@ -107,6 +107,57 @@ export default async function RecommendPage() {
       <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
       <p className="text-sm text-neutral-400">{t.pageIntro}</p>
 
+      {/* R33 — best-mode suggestion. Picks the rec_type with the
+          highest like-rate (≥ 5 rated for confidence) and renders a
+          one-line CTA above the breakdown panel. Clicking it kicks
+          /api/recommend/generate?mode=<best> directly. Hidden when
+          no mode has ≥ 5 ratings yet (sample too small). */}
+      {(() => {
+        const eligible = perMode
+          .map((p) => ({
+            mode: String(p.rec_type ?? ""),
+            rated: Number(p.rated ?? 0),
+            likes: Number(p.likes ?? 0),
+            rate: Number(p.rated ?? 0) > 0
+              ? Number(p.likes ?? 0) / Number(p.rated ?? 0)
+              : 0,
+          }))
+          .filter((x) => x.rated >= 5)
+          .sort((a, b) => b.rate - a.rate);
+        const best = eligible[0];
+        if (!best) return null;
+        return (
+          <section className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-500/30 bg-amber-950/15 px-4 py-3">
+            <div className="flex items-baseline gap-2 text-xs">
+              <span className="text-amber-300">🤖</span>
+              <span className="text-neutral-300">
+                {locale === "ko"
+                  ? `자동 추천: ${best.mode} (좋아요 비율 ${Math.round(best.rate * 100)}%)`
+                  : `Auto-pick: ${best.mode} (${Math.round(best.rate * 100)}% liked)`}
+              </span>
+            </div>
+            {/* Plain form submitting to a tiny API helper that
+                generates with the chosen mode + redirects back to
+                /recommend so the new picks show up. Pattern mirrors
+                the existing /pricing checkout forms — keeps the
+                "click → new state" snappy without a client component. */}
+            <form
+              action="/api/recommend/generate-and-back"
+              method="POST"
+              className="contents"
+            >
+              <input type="hidden" name="mode" value={best.mode} />
+              <button
+                type="submit"
+                className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-amber-400"
+              >
+                {locale === "ko" ? "이 모드로 추천" : "Use this mode"}
+              </button>
+            </form>
+          </section>
+        );
+      })()}
+
       {/* R30d — recommendation quality breakdown by mode. Surfaces
           which flavour works best for this user. Hidden when no
           ratings exist yet (rated=0) since the percentages would

@@ -20,7 +20,11 @@ import { getLocale } from "@/lib/i18n-server";
 import { libraryDict } from "@/lib/i18n/library";
 import { profileDict } from "@/lib/i18n/profile";
 import type { Locale } from "@/lib/i18n";
-import { CHROME_WEB_STORE_URL, SPOTIFY_ENABLED } from "@/lib/constants";
+import {
+  CHROME_WEB_STORE_URL,
+  SPOTIFY_ENABLED,
+  PAYMENT_DOWNGRADE_NOTICE,
+} from "@/lib/constants";
 import { loadRecentPlays } from "@/lib/recentPlays";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -135,6 +139,14 @@ export default async function LibraryPage({
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
+      {/* R33 — payment-mode downgrade pre-warning. Same env-driven
+          string as /account so a single secret-put broadcasts the
+          message everywhere a user might land. */}
+      {PAYMENT_DOWNGRADE_NOTICE && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-100">
+          ⚠ {PAYMENT_DOWNGRADE_NOTICE}
+        </div>
+      )}
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
         <p className="truncate text-xs text-neutral-500">{session.user.email}</p>

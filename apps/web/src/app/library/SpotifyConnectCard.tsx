@@ -33,6 +33,10 @@ interface SpotifyStatus {
    *  is disabled at the env level (SPOTIFY_ENABLED=false), e.g. while
    *  the Premium subscription hasn't propagated yet. */
   featureEnabled: boolean;
+  /** R33 — optional ISO datetime for when the operator expects the
+   *  integration to be live (set after subscribing to Premium so
+   *  users see a countdown rather than a static "준비 중"). */
+  enableEta: string | null;
 }
 
 export function SpotifyConnectCard({ locale }: { locale: Locale }) {
@@ -234,8 +238,14 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
   // R31a — feature flag off (operator hasn't enabled SPOTIFY_ENABLED
   // yet, typically because Premium subscription is pending). Render
   // a soft "준비 중" card instead of the active connect button so
-  // users see why the feature is unavailable.
+  // users see why the feature is unavailable. R33 — when operator
+  // sets SPOTIFY_ENABLE_ETA, swap the static hint for a live
+  // countdown so the user can see "auto-activates in 3h".
   if (!status.featureEnabled) {
+    const eta = status.enableEta ? new Date(status.enableEta) : null;
+    const etaCountdown = eta
+      ? formatCountdown(eta, ko)
+      : null;
     return (
       <section className="flex flex-col gap-3 rounded-2xl border border-neutral-700 bg-neutral-900/50 p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -249,6 +259,11 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
             ? "Spotify가 최근에 정책 바꿔서, 우리 쪽 인증을 풀려면 앱 소유자가 Spotify Premium 구독자여야 합니다. 활성화되면 여기서 연결할 수 있어요."
             : "Spotify recently changed their dev-mode policy — the app owner needs an active Premium subscription to unblock our auth. Will be enabled here when ready."}
         </p>
+        {etaCountdown && (
+          <p className="text-xs text-amber-300">
+            ⏱ {etaCountdown}
+          </p>
+        )}
         <button
           type="button"
           disabled
@@ -343,6 +358,32 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
       <SpotifyPlaylistPicker ko={ko} />
     </section>
   );
+}
+
+/** R33 — countdown formatter for SPOTIFY_ENABLE_ETA. Returns
+ *  "auto-activates in 2h 30m" style strings. When the ETA is in the
+ *  past, shifts to "should be live any moment" — Spotify Premium
+ *  activation typically takes a few hours after subscription so a
+ *  small overshoot is normal. */
+function formatCountdown(eta: Date, ko: boolean): string {
+  const diff = eta.getTime() - Date.now();
+  if (diff <= 0) {
+    return ko
+      ? "곧 활성화돼요 — Spotify Premium 적용 대기 중"
+      : "Should be live any moment — Premium propagation in progress";
+  }
+  const totalMin = Math.floor(diff / 60_000);
+  const days = Math.floor(totalMin / (60 * 24));
+  const hours = Math.floor((totalMin % (60 * 24)) / 60);
+  const mins = totalMin % 60;
+  const parts: string[] = [];
+  if (days > 0) parts.push(ko ? `${days}일` : `${days}d`);
+  if (hours > 0) parts.push(ko ? `${hours}시간` : `${hours}h`);
+  if (mins > 0 && days === 0) parts.push(ko ? `${mins}분` : `${mins}m`);
+  const remain = parts.length > 0 ? parts.join(" ") : ko ? "곧" : "soon";
+  return ko
+    ? `약 ${remain} 후 자동 활성화 예정`
+    : `Auto-activates in ${remain}`;
 }
 
 /** Tiny "5 minutes ago" formatter; tossed inline because it's only
