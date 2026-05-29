@@ -123,11 +123,11 @@ export default async function AccountPage({
       {isAdminEmail(session.user.email) && (
         <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-md border border-violet-500/40 bg-violet-950/30 px-4 py-2 text-xs text-violet-100">
           <span>
-            🧪 {locale === "ko" ? "어드민 미리보기:" : "Admin preview:"}{" "}
+            🧪 {t.adminPreviewLabel}{" "}
             <strong>
               {previewAsFree
-                ? locale === "ko" ? "free 모드" : "free mode"
-                : locale === "ko" ? "실제 상태" : "actual state"}
+                ? t.adminPreviewFreeMode
+                : t.adminPreviewActualState}
             </strong>
           </span>
           {previewAsFree ? (
@@ -135,14 +135,14 @@ export default async function AccountPage({
               href="/account"
               className="rounded-md border border-violet-500/40 px-2 py-0.5 text-[11px] text-violet-100 hover:bg-violet-900/40"
             >
-              {locale === "ko" ? "실제 상태로" : "Back to actual"}
+              {t.adminPreviewBackToActual}
             </Link>
           ) : (
             <Link
               href="/account?previewAs=free"
               className="rounded-md border border-violet-500/40 px-2 py-0.5 text-[11px] text-violet-100 hover:bg-violet-900/40"
             >
-              {locale === "ko" ? "free 모드 미리보기" : "Preview as free"}
+              {t.adminPreviewAsFree}
             </Link>
           )}
         </div>
@@ -183,9 +183,9 @@ export default async function AccountPage({
             }`}
           >
             {planState.isLifetime
-              ? locale === "ko" ? "Lifetime" : "Lifetime"
+              ? t.planLifetime
               : !PAYMENTS_ENABLED && planState.isPro
-                ? locale === "ko" ? "🎉 오픈 베타 Pro" : "🎉 Open Beta Pro"
+                ? t.planOpenBetaPro
                 : planState.isPro
                   ? t.planPro
                   : t.planFree}
@@ -193,13 +193,9 @@ export default async function AccountPage({
         </div>
         <p className="text-sm text-neutral-400">
           {!PAYMENTS_ENABLED && planState.isPro && !planState.isLifetime
-            ? locale === "ko"
-              ? "오픈 베타 기간 동안 모든 기능 무료로 사용할 수 있어요. 결제 모드가 켜지면 무료 요금제로 자동 전환됩니다."
-              : "All features free during open beta. You'll move to the free tier when payments turn on."
+            ? t.planOpenBetaDesc
             : planState.isLifetime
-              ? locale === "ko"
-                ? "라이프타임 Pro — 결제 모드와 무관하게 모든 기능 사용 가능합니다."
-                : "Lifetime Pro — all features regardless of payment mode."
+              ? t.planLifetimeDesc
               : planState.isPro
                 ? t.planProDesc
                 : t.planFreeDesc}
@@ -245,7 +241,7 @@ export default async function AccountPage({
           "connection" in the same sense. */}
       <section className="flex flex-col gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
-          {locale === "ko" ? "연결" : "Connections"}
+          {t.connectionsHeading}
         </h2>
         <ConnectionsBoard
           ko={locale === "ko"}
@@ -258,14 +254,14 @@ export default async function AccountPage({
       {/* Tiny payments-mode chip — operators want quick visibility
           but it's not a "connection" per the new board's semantics. */}
       <p className="flex items-center gap-2 text-[11px] text-neutral-500">
-        <span>{locale === "ko" ? "결제 모드:" : "Payments:"}</span>
+        <span>{t.paymentsLabel}</span>
         {PAYMENTS_ENABLED ? (
           <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-200">
-            {locale === "ko" ? "활성화" : "Enabled"}
+            {t.paymentsEnabled}
           </span>
         ) : (
           <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-200">
-            {locale === "ko" ? "오픈 베타 (무료)" : "Open beta (free)"}
+            {t.paymentsOpenBeta}
           </span>
         )}
       </p>
@@ -349,9 +345,7 @@ export default async function AccountPage({
           {t.exportDesc}
         </p>
         <p className="text-xs leading-relaxed text-neutral-500">
-          {locale === "ko"
-            ? "내려받기에는 동기화된 곡, AI 프로필, 추천 기록, 평가, Spotify 데이터, 분석 작업 상태 등이 포함됩니다. 토큰·비밀번호는 제외됩니다."
-            : "Includes synced tracks, AI profile, recommendation history, ratings, Spotify data, analysis state. Excludes tokens / passwords."}
+          {t.exportContentsNote}
         </p>
         <a
           href="/api/dsar/export"

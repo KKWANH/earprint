@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 import { Bracket, type Rec } from "../../Bracket";
 
 /**
@@ -12,24 +13,17 @@ import { Bracket, type Rec } from "../../Bracket";
  * used to obsess over in 2018"). The form submits to /api/worldcup
  * /curate and slots the returned candidates into a Bracket.
  */
-const LENS_EN = [
-  { id: "favourites", emoji: "✨", label: "All-time favourites" },
-  { id: "recent", emoji: "🌱", label: "Recent obsessions" },
-  { id: "forgotten", emoji: "📼", label: "Forgotten gems" },
-  { id: "sad", emoji: "💔", label: "Sad / melancholic" },
-  { id: "pumpup", emoji: "🔥", label: "Pump-up energy" },
-  { id: "latenight", emoji: "🌙", label: "Late-night chill" },
-  { id: "guilty", emoji: "🤫", label: "Guilty pleasures" },
-];
-const LENS_KO = [
-  { id: "favourites", emoji: "✨", label: "최애 / 올타임 베스트" },
-  { id: "recent", emoji: "🌱", label: "요즘 빠진 곡" },
-  { id: "forgotten", emoji: "📼", label: "잊고있던 명곡" },
-  { id: "sad", emoji: "💔", label: "슬픈 / 우울한" },
-  { id: "pumpup", emoji: "🔥", label: "기운 차리는" },
-  { id: "latenight", emoji: "🌙", label: "심야 청취" },
-  { id: "guilty", emoji: "🤫", label: "남몰래 좋아하는" },
-];
+// Lens id + emoji are locale-independent; the label comes from
+// worldcupDict so a 3rd language is additive.
+const LENS_META = [
+  { id: "favourites", emoji: "✨", labelKey: "curateLensFavourites" },
+  { id: "recent", emoji: "🌱", labelKey: "curateLensRecent" },
+  { id: "forgotten", emoji: "📼", labelKey: "curateLensForgotten" },
+  { id: "sad", emoji: "💔", labelKey: "curateLensSad" },
+  { id: "pumpup", emoji: "🔥", labelKey: "curateLensPumpup" },
+  { id: "latenight", emoji: "🌙", labelKey: "curateLensLatenight" },
+  { id: "guilty", emoji: "🤫", labelKey: "curateLensGuilty" },
+] as const;
 
 export function CurateForm({
   size,
@@ -38,8 +32,12 @@ export function CurateForm({
   size: 4 | 8 | 16 | 32;
   locale: Locale;
 }) {
-  const ko = locale === "ko";
-  const lenses = ko ? LENS_KO : LENS_EN;
+  const t = worldcupDict(locale);
+  const lenses = LENS_META.map((l) => ({
+    id: l.id,
+    emoji: l.emoji,
+    label: t[l.labelKey],
+  }));
   const [chosenLens, setChosenLens] = useState<string | null>(null);
   const [customLens, setCustomLens] = useState("");
   const [busy, setBusy] = useState(false);
@@ -85,14 +83,14 @@ export function CurateForm({
       <>
         <div className="flex items-center gap-2 text-xs text-neutral-500">
           <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-200">
-            {ko ? "렌즈" : "Lens"}
+            {t.curateLensBadge}
           </span>
           <span className="line-clamp-1">{activeLensLabel}</span>
           <button
             onClick={() => setCandidates(null)}
             className="ml-auto rounded-md border border-white/10 px-2 py-0.5 text-[10px] hover:bg-white/10"
           >
-            {ko ? "렌즈 바꾸기" : "Change lens"}
+            {t.curateChangeLens}
           </button>
         </div>
         <Bracket
@@ -134,7 +132,7 @@ export function CurateForm({
               : "border-white/10 bg-black/30 text-neutral-400 hover:border-emerald-500/40 hover:text-white"
           }`}
         >
-          ✍ {ko ? "직접 입력" : "Custom"}
+          ✍ {t.curateCustom}
         </button>
       </div>
       {chosenLens === "_custom" && (
@@ -143,11 +141,7 @@ export function CurateForm({
           onChange={(e) => setCustomLens(e.target.value)}
           rows={2}
           maxLength={300}
-          placeholder={
-            ko
-              ? "예: 비 오는 날 듣고 싶은 곡 / 운전할 때 트는 노래"
-              : "e.g. songs for rainy afternoons / songs I drove around with in 2019"
-          }
+          placeholder={t.curateCustomPlaceholder}
           className="resize-none rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
         />
       )}
@@ -162,9 +156,7 @@ export function CurateForm({
         disabled={busy || !activeLensLabel}
         className="self-start rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
       >
-        {busy
-          ? ko ? "AI 가 고르는 중…" : "Curating…"
-          : ko ? `${size}곡 토너먼트 만들기` : `Build ${size}-bracket`}
+        {busy ? t.curateBusy : t.curateBuild(size)}
       </button>
     </div>
   );

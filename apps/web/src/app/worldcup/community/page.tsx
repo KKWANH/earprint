@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: "Community worldcups — Earprint" };
@@ -32,7 +33,7 @@ export default async function CommunityList({
   }>;
 }) {
   const locale = await getLocale();
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
   const sql = getSql();
   const { sort, tag: rawTag, creator: rawCreator, q: rawQ } = await searchParams;
   const mode = sort === "trending" ? "trending" : sort === "new" ? "new" : "popular";
@@ -205,10 +206,10 @@ export default async function CommunityList({
             href="/worldcup"
             className="text-xs text-neutral-500 hover:text-white"
           >
-            ← {ko ? "월드컵 홈" : "Worldcup home"}
+            ← {t.listBackHome}
           </Link>
           <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
-            {ko ? "커뮤니티 월드컵" : "Community worldcups"}
+            {t.listTitle}
           </h1>
           {/* R36 — unified active-filters bar. Each active filter
               (tag, creator, q) gets its own chip with an inline ✕
@@ -260,7 +261,7 @@ export default async function CommunityList({
                     )}
                     {qRaw && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-200">
-                        {ko ? `"${qRaw}" 검색` : `search: "${qRaw}"`}
+                        {t.listSearchChip(qRaw)}
                         <Link
                           href={link("q")}
                           className="text-amber-300 hover:text-white"
@@ -275,7 +276,7 @@ export default async function CommunityList({
                         href="/worldcup/community"
                         className="text-neutral-500 hover:text-white"
                       >
-                        {ko ? "모두 해제" : "Clear all"}
+                        {t.listClearAll}
                       </Link>
                     )}
                   </>
@@ -284,9 +285,7 @@ export default async function CommunityList({
             </div>
           )}
           <p className="mt-1 text-sm text-neutral-400">
-            {ko
-              ? "다른 사람이 만든 토너먼트. 누구든 플레이 가능."
-              : "Tournaments other people made. Anyone can play."}
+            {t.listIntro}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -294,13 +293,13 @@ export default async function CommunityList({
             href="/worldcup/community/recent"
             className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-neutral-300 hover:bg-white/5 hover:text-white"
           >
-            {ko ? "🏁 최근 결과" : "🏁 Recent"}
+            {t.listRecent}
           </Link>
           <Link
             href="/worldcup/community/create"
             className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
           >
-            {ko ? "+ 만들기" : "+ Create"}
+            {t.listCreate}
           </Link>
         </div>
       </header>
@@ -325,7 +324,7 @@ export default async function CommunityList({
           type="search"
           name="q"
           defaultValue={qRaw}
-          placeholder={ko ? "제목·태그·설명 검색…" : "Search title / tags / description…"}
+          placeholder={t.listSearchPlaceholder}
           className="flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none"
         />
         {qRaw && (
@@ -342,7 +341,7 @@ export default async function CommunityList({
             }
             className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400 hover:bg-neutral-800"
           >
-            {ko ? "지우기" : "Clear"}
+            {t.listClear}
           </Link>
         )}
       </form>
@@ -354,9 +353,9 @@ export default async function CommunityList({
       <nav className="flex gap-1.5 text-xs">
         {(
           [
-            { id: "popular", label: ko ? "🏆 인기" : "🏆 Popular" },
-            { id: "trending", label: ko ? "📈 트렌딩" : "📈 Trending" },
-            { id: "new", label: ko ? "🆕 새로 나온" : "🆕 New" },
+            { id: "popular", label: t.listSortPopular },
+            { id: "trending", label: t.listSortTrending },
+            { id: "new", label: t.listSortNew },
           ] as const
         ).map((tab) => {
           const qp = new URLSearchParams();
@@ -388,24 +387,18 @@ export default async function CommunityList({
           {qRaw ? (
             <>
               <p>
-                {ko
-                  ? `"${qRaw}" 검색 결과 없음.`
-                  : `No matches for "${qRaw}".`}
+                {t.listNoMatches(qRaw)}
               </p>
               <Link
                 href={`/worldcup/community/create?tag=${encodeURIComponent(qRaw.toLowerCase())}`}
                 className="self-center rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
               >
-                {ko
-                  ? `+ "${qRaw}" 키워드로 첫 월드컵 만들기`
-                  : `+ Be the first to make a "${qRaw}" worldcup`}
+                {t.listBeFirstWithQuery(qRaw)}
               </Link>
             </>
           ) : (
             <p>
-              {ko
-                ? "아직 만들어진 월드컵이 없습니다. 첫 번째로 만들어 보세요."
-                : "No worldcups yet — be the first to make one."}
+              {t.listEmpty}
             </p>
           )}
         </div>
@@ -445,9 +438,9 @@ export default async function CommunityList({
                   </div>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-neutral-500">
-                  <span>{r.item_count as number}{ko ? "강" : "-slot"}</span>
+                  <span>{t.listItemCount(r.item_count as number)}</span>
                   <span>·</span>
-                  <span>{(r.play_count as number).toLocaleString()}{ko ? "회 진행" : " plays"}</span>
+                  <span>{t.listItemPlays(r.play_count as number)}</span>
                 </div>
               </Link>
             </li>

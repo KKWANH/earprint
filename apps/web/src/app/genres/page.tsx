@@ -187,21 +187,21 @@ export default async function GenresIndexPage({
             type="search"
             name="q"
             defaultValue={q}
-            placeholder={ko ? "장르 검색…" : "Search genres…"}
+            placeholder={t.searchPlaceholder}
             className="flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none"
           />
           <button
             type="submit"
             className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400"
           >
-            {ko ? "검색" : "Search"}
+            {t.searchSubmit}
           </button>
           {q && (
             <Link
               href={buildHref({ q: "" })}
               className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400 hover:bg-neutral-800"
             >
-              {ko ? "지우기" : "Clear"}
+              {t.searchClear}
             </Link>
           )}
         </form>
@@ -220,9 +220,7 @@ export default async function GenresIndexPage({
                     : "border-white/10 bg-black/30 text-neutral-400 hover:border-emerald-500/40 hover:text-neutral-200"
                 }`}
               >
-                {s === "count"
-                  ? ko ? "🔥 빈도순" : "🔥 By frequency"
-                  : ko ? "🔤 가나다순" : "🔤 A → Z"}
+                {s === "count" ? t.sortByFrequency : t.sortAlpha}
               </Link>
             );
           })}
@@ -233,14 +231,12 @@ export default async function GenresIndexPage({
         <p className="text-sm text-neutral-500">{t.empty}</p>
       ) : filtered.length === 0 ? (
         <p className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-6 text-center text-sm text-neutral-500">
-          {ko ? `"${q}" 검색 결과 없음.` : `No matches for "${q}".`}
+          {t.noMatches(q)}
         </p>
       ) : (
         <>
           <p className="text-xs text-neutral-500">
-            {ko
-              ? `${filtered.length.toLocaleString()}개`
-              : `${filtered.length.toLocaleString()} genres`}
+            {t.resultCount(filtered.length)}
           </p>
           {(() => {
             // R37 — group the (already-canonicalized) genres by
@@ -248,7 +244,7 @@ export default async function GenresIndexPage({
             // "Other" bucket at the bottom. When alpha-sorting we
             // sort families alphabetically too; for count-sort we
             // order families by their total track count desc.
-            const OTHER = ko ? "기타" : "Other";
+            const OTHER = t.other;
             const groups = new Map<
               string,
               { label: string; items: GenreRow[]; total: number }

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 import { parseYouTubeVideoId } from "@/lib/youtubeId";
 
 // R34 — 128 and 256 added at the user's request. Pasting that many
@@ -33,7 +34,7 @@ export function CreateForm({
   initialTag?: string;
 }) {
   const router = useRouter();
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tagsInput, setTagsInput] = useState(initialTag ?? "");
@@ -200,7 +201,7 @@ export function CreateForm({
     // Maintain the playlist's original order; drop unpicked items.
     const picked = importItems.filter((it) => importPicked.has(it.videoId));
     if (picked.length === 0) {
-      setImportError(ko ? "1개 이상 골라 주세요." : "Pick at least one.");
+      setImportError(t.createImportPickAtLeastOne);
       return;
     }
     // Snap bracket size to the largest power-of-2 ≤ picked count so
@@ -335,16 +336,14 @@ export function CreateForm({
       {draftRestored && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
           <span>
-            {ko
-              ? "이전에 작성하던 초안을 불러왔습니다."
-              : "Restored your previous draft."}
+            {t.createDraftRestored}
           </span>
           <button
             type="button"
             onClick={clearDraft}
             className="rounded-md border border-amber-500/40 px-2 py-0.5 text-[11px] hover:bg-amber-900/40"
           >
-            {ko ? "초안 비우기" : "Start fresh"}
+            {t.createStartFresh}
           </button>
         </div>
       )}
@@ -352,20 +351,20 @@ export function CreateForm({
       {/* Title + optional description */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-          {ko ? "제목" : "Title"}
+          {t.createTitleLabel}
         </label>
         <input
           type="text"
           maxLength={120}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={ko ? "예: 90년대 한국 록 명곡 월드컵" : "e.g. 90s K-Rock greatest hits"}
+          placeholder={t.createTitlePlaceholder}
           className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
         />
       </div>
       <div className="flex flex-col gap-2">
         <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-          {ko ? "설명 (선택)" : "Description (optional)"}
+          {t.createDescLabel}
         </label>
         <textarea
           maxLength={800}
@@ -377,30 +376,24 @@ export function CreateForm({
       </div>
       <div className="flex flex-col gap-2">
         <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-          {ko ? "태그 (선택, 최대 5개)" : "Tags (optional, up to 5)"}
+          {t.createTagsLabel}
         </label>
         <input
           type="text"
           value={tagsInput}
           onChange={(e) => setTagsInput(e.target.value)}
-          placeholder={
-            ko
-              ? "쉼표로 구분 · 예: k-pop, idol, 2020s"
-              : "Comma-separated · e.g. k-pop, idol, 2020s"
-          }
+          placeholder={t.createTagsPlaceholder}
           className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
         />
         <p className="text-[11px] text-neutral-500">
-          {ko
-            ? "태그가 있으면 커뮤니티 목록에서 같은 태그끼리 묶여 노출돼요."
-            : "Tagged worldcups can be filtered together on the community list."}
+          {t.createTagsHint}
         </p>
       </div>
 
       {/* Bracket size selector */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-          {ko ? "토너먼트 크기" : "Bracket size"}
+          {t.createSizeLabel}
         </label>
         <div className="flex flex-wrap gap-2">
           {SIZES.map((n) => (
@@ -431,16 +424,14 @@ export function CreateForm({
           className="flex items-center justify-between gap-2 text-left text-xs"
         >
           <span className="font-semibold text-emerald-200">
-            {ko ? "📋 유튜브 플리에서 가져오기" : "📋 Import from YouTube playlist"}
+            {t.createImportTitle}
           </span>
           <span className="text-neutral-500">{importOpen ? "▾" : "▸"}</span>
         </button>
         {importOpen && (
           <div className="flex flex-col gap-2">
             <p className="text-[11px] leading-snug text-neutral-400">
-              {ko
-                ? "공개 / 미공개(unlisted) 플리만 가능. 개인 '좋아요'·'나중에 볼 동영상'은 YouTube가 외부 API로 못 열어요."
-                : "Public or unlisted playlists only. Your personal Liked / Watch Later lists are off-limits to third-party API access."}
+              {t.createImportHint}
             </p>
             <div className="flex gap-2">
               <input
@@ -456,9 +447,7 @@ export function CreateForm({
                 disabled={!importUrl.trim() || importBusy}
                 className="shrink-0 rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {importBusy
-                  ? ko ? "가져오는 중…" : "Loading…"
-                  : ko ? "불러오기" : "Load"}
+                {importBusy ? t.createImportLoading : t.createImportLoad}
               </button>
             </div>
             {importError && (
@@ -470,9 +459,7 @@ export function CreateForm({
               <>
                 <div className="flex flex-wrap items-baseline justify-between gap-2 text-[11px]">
                   <span className="text-neutral-400">
-                    {ko
-                      ? `총 ${importItems.length}개 · ${importPicked.size}개 선택됨`
-                      : `${importItems.length} videos · ${importPicked.size} picked`}
+                    {t.createImportSummary(importItems.length, importPicked.size)}
                   </span>
                   <div className="flex gap-2">
                     <button
@@ -484,14 +471,14 @@ export function CreateForm({
                       }
                       className="text-neutral-500 hover:text-emerald-300"
                     >
-                      {ko ? "전체 선택" : "Select all"}
+                      {t.createImportSelectAll}
                     </button>
                     <button
                       type="button"
                       onClick={() => setImportPicked(new Set())}
                       className="text-neutral-500 hover:text-rose-300"
                     >
-                      {ko ? "전체 해제" : "Clear"}
+                      {t.createImportClear}
                     </button>
                   </div>
                 </div>
@@ -546,7 +533,7 @@ export function CreateForm({
                   disabled={importPicked.size === 0}
                   className="self-start rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {ko ? "URL 칸에 채우기" : "Fill into rows"}
+                  {t.createImportFill}
                 </button>
               </>
             )}
@@ -558,30 +545,22 @@ export function CreateForm({
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-2">
           <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-            {ko
-              ? `YouTube URL · ${validCount} / ${size}`
-              : `YouTube URLs · ${validCount} / ${size}`}
+            {t.createUrlsLabel(validCount, size)}
           </label>
           <button
             type="button"
             onClick={() => setAdvanced((v) => !v)}
             className="text-[10px] text-neutral-500 hover:text-emerald-300"
           >
-            {advanced
-              ? ko ? "기본 모드" : "Basic"
-              : ko ? "썸네일 직접 지정" : "Override thumbnails"}
+            {advanced ? t.createBasicMode : t.createOverrideThumbnails}
           </button>
         </div>
         <p className="text-[11px] leading-snug text-neutral-500">
-          {ko
-            ? "youtube.com / youtu.be / shorts URL 모두 OK. 11자 영상 ID 만 붙여도 됩니다."
-            : "youtube.com / youtu.be / shorts URLs all work. 11-character video ID also fine."}
+          {t.createUrlsHint}
         </p>
         {advanced && (
           <p className="text-[11px] leading-snug text-amber-200/80">
-            {ko
-              ? "각 행 옆에 썸네일 이미지 URL(앨범 커버 등)을 직접 넣으면 기본 YouTube 썸네일 대신 그걸 씁니다. 비워두면 자동."
-              : "Paste a thumbnail URL (album cover etc.) next to each row to override the default YouTube thumbnail. Empty = auto."}
+            {t.createAdvancedHint}
           </p>
         )}
         <ul className="flex flex-col gap-1.5">
@@ -623,7 +602,7 @@ export function CreateForm({
                     type="url"
                     value={covers[i] ?? ""}
                     onChange={(e) => setCover(i, e.target.value)}
-                    placeholder={ko ? "썸네일 URL (선택)" : "Thumbnail URL (optional)"}
+                    placeholder={t.createThumbnailPlaceholder}
                     className="w-40 shrink-0 rounded-md border border-neutral-700 bg-neutral-950 px-2 py-1 text-[10px] focus:border-amber-500 focus:outline-none sm:w-56"
                   />
                 )}
@@ -644,9 +623,7 @@ export function CreateForm({
         disabled={!submittable}
         className="self-start rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy
-          ? ko ? "만드는 중…" : "Creating…"
-          : ko ? "만들기" : "Create"}
+        {busy ? t.createSubmitting : t.createSubmit}
       </button>
     </form>
   );

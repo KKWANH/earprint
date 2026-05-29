@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
 import { recommendDict } from "@/lib/i18n/recommend";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 import { useAudioPlayer } from "@/lib/useAudioPlayer";
 
 /** Generic candidate the worldcup can use across data sources (liked
@@ -184,6 +185,7 @@ export function Bracket({
   category?: string;
 }) {
   const t = recommendDict(locale);
+  const wc = worldcupDict(locale);
   const router = useRouter();
 
   const layout = chooseLayout(initial.length);
@@ -516,7 +518,7 @@ export function Bracket({
           <span className="text-neutral-500">
             {t.bracketPairOf(pairIdx + 1, pairsInRound)}
             <span className="ml-2 text-neutral-600">
-              · {bracket.length}{locale === "ko" ? "곡 남음" : " remain"}
+              · {bracket.length}{wc.bracketRemainSuffix}
             </span>
           </span>
         </div>
@@ -764,7 +766,7 @@ function PromoteToCommunityButton({
   champion: Rec;
   locale: Locale;
 }) {
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(
     champion.artist
@@ -813,14 +815,14 @@ function PromoteToCommunityButton({
         onClick={() => setOpen(true)}
         className="self-center text-xs text-neutral-500 hover:text-emerald-300 hover:underline"
       >
-        {ko ? "📤 이 토너먼트를 커뮤니티에 공개" : "📤 Publish this bracket as a community worldcup"}
+        {t.promoteOpen}
       </button>
     );
   }
   return (
     <div className="mt-2 flex flex-col gap-2 self-stretch rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 sm:max-w-md sm:self-center">
       <label className="text-[11px] uppercase tracking-wider text-emerald-300">
-        {ko ? "공개 토너먼트 제목" : "Community worldcup title"}
+        {t.promoteTitleLabel}
       </label>
       <input
         type="text"
@@ -840,14 +842,14 @@ function PromoteToCommunityButton({
           disabled={busy || !title.trim()}
           className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? (ko ? "공개 중…" : "Publishing…") : (ko ? "공개" : "Publish")}
+          {busy ? t.promotePublishing : t.promotePublish}
         </button>
         <button
           onClick={() => setOpen(false)}
           disabled={busy}
           className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-neutral-300 hover:bg-white/5"
         >
-          {ko ? "취소" : "Cancel"}
+          {t.promoteCancel}
         </button>
       </div>
     </div>
@@ -870,7 +872,7 @@ function LikeInSpotifyButton({
   champion: Rec;
   locale: Locale;
 }) {
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
   const [connected, setConnected] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -928,7 +930,7 @@ function LikeInSpotifyButton({
   if (done) {
     return (
       <span className="rounded-md border border-[#1DB954]/40 bg-[#1DB954]/15 px-5 py-2 text-sm font-semibold text-[#1DB954]">
-        ✓ {ko ? "Spotify에 저장됨" : "Saved to Spotify"}
+        ✓ {t.likeSpotifySaved}
       </span>
     );
   }
@@ -950,7 +952,7 @@ function LikeInSpotifyButton({
         href="/api/auth/spotify/start"
         className="rounded-md border border-amber-500/40 bg-amber-950/30 px-5 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-900/40"
       >
-        {ko ? "↻ Spotify 다시 연결" : "↻ Reconnect Spotify"}
+        {t.likeSpotifyReconnect}
       </a>
     );
   }
@@ -963,9 +965,7 @@ function LikeInSpotifyButton({
       title={error ?? undefined}
       className="rounded-md border border-[#1DB954]/40 bg-[#1DB954]/15 px-5 py-2 text-sm font-semibold text-[#1DB954] hover:bg-[#1DB954]/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1DB954]/60 disabled:opacity-50"
     >
-      {busy
-        ? ko ? "저장 중…" : "Saving…"
-        : ko ? "♥ Spotify에 저장" : "♥ Save to Spotify"}
+      {busy ? t.likeSpotifySaving : t.likeSpotifySave}
     </button>
   );
 }
@@ -982,6 +982,7 @@ function LikeInYtMusicButton({
   champion: Rec;
   locale: Locale;
 }) {
+  const t = worldcupDict(locale);
   const q = champion.artist
     ? `${champion.artist} ${champion.title}`
     : champion.title;
@@ -993,7 +994,7 @@ function LikeInYtMusicButton({
       rel="noopener noreferrer"
       className="rounded-md border border-rose-400/40 bg-rose-500/15 px-5 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/60"
     >
-      ♥ {locale === "ko" ? "YT Music에서 좋아요" : "Like in YT Music ↗"}
+      ♥ {t.likeYtMusic}
     </a>
   );
 }
@@ -1116,6 +1117,7 @@ export function ShareChampionButton({
   championId: string | null;
   locale: Locale;
 }) {
+  const t = worldcupDict(locale);
   const [note, setNote] = useState<string | null>(null);
   async function share() {
     // For genre champions `title` is the genre name and `artist` is "";
@@ -1126,20 +1128,17 @@ export function ShareChampionButton({
     const url = championId
       ? `https://earprint.kwanho.dev/worldcup/champion/${championId}`
       : "https://earprint.kwanho.dev/worldcup";
-    const text =
-      locale === "ko"
-        ? `🏆 내 월드컵 우승: ${subject}\n${url}`
-        : `🏆 My World Cup champion: ${subject}\n${url}`;
+    const text = t.shareChampionText(subject, url);
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ text, url });
-        setNote(locale === "ko" ? "공유 완료" : "Shared");
+        setNote(t.shareChampionShared);
         return;
       }
       await navigator.clipboard.writeText(text);
-      setNote(locale === "ko" ? "복사됨" : "Copied");
+      setNote(t.shareChampionCopied);
     } catch {
-      setNote(locale === "ko" ? "공유 실패" : "Share failed");
+      setNote(t.shareChampionFailed);
     }
   }
   return (
@@ -1147,7 +1146,7 @@ export function ShareChampionButton({
       onClick={share}
       className="rounded-md border border-amber-400/40 bg-amber-500/15 px-5 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/25"
     >
-      🔗 {note ?? (locale === "ko" ? "공유" : "Share")}
+      🔗 {note ?? t.shareChampion}
     </button>
   );
 }

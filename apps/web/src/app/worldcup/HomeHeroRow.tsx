@@ -61,33 +61,24 @@ function countForSelfMode(
 
 export function HomeHeroRow({ locale, counts }: HomeHeroRowProps) {
   const t = worldcupDict(locale);
-  const ko = locale === "ko";
 
-  // Localized labels for the 5 self-modes. Keeping them mapped here
-  // rather than in the i18n file because the curate entry is new
-  // and the existing dict doesn't carry it yet — the others reuse
-  // the existing strings unchanged.
+  // Localized labels for the 5 self-modes. The genre/curate etc.
+  // labels live in worldcupDict; the others reuse existing keys.
   const selfLabel = (id: SelfModeId): string => {
     if (id === "library") return t.catLibraryLabel;
     if (id === "recent") return t.catRecentLabel;
     if (id === "forgotten") return t.catForgottenLabel;
     if (id === "genre") return t.catGenreLabel;
-    if (id === "curate") return ko ? "AI 큐레이션" : "AI-curated";
+    if (id === "curate") return t.catCurateLabel;
     return id;
   };
 
-  const myCardHeader = ko ? "🏆 내 음악 월드컵" : "🏆 My music worldcup";
-  const myCardHint = ko
-    ? "라이브러리·잊은 명곡·장르·AI 큐레이션 — 한 곳에서 시작"
-    : "Library / forgotten / genre / AI-curated — pick one and a size";
-  const discoverHeader = ko ? "🧭 새 곡 디깅" : "🧭 Discover new";
-  const discoverHint = ko
-    ? "내 취향 밖 곡들로 토너먼트"
-    : "Tournament with fresh picks outside your usual taste";
-  const communityHeader = ko ? "🌐 커뮤니티" : "🌐 Community";
-  const communityHint = ko
-    ? "다른 사람이 만든 월드컵"
-    : "Worldcups made by others";
+  const myCardHeader = t.myCardHeader;
+  const myCardHint = t.myCardHint;
+  const discoverHeader = t.discoverHeader;
+  const discoverHint = t.discoverHint;
+  const communityHeader = t.communityHeader;
+  const communityHint = t.communityHint;
 
   return (
     <section className="flex flex-col gap-3">
@@ -124,7 +115,7 @@ export function HomeHeroRow({ locale, counts }: HomeHeroRowProps) {
                         className="rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs text-neutral-200 hover:border-emerald-500/60 hover:bg-emerald-500/10 hover:text-emerald-200"
                       >
                         {s}
-                        {ko ? "강" : ""}
+                        {t.sizeSuffix}
                       </Link>
                     ) : (
                       <span
@@ -133,7 +124,7 @@ export function HomeHeroRow({ locale, counts }: HomeHeroRowProps) {
                         className="rounded-md border border-white/5 bg-black/10 px-2 py-1 text-xs text-neutral-600"
                       >
                         {s}
-                        {ko ? "강" : ""}
+                        {t.sizeSuffix}
                       </span>
                     );
                   })}
@@ -166,7 +157,7 @@ export function HomeHeroRow({ locale, counts }: HomeHeroRowProps) {
                 className="rounded-md border border-white/10 bg-black/30 px-3 py-1.5 text-sm font-medium text-neutral-200 hover:border-sky-500/60 hover:bg-sky-500/10 hover:text-sky-200"
               >
                 {s}
-                {ko ? "강" : ""}
+                {t.sizeSuffix}
               </Link>
             ) : (
               <span
@@ -175,7 +166,7 @@ export function HomeHeroRow({ locale, counts }: HomeHeroRowProps) {
                 className="rounded-md border border-white/5 bg-black/10 px-3 py-1.5 text-sm text-neutral-600"
               >
                 {s}
-                {ko ? "강" : ""}
+                {t.sizeSuffix}
               </span>
             );
           })}

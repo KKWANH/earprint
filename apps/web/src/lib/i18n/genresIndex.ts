@@ -22,6 +22,14 @@ const en = {
   requestSubmit: "Send",
   requestSent: "Thanks — we'll look at this.",
   requestRateLimited: "Daily limit reached. Try again tomorrow.",
+  searchPlaceholder: "Search genres…",
+  searchSubmit: "Search",
+  searchClear: "Clear",
+  sortByFrequency: "🔥 By frequency",
+  sortAlpha: "🔤 A → Z",
+  noMatches: (q: string) => `No matches for "${q}".`,
+  resultCount: (n: number) => `${n.toLocaleString()} genres`,
+  other: "Other",
 };
 
 const ko: typeof en = {
@@ -44,6 +52,14 @@ const ko: typeof en = {
   requestSubmit: "보내기",
   requestSent: "고마워요 — 확인해 볼게요.",
   requestRateLimited: "오늘 요청 한도에 도달했어요. 내일 다시 시도해 주세요.",
+  searchPlaceholder: "장르 검색…",
+  searchSubmit: "검색",
+  searchClear: "지우기",
+  sortByFrequency: "🔥 빈도순",
+  sortAlpha: "🔤 가나다순",
+  noMatches: (q: string) => `"${q}" 검색 결과 없음.`,
+  resultCount: (n: number) => `${n.toLocaleString()}개`,
+  other: "기타",
 };
 
 export function genresIndexDict(locale: Locale) {

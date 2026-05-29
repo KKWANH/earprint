@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CommunityStats } from "@/lib/community-stats";
 import type { Locale } from "@/lib/i18n";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 
 /**
  * One-line community pulse, rendered just below the worldcup header.
@@ -17,27 +18,27 @@ export function CommunityStatsBar({
   locale: Locale;
 }) {
   if (!stats) return null;
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
   const { totalWorldcups, totalPlays, playsThisWeek, topChampions, topCreators } =
     stats;
   return (
     <section className="rounded-2xl border border-emerald-500/20 bg-emerald-950/15 px-4 py-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[12px] text-neutral-300">
         <span className="font-semibold text-emerald-200">
-          {ko ? "사람들 통계" : "Community pulse"}
+          {t.pulseTitle}
         </span>
         <span>
           <strong className="font-semibold text-white">
             {totalWorldcups.toLocaleString()}
           </strong>
-          {ko ? "개 월드컵" : " worldcups"}
+          {t.pulseWorldcupsSuffix}
         </span>
         <span className="text-neutral-600">·</span>
         <span>
           <strong className="font-semibold text-white">
             {totalPlays.toLocaleString()}
           </strong>
-          {ko ? "회 진행" : " total plays"}
+          {t.pulseTotalPlaysSuffix}
         </span>
         {/* "This week" segment hides itself when the finishes table
             isn't migrated yet (playsThisWeek=null), so we don't show
@@ -48,11 +49,11 @@ export function CommunityStatsBar({
           <>
             <span className="text-neutral-600">·</span>
             <span>
-              {ko ? "이번 주 " : "this week "}
+              {t.pulseThisWeekPrefix}
               <strong className="font-semibold text-white">
                 {playsThisWeek.toLocaleString()}
               </strong>
-              {ko ? "회" : ""}
+              {t.pulseThisWeekSuffix}
             </span>
           </>
         )}
@@ -60,7 +61,7 @@ export function CommunityStatsBar({
       {topChampions.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
           <span className="text-neutral-500">
-            {ko ? "👑 우승 TOP" : "👑 Top champions"}
+            {t.pulseTopChampions}
           </span>
           {topChampions.map((c, i) => (
             <Link
@@ -90,14 +91,14 @@ export function CommunityStatsBar({
       {topCreators.length > 0 && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
           <span className="text-neutral-500">
-            {ko ? "🧑‍🎤 메이커 TOP" : "🧑‍🎤 Top creators"}
+            {t.pulseTopCreators}
           </span>
           {topCreators.map((c, i) => (
             <Link
               key={`${c.handle}-${i}`}
               href={`/u/${encodeURIComponent(c.handle)}`}
               className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-sky-100 hover:bg-sky-500/20"
-              title={`${c.worldcupCount} ${ko ? "개" : "worldcups"} · ${c.totalPlays.toLocaleString()} ${ko ? "회" : "plays"}`}
+              title={t.pulseCreatorTooltip(c.worldcupCount, c.totalPlays)}
             >
               <span className="font-semibold">{i + 1}</span>
               <span className="max-w-[14ch] truncate">{c.handle}</span>

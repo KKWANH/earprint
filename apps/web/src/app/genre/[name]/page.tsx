@@ -235,10 +235,7 @@ export default async function GenrePage({
                   before reading. */}
               {viewCount != null && viewCount > 1 && (
                 <span className="rounded-full bg-white/10 px-3 py-1 text-white/85">
-                  👁{" "}
-                  {locale === "ko"
-                    ? `${viewCount.toLocaleString()}회 조회`
-                    : `${viewCount.toLocaleString()} views`}
+                  👁 {t.views(viewCount)}
                 </span>
               )}
             </div>
@@ -261,7 +258,7 @@ export default async function GenrePage({
           license tag inline makes the citation visible without
           a separate "credits" page. */}
       {wikiExtract && (
-        <Section title={locale === "ko" ? "Wikipedia 소개" : "From Wikipedia"}>
+        <Section title={t.wikipediaTitle}>
           <p className="text-sm leading-relaxed text-neutral-300">
             {wikiExtract}
           </p>
@@ -273,12 +270,12 @@ export default async function GenrePage({
                 rel="noopener noreferrer"
                 className="text-sky-300 hover:text-sky-200 hover:underline"
               >
-                {locale === "ko" ? "Wikipedia에서 더 보기 →" : "Read on Wikipedia →"}
+                {t.wikipediaReadMore}
               </a>
             )}
             <span className="text-neutral-700">·</span>
             <span className="text-neutral-600">
-              {locale === "ko" ? "출처: " : "Source: "}
+              {t.wikipediaSource}
               {wikiUrl ? new URL(wikiUrl).hostname : "wikipedia.org"} ·{" "}
               <a
                 href="https://creativecommons.org/licenses/by-sa/4.0/"
@@ -350,32 +347,26 @@ export default async function GenrePage({
           audio_feel-analyzed yet, since "0 analyzed" would mean
           empty bars. */}
       {d.audioFeel && (
-        <Section
-          title={
-            locale === "ko"
-              ? `이 장르의 사운드 (${d.audioFeel.analyzed}곡 평균)`
-              : `Sound of this genre (avg of ${d.audioFeel.analyzed} of your tracks)`
-          }
-        >
+        <Section title={t.soundTitle(d.audioFeel.analyzed)}>
           <div className="flex flex-col gap-3">
             {(
               [
                 {
-                  label: locale === "ko" ? "에너지" : "Energy",
-                  lo: locale === "ko" ? "차분" : "Calm",
-                  hi: locale === "ko" ? "강렬" : "Intense",
+                  label: t.axisEnergy,
+                  lo: t.axisEnergyLo,
+                  hi: t.axisEnergyHi,
                   v: d.audioFeel.energy,
                 },
                 {
-                  label: locale === "ko" ? "템포" : "Tempo",
-                  lo: locale === "ko" ? "느림" : "Slow",
-                  hi: locale === "ko" ? "빠름" : "Fast",
+                  label: t.axisTempo,
+                  lo: t.axisTempoLo,
+                  hi: t.axisTempoHi,
                   v: d.audioFeel.tempo,
                 },
                 {
-                  label: locale === "ko" ? "음색" : "Sound",
-                  lo: locale === "ko" ? "전자음" : "Electronic",
-                  hi: locale === "ko" ? "어쿠스틱" : "Acoustic",
+                  label: t.axisSound,
+                  lo: t.axisSoundLo,
+                  hi: t.axisSoundHi,
                   v: d.audioFeel.acousticness,
                 },
               ] as const
@@ -448,9 +439,9 @@ export default async function GenrePage({
         return (
           <Section title={t.yourTracks}>
             <div className="flex flex-wrap gap-1.5">
-              {sortTab("alpha", locale === "ko" ? "🔤 가나다순" : "🔤 A → Z")}
-              {sortTab("added", locale === "ko" ? "🆕 추가순" : "🆕 Added")}
-              {sortTab("popular", locale === "ko" ? "🔥 인기순" : "🔥 Popular")}
+              {sortTab("alpha", t.tracksSortAlpha)}
+              {sortTab("added", t.tracksSortAdded)}
+              {sortTab("popular", t.tracksSortPopular)}
             </div>
             <div className="flex flex-col gap-1">
               {sorted.map((tr, i) => (
@@ -476,11 +467,7 @@ export default async function GenrePage({
           public worldcup carries this tag; the "make one" CTA below
           still renders so first-mover users can fill the gap. */}
       {taggedWorldcups.length > 0 && (
-        <Section
-          title={
-            locale === "ko" ? "이 장르의 커뮤니티 월드컵" : "Community worldcups in this genre"
-          }
-        >
+        <Section title={t.worldcupsTitle}>
           <div className="flex flex-col gap-2">
             {taggedWorldcups.map((w) => (
               <Link
@@ -510,10 +497,7 @@ export default async function GenrePage({
                     {w.title}
                   </p>
                   <p className="text-[11px] text-neutral-500">
-                    {w.itemCount}
-                    {locale === "ko" ? "강" : "-slot"} ·{" "}
-                    {w.playCount.toLocaleString()}
-                    {locale === "ko" ? "회 진행" : " plays"}
+                    {t.worldcupSlots(w.itemCount)} · {t.worldcupPlays(w.playCount)}
                   </p>
                 </div>
               </Link>
@@ -523,9 +507,7 @@ export default async function GenrePage({
             href={`/worldcup/community/create?tag=${encodeURIComponent(name.toLowerCase())}`}
             className="mt-1 self-start text-xs text-emerald-300 hover:text-emerald-200 hover:underline"
           >
-            {locale === "ko"
-              ? "+ 이 장르로 새 월드컵 만들기"
-              : "+ Create a new worldcup with this genre"}
+            {t.worldcupCreate}
           </Link>
         </Section>
       )}
@@ -537,9 +519,7 @@ export default async function GenrePage({
           href={`/worldcup/community/create?tag=${encodeURIComponent(name.toLowerCase())}`}
           className="self-start rounded-md border border-emerald-500/30 bg-emerald-950/15 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/15"
         >
-          {locale === "ko"
-            ? `+ '${d.name}' 첫 번째 월드컵 만들기`
-            : `+ Be the first to create a '${d.name}' worldcup`}
+          {t.worldcupBeFirst(d.name)}
         </Link>
       )}
 
@@ -550,22 +530,16 @@ export default async function GenrePage({
           a title attribute spelling out which signal(s) introduced
           the suggestion so curious users can see the reasoning. */}
       {related.length > 0 && (
-        <Section title={locale === "ko" ? "관련 장르" : "Related genres"}>
+        <Section title={t.relatedTitle}>
           <div className="flex flex-wrap gap-1.5">
             {related.map((r) => {
               const reasonLabel = r.reasons
                 .map((x) =>
-                  locale === "ko"
-                    ? x === "family"
-                      ? "같은 패밀리"
-                      : x === "era"
-                        ? "같은 시기"
-                        : "함께 등장"
-                    : x === "family"
-                      ? "same family"
-                      : x === "era"
-                        ? "same era"
-                        : "co-occurs",
+                  x === "family"
+                    ? t.reasonFamily
+                    : x === "era"
+                      ? t.reasonEra
+                      : t.reasonCoOccurs,
                 )
                 .join(" · ");
               return (

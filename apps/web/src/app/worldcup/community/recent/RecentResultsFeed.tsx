@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 
 /**
  * R35 — client-driven infinite scroll for the recent-results feed.
@@ -28,14 +29,15 @@ interface Item {
 const HARD_PAGES = 50; // 50 × 20 = 1000 rows max in one session
 
 function relativeTime(iso: string, ko: boolean): string {
+  const t = worldcupDict(ko ? "ko" : "en");
   const diff = Math.max(0, Date.now() - new Date(iso).getTime());
   const min = Math.floor(diff / 60_000);
-  if (min < 1) return ko ? "방금" : "just now";
-  if (min < 60) return ko ? `${min}분 전` : `${min}m ago`;
+  if (min < 1) return t.recentJustNow;
+  if (min < 60) return t.recentMinAgo(min);
   const hr = Math.floor(min / 60);
-  if (hr < 24) return ko ? `${hr}시간 전` : `${hr}h ago`;
+  if (hr < 24) return t.recentHrAgo(hr);
   const days = Math.floor(hr / 24);
-  if (days < 30) return ko ? `${days}일 전` : `${days}d ago`;
+  if (days < 30) return t.recentDayAgo(days);
   return new Date(iso).toLocaleDateString(ko ? "ko-KR" : "en-US", {
     month: "short",
     day: "numeric",
@@ -53,6 +55,7 @@ export function RecentResultsFeed({
   initialNextId: string | null;
   ko: boolean;
 }) {
+  const t = worldcupDict(ko ? "ko" : "en");
   const [items, setItems] = useState(initial);
   // R38 — composite cursor (timestamp + id) for stable pagination.
   const [cursor, setCursor] = useState<{ before: string; id: string } | null>(
@@ -110,9 +113,7 @@ export function RecentResultsFeed({
   if (items.length === 0) {
     return (
       <p className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-8 text-center text-sm text-neutral-500">
-        {ko
-          ? "아직 결과가 없어요. 누군가 월드컵을 끝내면 여기에 표시됩니다."
-          : "No results yet. Finished worldcups will show up here."}
+        {t.recentEmpty}
       </p>
     );
   }
@@ -178,11 +179,11 @@ export function RecentResultsFeed({
           is null so the ref doesn't churn. */}
       <div ref={sentinelRef} className="flex justify-center py-6 text-xs text-neutral-500">
         {loading
-          ? ko ? "더 가져오는 중…" : "Loading more…"
+          ? t.recentLoadingMore
           : !cursor
-            ? ko ? "끝까지 봤어요" : "End of feed"
+            ? t.recentEndOfFeed
             : pages >= HARD_PAGES
-              ? ko ? "더 보려면 새로고침" : "Refresh to load more"
+              ? t.recentRefreshToLoad
               : ""}
       </div>
     </>

@@ -95,6 +95,101 @@ const en = {
   // Footer links
   privacy: "Privacy policy",
   terms: "Terms",
+
+  // Admin plan preview banner
+  adminPreviewLabel: "Admin preview:",
+  adminPreviewFreeMode: "free mode",
+  adminPreviewActualState: "actual state",
+  adminPreviewBackToActual: "Back to actual",
+  adminPreviewAsFree: "Preview as free",
+
+  // Plan status chips / descriptions
+  planLifetime: "Lifetime",
+  planOpenBetaPro: "🎉 Open Beta Pro",
+  planOpenBetaDesc:
+    "All features free during open beta. You'll move to the free tier when payments turn on.",
+  planLifetimeDesc: "Lifetime Pro — all features regardless of payment mode.",
+
+  // Connections board section heading + payments chip
+  connectionsHeading: "Connections",
+  paymentsLabel: "Payments:",
+  paymentsEnabled: "Enabled",
+  paymentsOpenBeta: "Open beta (free)",
+
+  // DSAR export — secondary contents note
+  exportContentsNote:
+    "Includes synced tracks, AI profile, recommendation history, ratings, Spotify data, analysis state. Excludes tokens / passwords.",
+
+  // ── Connections board rows (ConnectionsBoard.tsx) ──
+  connBoardGoogleSignedIn: "Signed in",
+  connBoardManage: "Manage ↗",
+  connBoardExtensionName: "Chrome extension",
+  connBoardExtensionSynced: " synced",
+  connBoardExtensionNotInstalled: "Not installed",
+  connBoardLastSync: "Last sync ",
+  connBoardExtensionDetail:
+    "Extension auto-syncs Liked Songs from music.youtube.com",
+  connBoardLibrary: "Library →",
+  connBoardInstall: "Install ↗",
+  connBoardSpotifyComingSoon: "Coming soon",
+  connBoardSpotifyConnected: "Connected",
+  connBoardSpotifyNotConnected: "Not connected",
+  connBoardSpotifyComingSoonDetail: "Activates after Premium subscription",
+  connBoardSpotifyDetail: "Liked Songs + top tracks + playlists",
+  connBoardDisconnect: "Disconnect",
+  connBoardConnect: "Connect",
+
+  // ── Spotify connect card (SpotifyConnectCard.tsx) ──
+  spotifyConnectedToast: "Spotify connected.",
+  spotifyErrFeatureDisabled:
+    "Spotify integration is temporarily disabled. Will be re-enabled by the operator when ready.",
+  spotifyErr403Premium:
+    "Spotify recently changed their dev-mode policy: the app owner must have an active Premium subscription. Auto-activates a few hours after subscribing. Alternative: request 'Extended Quota Mode' from Spotify (free, but takes 2-4 weeks for review).",
+  spotifyErr403DevMode:
+    "Spotify app is still in Development Mode and the signing-in account isn't on the user allowlist. Add your Spotify account email at Spotify Dashboard → User Management.",
+  spotifyErr401Token:
+    "Token exchange succeeded but the access token was rejected. Re-check SPOTIFY_CLIENT_SECRET.",
+  spotifyErrBadState: "CSRF cookie expired — finish the consent within 5 minutes.",
+  spotifyErrNoRefreshToken: "Spotify didn't return a refresh token.",
+  spotifyErrReason: (reason: string) => `Reason: ${reason}`,
+  spotifyConnectionFailed: "Spotify connection failed. ",
+  spotifySyncMore: " (more liked songs — click again to continue)",
+  spotifySyncPlaylistsAuto: (n: number) => ` · playlists +${n}`,
+  spotifySyncSummary: (
+    liked: number,
+    top: number,
+    artists: number,
+    recent: number,
+    autoNote: string,
+    more: string,
+  ) =>
+    `${liked} liked · ${top} top · ${artists} artists · ${recent} recent${autoNote}${more}`,
+  spotifyDisconnectConfirm:
+    "Disconnect Spotify? Already-imported tracks stay in your library.",
+  spotifyComingSoonTitle: "Spotify (coming soon)",
+  spotifyComingSoonDesc:
+    "Spotify recently changed their dev-mode policy — the app owner needs an active Premium subscription to unblock our auth. Will be enabled here when ready.",
+  spotifyComingSoonButton: "🚧 Coming soon",
+  spotifyConnectTitle: "Connect Spotify",
+  spotifyConnectDesc:
+    "Pulls your Spotify Liked Songs into your library. Tracks already liked on YT Music dedup at the canonical level. Read-only — Earprint writes nothing back to Spotify.",
+  spotifyConnectButton: "Connect with Spotify",
+  spotifyConnectedTitle: "Spotify connected",
+  spotifyLastSynced: "Last synced ",
+  spotifySyncing: "Syncing…",
+  spotifySyncNow: "Sync now",
+  spotifyDisconnect: "Disconnect",
+  spotifyCountdownLivePast:
+    "Should be live any moment — Premium propagation in progress",
+  spotifyCountdownDays: (n: number) => `${n}d`,
+  spotifyCountdownHours: (n: number) => `${n}h`,
+  spotifyCountdownMins: (n: number) => `${n}m`,
+  spotifyCountdownSoon: "soon",
+  spotifyCountdownAuto: (remain: string) => `Auto-activates in ${remain}`,
+  spotifyRelJustNow: "just now",
+  spotifyRelMinAgo: (n: number) => `${n} min ago`,
+  spotifyRelHrAgo: (n: number) => `${n} hr ago`,
+  spotifyRelDayAgo: (n: number) => `${n} day${n === 1 ? "" : "s"} ago`,
 };
 
 const ko: typeof en = {
@@ -176,6 +271,96 @@ const ko: typeof en = {
 
   privacy: "개인정보처리방침",
   terms: "이용약관",
+
+  adminPreviewLabel: "어드민 미리보기:",
+  adminPreviewFreeMode: "free 모드",
+  adminPreviewActualState: "실제 상태",
+  adminPreviewBackToActual: "실제 상태로",
+  adminPreviewAsFree: "free 모드 미리보기",
+
+  planLifetime: "Lifetime",
+  planOpenBetaPro: "🎉 오픈 베타 Pro",
+  planOpenBetaDesc:
+    "오픈 베타 기간 동안 모든 기능 무료로 사용할 수 있어요. 결제 모드가 켜지면 무료 요금제로 자동 전환됩니다.",
+  planLifetimeDesc:
+    "라이프타임 Pro — 결제 모드와 무관하게 모든 기능 사용 가능합니다.",
+
+  connectionsHeading: "연결",
+  paymentsLabel: "결제 모드:",
+  paymentsEnabled: "활성화",
+  paymentsOpenBeta: "오픈 베타 (무료)",
+
+  exportContentsNote:
+    "내려받기에는 동기화된 곡, AI 프로필, 추천 기록, 평가, Spotify 데이터, 분석 작업 상태 등이 포함됩니다. 토큰·비밀번호는 제외됩니다.",
+
+  connBoardGoogleSignedIn: "로그인됨",
+  connBoardManage: "권한 관리 ↗",
+  connBoardExtensionName: "Chrome 익스텐션",
+  connBoardExtensionSynced: "곡 동기화됨",
+  connBoardExtensionNotInstalled: "미설치",
+  connBoardLastSync: "마지막 sync ",
+  connBoardExtensionDetail:
+    "익스텐션이 music.youtube.com에서 좋아요 곡 동기화",
+  connBoardLibrary: "라이브러리 → ",
+  connBoardInstall: "설치 ↗",
+  connBoardSpotifyComingSoon: "준비 중",
+  connBoardSpotifyConnected: "연결됨",
+  connBoardSpotifyNotConnected: "미연결",
+  connBoardSpotifyComingSoonDetail: "Premium 가입 후 자동 활성화",
+  connBoardSpotifyDetail: "Spotify 좋아요 + 자주 듣는 곡 + 플리",
+  connBoardDisconnect: "연결 해제",
+  connBoardConnect: "연결",
+
+  spotifyConnectedToast: "Spotify 연결됨.",
+  spotifyErrFeatureDisabled:
+    "Spotify 통합이 일시 비활성화돼있어요. 운영자가 재활성화하면 다시 시도할 수 있어요.",
+  spotifyErr403Premium:
+    "Spotify가 최근에 정책 바꿨어요 — 앱 소유자가 Spotify Premium 구독자여야 합니다. 가입 후 몇 시간 뒤 자동 활성화. 또는 Spotify Dashboard에서 'Extended Quota Mode'를 신청하면 영구 무료 (검토 2-4주).",
+  spotifyErr403DevMode:
+    "Spotify 앱이 개발 모드여서 본인 계정이 User 리스트에 없을 때 발생합니다. Spotify Dashboard → User Management 에서 본인 Spotify 가입 이메일을 추가해 주세요.",
+  spotifyErr401Token:
+    "토큰 교환은 됐는데 액세스 토큰이 거부됐어요. SPOTIFY_CLIENT_SECRET 이 정확히 박혀있는지 확인해 주세요.",
+  spotifyErrBadState: "CSRF 보호 쿠키 만료. 5분 안에 동의를 완료해 주세요.",
+  spotifyErrNoRefreshToken:
+    "Spotify가 refresh token을 안 줬어요. show_dialog 설정 확인이 필요합니다.",
+  spotifyErrReason: (reason: string) => `이유: ${reason}`,
+  spotifyConnectionFailed: "Spotify 연결 실패. ",
+  spotifySyncMore: " (더 가져올 게 있어요 — 다시 누르면 이어서)",
+  spotifySyncPlaylistsAuto: (n: number) => ` · 플리 자동 +${n}`,
+  spotifySyncSummary: (
+    liked: number,
+    top: number,
+    artists: number,
+    recent: number,
+    autoNote: string,
+    more: string,
+  ) =>
+    `좋아요 ${liked}곡 · TOP ${top}곡 · 아티스트 ${artists} · 최근재생 ${recent}곡${autoNote}${more}`,
+  spotifyDisconnectConfirm:
+    "Spotify 연결을 해제할까요? 가져온 곡은 그대로 남아있어요.",
+  spotifyComingSoonTitle: "Spotify 연결 (준비 중)",
+  spotifyComingSoonDesc:
+    "Spotify가 최근에 정책 바꿔서, 우리 쪽 인증을 풀려면 앱 소유자가 Spotify Premium 구독자여야 합니다. 활성화되면 여기서 연결할 수 있어요.",
+  spotifyComingSoonButton: "🚧 준비 중",
+  spotifyConnectTitle: "Spotify 연결",
+  spotifyConnectDesc:
+    "Spotify 좋아요(❤) 곡을 라이브러리에 합칩니다. YT Music과 같은 곡은 중복 제거됨. 읽기 전용 — Earprint가 Spotify 쪽에 아무것도 안 씁니다.",
+  spotifyConnectButton: "Spotify 로 연결",
+  spotifyConnectedTitle: "Spotify 연결됨",
+  spotifyLastSynced: "마지막 동기화 ",
+  spotifySyncing: "가져오는 중…",
+  spotifySyncNow: "지금 동기화",
+  spotifyDisconnect: "연결 해제",
+  spotifyCountdownLivePast: "곧 활성화돼요 — Spotify Premium 적용 대기 중",
+  spotifyCountdownDays: (n: number) => `${n}일`,
+  spotifyCountdownHours: (n: number) => `${n}시간`,
+  spotifyCountdownMins: (n: number) => `${n}분`,
+  spotifyCountdownSoon: "곧",
+  spotifyCountdownAuto: (remain: string) => `약 ${remain} 후 자동 활성화 예정`,
+  spotifyRelJustNow: "방금 전",
+  spotifyRelMinAgo: (n: number) => `${n}분 전`,
+  spotifyRelHrAgo: (n: number) => `${n}시간 전`,
+  spotifyRelDayAgo: (n: number) => `${n}일 전`,
 };
 
 export function accountDict(locale: Locale) {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
+import { accountDict } from "@/lib/i18n/account";
 import { SpotifyPlaylistPicker } from "./SpotifyPlaylistPicker";
 
 /**
@@ -41,6 +42,7 @@ interface SpotifyStatus {
 
 export function SpotifyConnectCard({ locale }: { locale: Locale }) {
   const ko = locale === "ko";
+  const t = accountDict(locale);
   const router = useRouter();
   const [status, setStatus] = useState<SpotifyStatus | null>(null);
   const [busy, setBusy] = useState<"sync" | "disconnect" | null>(null);
@@ -111,7 +113,7 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
       const q = new URLSearchParams(window.location.search);
       const s = q.get("spotify");
       if (s === "connected") {
-        setResult(ko ? "Spotify 연결됨." : "Spotify connected.");
+        setResult(t.spotifyConnectedToast);
         // Strip the param so a refresh doesn't re-show the toast.
         q.delete("spotify");
         q.delete("reason");
@@ -127,9 +129,7 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
           if (reason === "feature-disabled") {
             // R31a — kill-switch flipped off mid-flow (e.g. user
             // clicked Connect right before operator disabled).
-            return ko
-              ? "Spotify 통합이 일시 비활성화돼있어요. 운영자가 재활성화하면 다시 시도할 수 있어요."
-              : "Spotify integration is temporarily disabled. Will be re-enabled by the operator when ready.";
+            return t.spotifyErrFeatureDisabled;
           }
           if (reason === "identify-403-premium") {
             // Spotify rolled out a new Dev Mode restriction in late
@@ -139,37 +139,23 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
             //   1) Owner gets Premium (~$10/mo)
             //   2) Apply for Extended Quota Mode (production
             //      approval, takes 2-4 weeks)
-            return ko
-              ? "Spotify가 최근에 정책 바꿨어요 — 앱 소유자가 Spotify Premium 구독자여야 합니다. 가입 후 몇 시간 뒤 자동 활성화. 또는 Spotify Dashboard에서 'Extended Quota Mode'를 신청하면 영구 무료 (검토 2-4주)."
-              : "Spotify recently changed their dev-mode policy: the app owner must have an active Premium subscription. Auto-activates a few hours after subscribing. Alternative: request 'Extended Quota Mode' from Spotify (free, but takes 2-4 weeks for review).";
+            return t.spotifyErr403Premium;
           }
           if (reason === "identify-403-dev-mode") {
-            return ko
-              ? "Spotify 앱이 개발 모드여서 본인 계정이 User 리스트에 없을 때 발생합니다. Spotify Dashboard → User Management 에서 본인 Spotify 가입 이메일을 추가해 주세요."
-              : "Spotify app is still in Development Mode and the signing-in account isn't on the user allowlist. Add your Spotify account email at Spotify Dashboard → User Management.";
+            return t.spotifyErr403DevMode;
           }
           if (reason === "identify-401-token") {
-            return ko
-              ? "토큰 교환은 됐는데 액세스 토큰이 거부됐어요. SPOTIFY_CLIENT_SECRET 이 정확히 박혀있는지 확인해 주세요."
-              : "Token exchange succeeded but the access token was rejected. Re-check SPOTIFY_CLIENT_SECRET.";
+            return t.spotifyErr401Token;
           }
           if (reason === "bad-state") {
-            return ko
-              ? "CSRF 보호 쿠키 만료. 5분 안에 동의를 완료해 주세요."
-              : "CSRF cookie expired — finish the consent within 5 minutes.";
+            return t.spotifyErrBadState;
           }
           if (reason === "no-refresh-token") {
-            return ko
-              ? "Spotify가 refresh token을 안 줬어요. show_dialog 설정 확인이 필요합니다."
-              : "Spotify didn't return a refresh token.";
+            return t.spotifyErrNoRefreshToken;
           }
-          return ko
-            ? `이유: ${reason}`
-            : `Reason: ${reason}`;
+          return t.spotifyErrReason(reason);
         })();
-        setError(
-          (ko ? "Spotify 연결 실패. " : "Spotify connection failed. ") + hint,
-        );
+        setError(t.spotifyConnectionFailed + hint);
         q.delete("spotify");
         q.delete("reason");
         const next =
@@ -216,21 +202,13 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
       const topA = d.topArtists?.added ?? 0;
       const recent = d.recent?.added ?? 0;
       const auto = d.autoSync?.addedTotal ?? 0;
-      const more = d.liked?.more
-        ? ko
-          ? " (더 가져올 게 있어요 — 다시 누르면 이어서)"
-          : " (more liked songs — click again to continue)"
-        : "";
+      const more = d.liked?.more ? t.spotifySyncMore : "";
       // R28b adds top artists + auto-resync of opted-in playlists
       // to the summary. Keep it on one line for compactness; the
       // numbers most users care about (added counts) are still there.
-      const autoNote = auto > 0
-        ? ko ? ` · 플리 자동 +${auto}` : ` · playlists +${auto}`
-        : "";
+      const autoNote = auto > 0 ? t.spotifySyncPlaylistsAuto(auto) : "";
       setResult(
-        ko
-          ? `좋아요 ${liked}곡 · TOP ${top}곡 · 아티스트 ${topA} · 최근재생 ${recent}곡${autoNote}${more}`
-          : `${liked} liked · ${top} top · ${topA} artists · ${recent} recent${autoNote}${more}`,
+        t.spotifySyncSummary(liked, top, topA, recent, autoNote, more),
       );
       // Refresh server data so the per-user stats pick up the new rows.
       // Cache-bust so the next /library visit picks up the new
@@ -246,13 +224,7 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
 
   async function disconnect() {
     if (busy) return;
-    if (
-      !window.confirm(
-        ko
-          ? "Spotify 연결을 해제할까요? 가져온 곡은 그대로 남아있어요."
-          : "Disconnect Spotify? Already-imported tracks stay in your library.",
-      )
-    ) {
+    if (!window.confirm(t.spotifyDisconnectConfirm)) {
       return;
     }
     setBusy("disconnect");
@@ -298,14 +270,12 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
       <section className="flex flex-col gap-3 rounded-2xl border border-neutral-700 bg-neutral-900/50 p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-sm font-semibold text-neutral-400">
-            {ko ? "Spotify 연결 (준비 중)" : "Spotify (coming soon)"}
+            {t.spotifyComingSoonTitle}
           </h2>
           <span className="text-[10px] text-neutral-600">v0 · Liked Songs only</span>
         </div>
         <p className="text-xs leading-relaxed text-neutral-500">
-          {ko
-            ? "Spotify가 최근에 정책 바꿔서, 우리 쪽 인증을 풀려면 앱 소유자가 Spotify Premium 구독자여야 합니다. 활성화되면 여기서 연결할 수 있어요."
-            : "Spotify recently changed their dev-mode policy — the app owner needs an active Premium subscription to unblock our auth. Will be enabled here when ready."}
+          {t.spotifyComingSoonDesc}
         </p>
         {etaCountdown && (
           <p className="text-xs text-amber-300">
@@ -317,7 +287,7 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
           disabled
           className="self-start rounded-md bg-neutral-700/40 px-4 py-2 text-sm font-semibold text-neutral-500 cursor-not-allowed"
         >
-          {ko ? "🚧 준비 중" : "🚧 Coming soon"}
+          {t.spotifyComingSoonButton}
         </button>
       </section>
     );
@@ -328,20 +298,18 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
       <section className="flex flex-col gap-3 rounded-2xl border border-[#1DB954]/30 bg-gradient-to-br from-[#1DB954]/10 via-neutral-950 to-neutral-900 p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-sm font-semibold text-[#1DB954]">
-            {ko ? "Spotify 연결" : "Connect Spotify"}
+            {t.spotifyConnectTitle}
           </h2>
           <span className="text-[10px] text-neutral-600">v0 · Liked Songs only</span>
         </div>
         <p className="text-xs leading-relaxed text-neutral-400">
-          {ko
-            ? "Spotify 좋아요(❤) 곡을 라이브러리에 합칩니다. YT Music과 같은 곡은 중복 제거됨. 읽기 전용 — Earprint가 Spotify 쪽에 아무것도 안 씁니다."
-            : "Pulls your Spotify Liked Songs into your library. Tracks already liked on YT Music dedup at the canonical level. Read-only — Earprint writes nothing back to Spotify."}
+          {t.spotifyConnectDesc}
         </p>
         <a
           href="/api/auth/spotify/start"
           className="self-start rounded-md bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black hover:bg-[#1ed760]"
         >
-          {ko ? "Spotify 로 연결" : "Connect with Spotify"}
+          {t.spotifyConnectButton}
         </a>
         {error && (
           <p className="rounded-md border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-xs text-rose-200">
@@ -360,11 +328,11 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
     <section className="flex flex-col gap-3 rounded-2xl border border-[#1DB954]/30 bg-gradient-to-br from-[#1DB954]/10 via-neutral-950 to-neutral-900 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold text-[#1DB954]">
-          {ko ? "Spotify 연결됨" : "Spotify connected"}
+          {t.spotifyConnectedTitle}
         </h2>
         {last && (
           <span className="text-[11px] text-neutral-500">
-            {ko ? "마지막 동기화 " : "Last synced "}
+            {t.spotifyLastSynced}
             {relative}
           </span>
         )}
@@ -376,9 +344,7 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
           disabled={busy !== null}
           className="rounded-md bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black hover:bg-[#1ed760] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy === "sync"
-            ? ko ? "가져오는 중…" : "Syncing…"
-            : ko ? "지금 동기화" : "Sync now"}
+          {busy === "sync" ? t.spotifySyncing : t.spotifySyncNow}
         </button>
         <button
           type="button"
@@ -386,9 +352,7 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
           disabled={busy !== null}
           className="rounded-md border border-white/10 px-3 py-2 text-xs text-neutral-400 hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy === "disconnect"
-            ? "…"
-            : ko ? "연결 해제" : "Disconnect"}
+          {busy === "disconnect" ? "…" : t.spotifyDisconnect}
         </button>
       </div>
       {result && (
@@ -414,37 +378,33 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
  *  activation typically takes a few hours after subscription so a
  *  small overshoot is normal. */
 function formatCountdown(eta: Date, ko: boolean): string {
+  const t = accountDict(ko ? "ko" : "en");
   const diff = eta.getTime() - Date.now();
   if (diff <= 0) {
-    return ko
-      ? "곧 활성화돼요 — Spotify Premium 적용 대기 중"
-      : "Should be live any moment — Premium propagation in progress";
+    return t.spotifyCountdownLivePast;
   }
   const totalMin = Math.floor(diff / 60_000);
   const days = Math.floor(totalMin / (60 * 24));
   const hours = Math.floor((totalMin % (60 * 24)) / 60);
   const mins = totalMin % 60;
   const parts: string[] = [];
-  if (days > 0) parts.push(ko ? `${days}일` : `${days}d`);
-  if (hours > 0) parts.push(ko ? `${hours}시간` : `${hours}h`);
-  if (mins > 0 && days === 0) parts.push(ko ? `${mins}분` : `${mins}m`);
-  const remain = parts.length > 0 ? parts.join(" ") : ko ? "곧" : "soon";
-  return ko
-    ? `약 ${remain} 후 자동 활성화 예정`
-    : `Auto-activates in ${remain}`;
+  if (days > 0) parts.push(t.spotifyCountdownDays(days));
+  if (hours > 0) parts.push(t.spotifyCountdownHours(hours));
+  if (mins > 0 && days === 0) parts.push(t.spotifyCountdownMins(mins));
+  const remain = parts.length > 0 ? parts.join(" ") : t.spotifyCountdownSoon;
+  return t.spotifyCountdownAuto(remain);
 }
 
 /** Tiny "5 minutes ago" formatter; tossed inline because it's only
  *  used here and not worth a separate util. */
 function relativeTime(d: Date, ko: boolean): string {
+  const t = accountDict(ko ? "ko" : "en");
   const diffSec = Math.max(0, (Date.now() - d.getTime()) / 1000);
-  if (diffSec < 60) return ko ? "방금 전" : "just now";
+  if (diffSec < 60) return t.spotifyRelJustNow;
   const min = Math.floor(diffSec / 60);
-  if (min < 60)
-    return ko ? `${min}분 전` : `${min} min ago`;
+  if (min < 60) return t.spotifyRelMinAgo(min);
   const hr = Math.floor(min / 60);
-  if (hr < 24)
-    return ko ? `${hr}시간 전` : `${hr} hr ago`;
+  if (hr < 24) return t.spotifyRelHrAgo(hr);
   const day = Math.floor(hr / 24);
-  return ko ? `${day}일 전` : `${day} day${day === 1 ? "" : "s"} ago`;
+  return t.spotifyRelDayAgo(day);
 }
