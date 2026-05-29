@@ -61,12 +61,13 @@ module-load duplicate-id guard so it can't regress.
 Bracket SwipeArea started a drag even on textarea/button taps.
 Now early-returns on form-control targets.
 
-## Part 3 — Open edge cases (NOT yet fixed — backlog)
+## Part 3 — Edge cases
 
-- **EC-1**: `/worldcup/community/recent` infinite scroll uses
-  `finished_at < cursor`. Two finishes at the exact same timestamp
-  on a page boundary could skip a row. Low impact; would need a
-  composite (finished_at, id) cursor to fully fix.
+- **EC-1** (FIXED R38): `/worldcup/community/recent` infinite scroll
+  used a single-column `finished_at < cursor` — two finishes at the
+  exact same timestamp on a page boundary could skip/dupe a row.
+  Now a composite `(finished_at, id)` cursor + `ORDER BY
+  finished_at DESC, id DESC` gives a stable total order.
 - **EC-2**: Community create form draft (R36) is per-browser
   localStorage — switching device loses it. Acceptable.
 - **EC-3**: `genre_views` counter increments on every render incl.
@@ -79,10 +80,27 @@ Now early-returns on form-control targets.
 - **EC-5**: `/recommend` auto-pick "best mode" needs ≥5 ratings in
   a mode; brand-new users never see it. By design but worth a
   "rate a few to unlock" hint.
-- **EC-6**: Worldcup bracket localStorage resume keys
-  (`pa-wc:cat:size:firstId`) never expire — a user who abandons
-  dozens of brackets accumulates cruft. InProgressCard shows them
-  all. Minor.
+- **EC-6** (FIXED R38): Worldcup bracket localStorage resume keys
+  never expired. Bracket now stamps `savedAt`; InProgressCard ages
+  out entries >30d, sorts by recency, caps the visible list at 5
+  with a "show more" expander, and has a "clear all" button.
+
+## Part 5 — Onboarding (R38)
+
+The R37 audit flagged onboarding friction (use case #8) as the
+biggest casual-user gap. R38 ships an **interactive demo worldcup**
+on /demo: a visitor plays an 8-track sample bracket (display-only
+cards, no auth, no DB) and reaches a champion before being asked to
+sign in. Turns /demo from a static dashboard into a "try it" moment.
+
+## Part 6 — Taste compare (R38)
+
+New `/compare?with=<shareId>` computes taste overlap between the
+signed-in user and the owner of a PUBLIC taste share. Consent-safe
+(keyed on shareId, not handle — a worldcup creator hasn't consented
+to expose listening taste). Pure `compareTaste()` (Jaccard on top
+genres/artists + audio-feel euclidean) is fully unit-tested.
+Entry point: "↔ Compare with my taste" button on /s/[shareId].
 
 ## Part 4 — Test coverage added (R37)
 

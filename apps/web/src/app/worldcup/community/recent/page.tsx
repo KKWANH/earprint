@@ -14,6 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 interface FeedItem {
+  id: string;
   finishedAt: string;
   championTitle: string;
   championSubtitle: string | null;
@@ -34,11 +35,14 @@ const INITIAL_LIMIT = 30;
 async function loadInitial(): Promise<{
   items: FeedItem[];
   nextBefore: string | null;
+  nextBeforeId: string | null;
 }> {
   const sql = getSql();
   try {
+    // R38 — id selected + (finished_at, id) ordering to match the
+    // composite-cursor pagination endpoint.
     const rows = await sql`
-      SELECT f.finished_at,
+      SELECT f.id::text AS id, f.finished_at,
              i.title AS champion_title,
              i.subtitle AS champion_subtitle,
              i.thumbnail_url AS thumbnail_url,
@@ -50,9 +54,10 @@ async function loadInitial(): Promise<{
       JOIN community_worldcups w ON w.id = f.worldcup_id
       LEFT JOIN users u ON u.id = w.owner_user_id
       WHERE w.visibility = 'public'
-      ORDER BY f.finished_at DESC
+      ORDER BY f.finished_at DESC, f.id DESC
       LIMIT ${INITIAL_LIMIT}`;
     const items: FeedItem[] = rows.map((r) => ({
+      id: r.id as string,
       finishedAt: new Date(r.finished_at as string).toISOString(),
       championTitle: r.champion_title as string,
       championSubtitle: (r.champion_subtitle as string | null) ?? null,
@@ -62,18 +67,20 @@ async function loadInitial(): Promise<{
       ownerHandle:
         (r.owner_email as string | null)?.split("@")[0]?.toLowerCase() ?? null,
     }));
-    const nextBefore =
-      items.length === INITIAL_LIMIT
-        ? items[items.length - 1]?.finishedAt ?? null
-        : null;
-    return { items, nextBefore };
+    const last = items[items.length - 1];
+    const full = items.length === INITIAL_LIMIT;
+    return {
+      items,
+      nextBefore: full ? last?.finishedAt ?? null : null,
+      nextBeforeId: full ? last?.id ?? null : null,
+    };
   } catch {
-    return { items: [], nextBefore: null };
+    return { items: [], nextBefore: null, nextBeforeId: null };
   }
 }
 
 export default async function RecentResults() {
-  const { items, nextBefore } = await loadInitial();
+  const { items, nextBefore, nextBeforeId } = await loadInitial();
   const locale = await getLocale();
   const ko = locale === "ko";
 
@@ -95,7 +102,12 @@ export default async function RecentResults() {
             : "Live feed of the most recent community worldcup champions (scroll to load more)."}
         </p>
       </header>
-      <RecentResultsFeed initial={items} initialNext={nextBefore} ko={ko} />
+      <RecentResultsFeed
+        initial={items}
+        initialNext={nextBefore}
+        initialNextId={nextBeforeId}
+        ko={ko}
+      />
     </main>
   );
 }

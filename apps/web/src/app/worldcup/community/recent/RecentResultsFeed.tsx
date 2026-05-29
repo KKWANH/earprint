@@ -15,6 +15,7 @@ import Link from "next/link";
  * against an accidental tight scroll loop.
  */
 interface Item {
+  id: string;
   finishedAt: string;
   championTitle: string;
   championSubtitle: string | null;
@@ -44,14 +45,21 @@ function relativeTime(iso: string, ko: boolean): string {
 export function RecentResultsFeed({
   initial,
   initialNext,
+  initialNextId,
   ko,
 }: {
   initial: Item[];
   initialNext: string | null;
+  initialNextId: string | null;
   ko: boolean;
 }) {
   const [items, setItems] = useState(initial);
-  const [cursor, setCursor] = useState<string | null>(initialNext);
+  // R38 — composite cursor (timestamp + id) for stable pagination.
+  const [cursor, setCursor] = useState<{ before: string; id: string } | null>(
+    initialNext && initialNextId
+      ? { before: initialNext, id: initialNextId }
+      : null,
+  );
   const [loading, setLoading] = useState(false);
   const [pages, setPages] = useState(1);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -61,17 +69,22 @@ export function RecentResultsFeed({
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/worldcup/community/recent?before=${encodeURIComponent(cursor)}&limit=20`,
+        `/api/worldcup/community/recent?before=${encodeURIComponent(cursor.before)}&beforeId=${encodeURIComponent(cursor.id)}&limit=20`,
       );
       if (!res.ok) return;
       const d = (await res.json()) as {
         ok?: boolean;
         items?: Item[];
         nextBefore?: string | null;
+        nextBeforeId?: string | null;
       };
       if (!d.ok || !Array.isArray(d.items)) return;
       setItems((prev) => [...prev, ...d.items!]);
-      setCursor(d.nextBefore ?? null);
+      setCursor(
+        d.nextBefore && d.nextBeforeId
+          ? { before: d.nextBefore, id: d.nextBeforeId }
+          : null,
+      );
       setPages((p) => p + 1);
     } finally {
       setLoading(false);
@@ -109,7 +122,7 @@ export function RecentResultsFeed({
       <ul className="flex flex-col gap-2">
         {items.map((r, i) => (
           <li
-            key={`${r.worldcupId}-${i}-${r.finishedAt}`}
+            key={r.id}
             className="flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-3"
           >
             {r.thumbnailUrl ? (

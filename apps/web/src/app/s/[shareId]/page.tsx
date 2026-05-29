@@ -96,6 +96,19 @@ export default async function SharePage({
         />
       )}
       <AiPsychologyDisclaimer locale={locale} />
+
+      {/* R38 — "compare with my taste" CTA. Lands the viewer on
+          /compare?with=<shareId>; that page gates on sign-in and
+          computes the overlap. Consent-safe: this profile is already
+          public-by-share, so comparing against it exposes nothing
+          new. */}
+      <Link
+        href={`/compare?with=${encodeURIComponent(shareId)}`}
+        className="self-start rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/20"
+      >
+        {locale === "ko" ? "↔ 내 취향과 비교하기" : "↔ Compare with my taste"}
+      </Link>
+
       {zodiac && <MusicZodiacCard data={zodiac} locale={locale} />}
 
       <section className="rounded-xl border border-neutral-800 bg-neutral-900 p-6">

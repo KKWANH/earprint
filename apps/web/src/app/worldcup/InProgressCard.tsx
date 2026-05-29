@@ -27,6 +27,8 @@ interface SavedBracket {
   totalRounds: number;
   pairIdx: number;
   pairsInRound: number;
+  /** R38 — epoch ms of last save; 0 for legacy entries with none. */
+  savedAt: number;
 }
 
 const PREFIX = "pa-wc:";
@@ -52,12 +54,26 @@ function scanLocalBrackets(): SavedBracket[] {
       round?: number;
       pairIdx?: number;
       bracket?: unknown[];
+      savedAt?: number;
     };
     try {
       const raw = window.localStorage.getItem(key);
       if (!raw) continue;
       payload = JSON.parse(raw);
     } catch {
+      continue;
+    }
+    // R38 (EC-6) — age out abandoned brackets older than 30 days.
+    // Entries saved before R38 have no savedAt; those are kept
+    // (treated as "unknown age") so we don't wipe legit in-progress
+    // brackets the first time this ships. New saves carry savedAt.
+    const savedAt = Number(payload.savedAt ?? 0);
+    if (savedAt > 0 && Date.now() - savedAt > 30 * 86_400_000) {
+      try {
+        window.localStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
       continue;
     }
     const round = Number(payload.round ?? 0);
@@ -68,12 +84,12 @@ function scanLocalBrackets(): SavedBracket[] {
     // once rounds advance — use size for the headline.
     const totalRounds = Math.log2(size) | 0;
     const pairsInRound = Math.max(1, bracketLen / 2);
-    out.push({ key, category, size, round, totalRounds, pairIdx, pairsInRound });
+    out.push({ key, category, size, round, totalRounds, pairIdx, pairsInRound, savedAt });
   }
-  // Most-recently-saved first. We don't have a saved-at timestamp;
-  // approximate by "deepest round first" so a near-final bracket
+  // R38 — sort by recency when we have savedAt (newest first), else
+  // fall back to "deepest round first" so a near-final bracket
   // surfaces above a barely-started one.
-  out.sort((a, b) => b.round - a.round);
+  out.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0) || b.round - a.round);
   return out;
 }
 
@@ -87,7 +103,13 @@ function scanLocalBrackets(): SavedBracket[] {
  */
 export function InProgressCard({ locale }: { locale: Locale }) {
   const [items, setItems] = useState<SavedBracket[]>([]);
+  const [showAll, setShowAll] = useState(false);
   const t = worldcupDict(locale);
+  const ko = locale === "ko";
+  // R38 (EC-6) — cap the visible list so a user who abandoned dozens
+  // of brackets doesn't get a wall of resume cards. Show top 5
+  // (most recent) + a "show all" expander.
+  const VISIBLE_CAP = 5;
   // Hydration: scan only client-side. Empty list while SSR / on first
   // paint so the section doesn't flash an empty header.
   useEffect(() => {
@@ -103,7 +125,27 @@ export function InProgressCard({ locale }: { locale: Locale }) {
     setItems((arr) => arr.filter((it) => it.key !== key));
   }
 
+  function clearAll() {
+    if (
+      !window.confirm(
+        ko
+          ? "진행 중인 월드컵을 모두 지울까요? 되돌릴 수 없어요."
+          : "Clear all in-progress worldcups? This can't be undone.",
+      )
+    )
+      return;
+    for (const it of items) {
+      try {
+        window.localStorage.removeItem(it.key);
+      } catch {
+        /* ignore */
+      }
+    }
+    setItems([]);
+  }
+
   if (items.length === 0) return null;
+  const visible = showAll ? items : items.slice(0, VISIBLE_CAP);
 
   const catLabels: Record<string, string> = {
     library: t.catLibraryLabel,
@@ -117,11 +159,24 @@ export function InProgressCard({ locale }: { locale: Locale }) {
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
-        {t.inProgressTitle}
-      </h2>
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
+          {t.inProgressTitle}
+          {items.length > 1 && (
+            <span className="ml-1.5 text-neutral-600">({items.length})</span>
+          )}
+        </h2>
+        {items.length > 1 && (
+          <button
+            onClick={clearAll}
+            className="text-[11px] text-neutral-500 hover:text-rose-300"
+          >
+            {ko ? "모두 비우기" : "Clear all"}
+          </button>
+        )}
+      </div>
       <div className="flex flex-col gap-2">
-        {items.map((it) => {
+        {visible.map((it) => {
           const catLabel = catLabels[it.category] ?? it.category;
           // Genre bracket uses /worldcup/genre/[size] route, every
           // other category uses /worldcup/[cat]/[size]. The router
@@ -164,6 +219,18 @@ export function InProgressCard({ locale }: { locale: Locale }) {
           );
         })}
       </div>
+      {items.length > VISIBLE_CAP && (
+        <button
+          onClick={() => setShowAll((v) => !v)}
+          className="self-start text-xs text-neutral-500 hover:text-amber-300"
+        >
+          {showAll
+            ? ko ? "접기" : "Show less"
+            : ko
+              ? `+${items.length - VISIBLE_CAP}개 더 보기`
+              : `Show ${items.length - VISIBLE_CAP} more`}
+        </button>
+      )}
     </section>
   );
 }

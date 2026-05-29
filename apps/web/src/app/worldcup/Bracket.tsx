@@ -248,7 +248,9 @@ export function Bracket({
     try {
       window.localStorage.setItem(
         cacheKey,
-        JSON.stringify({ pattern, round, bracket, winners, pairIdx }),
+        // R38 — savedAt added so InProgressCard can age out abandoned
+        // brackets (>30d) and sort by recency instead of round depth.
+        JSON.stringify({ pattern, round, bracket, winners, pairIdx, savedAt: Date.now() }),
       );
     } catch {
       /* localStorage full / private mode — fine, just no save */

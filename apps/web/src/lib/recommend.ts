@@ -131,16 +131,17 @@ async function tagTopTracks(tag: string): Promise<{ artist: string; title: strin
   });
 }
 
-function shuffle<T>(arr: T[]): T[] {
+/** Random shuffle (Schwartzian). Exported for unit testing (R38). */
+export function shuffle<T>(arr: T[]): T[] {
   return arr.map((v) => ({ v, k: Math.random() })).sort((a, b) => a.k - b.k).map((x) => x.v);
 }
 
 /**
  * Round-robin merge — takes the i-th item of every list in turn. A slice of
  * the result is balanced across all sources, so recommendations don't end up
- * dominated by a single seed song / genre.
+ * dominated by a single seed song / genre. Exported for unit testing (R38).
  */
-function interleave<T>(lists: T[][]): T[] {
+export function interleave<T>(lists: T[][]): T[] {
   const out: T[] = [];
   const max = Math.max(0, ...lists.map((l) => l.length));
   for (let i = 0; i < max; i++) {
