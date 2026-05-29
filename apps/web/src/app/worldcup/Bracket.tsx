@@ -931,6 +931,28 @@ function LikeInSpotifyButton({
     );
   }
 
+  // R36 — when the error is auth-related, render an inline
+  // "Reconnect" link instead of just an opaque button title. The
+  // server returns "spotify auth expired" / "spotify rejected" for
+  // these cases (see /api/spotify/like). Pattern: error message →
+  // actionable fix.
+  const needsReconnect =
+    !!error &&
+    (/auth expired/i.test(error) ||
+      /spotify rejected/i.test(error) ||
+      /not connected/i.test(error));
+
+  if (needsReconnect) {
+    return (
+      <a
+        href="/api/auth/spotify/start"
+        className="rounded-md border border-amber-500/40 bg-amber-950/30 px-5 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-900/40"
+      >
+        {ko ? "↻ Spotify 다시 연결" : "↻ Reconnect Spotify"}
+      </a>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -1002,6 +1024,25 @@ function SwipeArea({
   function onPointerDown(e: React.PointerEvent) {
     // Only mouse / touch primary pointer; ignore right-click / middle.
     if (e.button !== 0 && e.pointerType === "mouse") return;
+    // R36 — guard against starting a swipe inside form controls
+    // (textarea / input / button / link / contenteditable). Without
+    // this, a tap on the comment box or play button on mobile could
+    // get interpreted as a swipe start and lock the user in a
+    // half-drag state.
+    const t = e.target as HTMLElement | null;
+    if (t) {
+      const tag = t.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "BUTTON" ||
+        tag === "A" ||
+        tag === "SELECT" ||
+        t.isContentEditable
+      ) {
+        return;
+      }
+    }
     startX.current = e.clientX;
     setDx(0);
   }

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getSql } from "@/lib/db";
 import { isAdminEmail } from "@/lib/constants";
 import { WikiRefreshForm } from "./WikiRefreshForm";
+import { AdminNav } from "../AdminNav";
 
 export const metadata: Metadata = {
   title: "Cache stats — Earprint admin",
@@ -156,6 +157,7 @@ export default async function CacheAdmin() {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
+      <AdminNav active="cache" />
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold">Cache stats</h1>
         <p className="text-xs text-neutral-500">

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { AuthMenu } from "@/components/AuthMenu";
 import { CookieBanner } from "@/components/CookieBanner";
 import { NavBar } from "@/components/NavBar";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { Footer } from "@/components/Footer";
 import { getLocale } from "@/lib/i18n-server";
 import "./globals.css";
@@ -42,9 +43,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang={locale}>
       <body className="flex min-h-screen flex-col overflow-x-hidden bg-neutral-950 text-neutral-100 antialiased">
         <NavBar locale={locale} authMenu={<AuthMenu locale={locale} />} />
-        <div className="flex flex-1 flex-col">{children}</div>
+        {/* pb-16 sm:pb-0 leaves room for the mobile bottom-nav so
+            fixed-bottom buttons (cookie banner, footer text) aren't
+            obscured. */}
+        <div className="flex flex-1 flex-col pb-16 sm:pb-0">{children}</div>
         <Footer locale={locale} />
         <CookieBanner locale={locale} />
+        <MobileBottomNav locale={locale} />
       </body>
     </html>
   );

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getSql } from "@/lib/db";
 import { isAdminEmail } from "@/lib/constants";
 import { DecideButtons } from "./DecideButtons";
+import { AdminNav } from "../AdminNav";
 
 export const metadata: Metadata = {
   title: "Genre requests — Earprint admin",
@@ -66,6 +67,7 @@ export default async function GenreRequestsAdmin() {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
+      <AdminNav active="genre-requests" />
       <header className="flex items-baseline justify-between gap-3">
         <h1 className="text-2xl font-bold">Genre requests</h1>
         <span className="text-xs text-neutral-500">

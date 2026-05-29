@@ -210,30 +210,78 @@ export default async function CommunityList({
           <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
             {ko ? "커뮤니티 월드컵" : "Community worldcups"}
           </h1>
-          {/* R27i — surface the active creator filter so users can
-              see why their list looks short, and click out of it
-              back to the full feed. */}
-          {creatorHandle && (
-            <p className="mt-1 text-xs text-sky-300">
-              {ko ? "메이커 " : "by "}
-              <Link
-                href={`/u/${encodeURIComponent(creatorHandle)}`}
-                className="underline hover:text-sky-200"
-              >
-                @{creatorHandle}
-              </Link>
-              {" "}·{" "}
-              <Link
-                href={
-                  tag
-                    ? `/worldcup/community?tag=${encodeURIComponent(tag)}`
-                    : "/worldcup/community"
-                }
-                className="text-neutral-500 hover:text-white"
-              >
-                {ko ? "필터 해제" : "clear filter"}
-              </Link>
-            </p>
+          {/* R36 — unified active-filters bar. Each active filter
+              (tag, creator, q) gets its own chip with an inline ✕
+              that removes JUST that filter (others stay). Plus a
+              'Clear all' link when 2+ filters are active. */}
+          {(tag || creatorHandle || qRaw) && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+              {(() => {
+                const link = (
+                  drop: "tag" | "creator" | "q",
+                ): string => {
+                  const qp = new URLSearchParams();
+                  if (mode !== "popular") qp.set("sort", mode);
+                  if (tag && drop !== "tag") qp.set("tag", tag);
+                  if (creatorHandle && drop !== "creator")
+                    qp.set("creator", creatorHandle);
+                  if (qRaw && drop !== "q") qp.set("q", qRaw);
+                  const qs = qp.toString();
+                  return qs
+                    ? `/worldcup/community?${qs}`
+                    : "/worldcup/community";
+                };
+                const activeCount = [tag, creatorHandle, qRaw].filter(Boolean).length;
+                return (
+                  <>
+                    {tag && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-200">
+                        #{tag}
+                        <Link
+                          href={link("tag")}
+                          className="text-emerald-300 hover:text-white"
+                          aria-label="remove tag filter"
+                        >
+                          ✕
+                        </Link>
+                      </span>
+                    )}
+                    {creatorHandle && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-sky-200">
+                        @{creatorHandle}
+                        <Link
+                          href={link("creator")}
+                          className="text-sky-300 hover:text-white"
+                          aria-label="remove creator filter"
+                        >
+                          ✕
+                        </Link>
+                      </span>
+                    )}
+                    {qRaw && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-200">
+                        {ko ? `"${qRaw}" 검색` : `search: "${qRaw}"`}
+                        <Link
+                          href={link("q")}
+                          className="text-amber-300 hover:text-white"
+                          aria-label="remove search filter"
+                        >
+                          ✕
+                        </Link>
+                      </span>
+                    )}
+                    {activeCount > 1 && (
+                      <Link
+                        href="/worldcup/community"
+                        className="text-neutral-500 hover:text-white"
+                      >
+                        {ko ? "모두 해제" : "Clear all"}
+                      </Link>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
           )}
           <p className="mt-1 text-sm text-neutral-400">
             {ko

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { parseYouTubeVideoId } from "@/lib/youtubeId";
 
@@ -43,6 +43,95 @@ export function CreateForm({
   // default YouTube thumbnail (server fetches it). User can drop in a
   // Deezer album cover URL or any other https:// image here.
   const [covers, setCovers] = useState<string[]>(() => Array(8).fill(""));
+  // R36 — draft auto-save in localStorage. Restores on mount + saves
+  // debounced 800ms after any field change. User can wipe their draft
+  // manually with the "초안 비우기" link below. Saves with a version
+  // stamp so a future shape change can ignore stale drafts.
+  const DRAFT_KEY = "earprint.wc.create.draft.v1";
+  const draftLoaded = useRef(false);
+  const [draftRestored, setDraftRestored] = useState<boolean>(false);
+  useEffect(() => {
+    if (draftLoaded.current) return;
+    draftLoaded.current = true;
+    try {
+      const raw = window.localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw) as {
+        title?: string;
+        description?: string;
+        tagsInput?: string;
+        size?: number;
+        rows?: string[];
+        covers?: string[];
+      };
+      if (d.title) setTitle(d.title);
+      if (d.description) setDescription(d.description);
+      if (d.tagsInput) setTagsInput(d.tagsInput);
+      if (
+        typeof d.size === "number" &&
+        (SIZES as readonly number[]).includes(d.size)
+      ) {
+        setSize(d.size as (typeof SIZES)[number]);
+        const n = d.size;
+        setRows(() => {
+          const next = Array(n).fill("") as string[];
+          (d.rows ?? []).slice(0, n).forEach((r, i) => (next[i] = r));
+          return next;
+        });
+        setCovers(() => {
+          const next = Array(n).fill("") as string[];
+          (d.covers ?? []).slice(0, n).forEach((c, i) => (next[i] = c));
+          return next;
+        });
+      }
+      setDraftRestored(true);
+    } catch {
+      /* corrupted draft — ignore */
+    }
+  }, []);
+
+  // Debounced save. Runs 800ms after the last edit; doesn't save when
+  // every field is empty (avoids creating a blank-draft row that hangs
+  // around forever).
+  useEffect(() => {
+    if (!draftLoaded.current) return;
+    const anything =
+      title.trim() ||
+      description.trim() ||
+      tagsInput.trim() ||
+      rows.some((r) => r.trim()) ||
+      covers.some((c) => c.trim());
+    const timer = setTimeout(() => {
+      try {
+        if (!anything) {
+          window.localStorage.removeItem(DRAFT_KEY);
+          return;
+        }
+        window.localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({ title, description, tagsInput, size, rows, covers }),
+        );
+      } catch {
+        /* storage blocked / private mode — non-fatal */
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [title, description, tagsInput, size, rows, covers]);
+
+  function clearDraft() {
+    try {
+      window.localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setTitle("");
+    setDescription("");
+    setTagsInput(initialTag ?? "");
+    setSize(8);
+    setRows(Array(8).fill(""));
+    setCovers(Array(8).fill(""));
+    setDraftRestored(false);
+  }
   // Advanced mode toggle — hides the per-row thumbnail input by default
   // so the form stays compact for the 90% path (paste URLs, done).
   const [advanced, setAdvanced] = useState(false);
@@ -218,6 +307,13 @@ export function CreateForm({
         setBusy(false);
         return;
       }
+      // R36 — wipe the draft on a successful create so the next
+      // visit starts with a clean slate.
+      try {
+        window.localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
       router.push(`/worldcup/community/${d.id}`);
     } catch (e) {
       setError(String(e));
@@ -233,6 +329,26 @@ export function CreateForm({
       }}
       className="flex flex-col gap-5"
     >
+      {/* R36 — draft restore notice. Fires when the mount-time load
+          actually populated state from localStorage. Lets the user
+          opt out (e.g. they meant to start fresh). */}
+      {draftRestored && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
+          <span>
+            {ko
+              ? "이전에 작성하던 초안을 불러왔습니다."
+              : "Restored your previous draft."}
+          </span>
+          <button
+            type="button"
+            onClick={clearDraft}
+            className="rounded-md border border-amber-500/40 px-2 py-0.5 text-[11px] hover:bg-amber-900/40"
+          >
+            {ko ? "초안 비우기" : "Start fresh"}
+          </button>
+        </div>
+      )}
+
       {/* Title + optional description */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500">

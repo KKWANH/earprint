@@ -47,14 +47,60 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  // R36 — sessionStorage 5-minute cache so we don't re-hit
+  // /api/spotify/status on every /library render (the user often
+  // re-visits /library across the session — sync now, browse
+  // genres, come back). Cache invalidates on sync / disconnect
+  // (those code paths write null to evict).
+  const CACHE_KEY = "earprint.spotify.status";
+  const CACHE_TTL_MS = 5 * 60_000;
+
+  const refresh = useCallback(async (skipCache = false) => {
+    if (!skipCache && typeof window !== "undefined") {
+      try {
+        const raw = window.sessionStorage.getItem(CACHE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as {
+            at: number;
+            data: SpotifyStatus;
+          };
+          if (Date.now() - parsed.at < CACHE_TTL_MS) {
+            setStatus(parsed.data);
+            return;
+          }
+        }
+      } catch {
+        /* corrupted cache — fall through to refetch */
+      }
+    }
     try {
       const res = await fetch("/api/spotify/status");
-      if (res.ok) setStatus((await res.json()) as SpotifyStatus);
+      if (res.ok) {
+        const data = (await res.json()) as SpotifyStatus;
+        setStatus(data);
+        try {
+          window.sessionStorage.setItem(
+            CACHE_KEY,
+            JSON.stringify({ at: Date.now(), data }),
+          );
+        } catch {
+          /* storage blocked — non-fatal */
+        }
+      }
     } catch {
       /* leave status null; the card will render the connect button anyway */
     }
   }, []);
+
+  // Helper for cache-busting paths (sync / disconnect).
+  const invalidateAndRefresh = useCallback(async () => {
+    try {
+      window.sessionStorage.removeItem(CACHE_KEY);
+    } catch {
+      /* ignore */
+    }
+    await refresh(true);
+  }, [refresh]);
 
   // On mount: load status. Also re-read on a callback redirect by
   // peeking at the URL for our "?spotify=connected" sentinel from
@@ -187,8 +233,10 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
           : `${liked} liked · ${top} top · ${topA} artists · ${recent} recent${autoNote}${more}`,
       );
       // Refresh server data so the per-user stats pick up the new rows.
+      // Cache-bust so the next /library visit picks up the new
+      // last_synced_at instead of the stale sessionStorage entry.
       router.refresh();
-      await refresh();
+      await invalidateAndRefresh();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -217,7 +265,7 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
         setBusy(null);
         return;
       }
-      await refresh();
+      await invalidateAndRefresh();
     } catch (e) {
       setError(String(e));
     } finally {

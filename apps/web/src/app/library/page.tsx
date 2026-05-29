@@ -852,6 +852,27 @@ function BarCard({
       : linkGenre
         ? `/genre/${encodeURIComponent(n)}`
         : null;
+  // R36 — collapse empty cards into a single-line <details> so the
+  // page doesn't have 8 'no data yet' walls when the user is mid-
+  // analysis. Click expands the placeholder explanation for users
+  // who want to know why it's empty.
+  if (items.length === 0) {
+    return (
+      <details className="group rounded-xl border border-white/5 bg-white/[0.02] p-3">
+        <summary className="flex cursor-pointer list-none items-center justify-between text-sm text-neutral-500">
+          <span>
+            <span className="font-medium text-neutral-400">{title}</span>
+            <span className="ml-2 text-[10px] text-neutral-600">(empty)</span>
+          </span>
+          <span className="text-neutral-700 transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </summary>
+        <p className="mt-2 text-xs text-neutral-500">{empty}</p>
+      </details>
+    );
+  }
+
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-6">
       <h2 className="font-semibold">{title}</h2>
