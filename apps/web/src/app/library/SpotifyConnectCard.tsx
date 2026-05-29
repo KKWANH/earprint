@@ -65,9 +65,37 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
           window.location.pathname + (q.toString() ? `?${q}` : "");
         window.history.replaceState({}, "", next);
       } else if (s === "error") {
+        const reason = q.get("reason") ?? "unknown";
+        // Map the most-likely reason codes to actionable hints. R28a
+        // introduced the granular identify-* codes so the UI can be
+        // specific instead of just saying "unknown".
+        const hint = (() => {
+          if (reason === "identify-403-dev-mode") {
+            return ko
+              ? "Spotify 앱이 개발 모드여서 본인 계정이 User 리스트에 없을 때 발생합니다. Spotify Dashboard → User Management 에서 본인 Spotify 가입 이메일을 추가해 주세요."
+              : "Spotify app is still in Development Mode and the signing-in account isn't on the user allowlist. Add your Spotify account email at Spotify Dashboard → User Management.";
+          }
+          if (reason === "identify-401-token") {
+            return ko
+              ? "토큰 교환은 됐는데 액세스 토큰이 거부됐어요. SPOTIFY_CLIENT_SECRET 이 정확히 박혀있는지 확인해 주세요."
+              : "Token exchange succeeded but the access token was rejected. Re-check SPOTIFY_CLIENT_SECRET.";
+          }
+          if (reason === "bad-state") {
+            return ko
+              ? "CSRF 보호 쿠키 만료. 5분 안에 동의를 완료해 주세요."
+              : "CSRF cookie expired — finish the consent within 5 minutes.";
+          }
+          if (reason === "no-refresh-token") {
+            return ko
+              ? "Spotify가 refresh token을 안 줬어요. show_dialog 설정 확인이 필요합니다."
+              : "Spotify didn't return a refresh token.";
+          }
+          return ko
+            ? `이유: ${reason}`
+            : `Reason: ${reason}`;
+        })();
         setError(
-          (ko ? "Spotify 연결 실패: " : "Spotify connection failed: ") +
-            (q.get("reason") ?? "unknown"),
+          (ko ? "Spotify 연결 실패. " : "Spotify connection failed. ") + hint,
         );
         q.delete("spotify");
         q.delete("reason");

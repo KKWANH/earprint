@@ -79,11 +79,30 @@ export async function GET(req: Request) {
   try {
     meResp = await spotifyFetch<{ id?: string }>(tokenResp.access_token, "/me");
   } catch (e) {
-    console.error("[spotify-callback] /me failed:", e);
+    // Surface the actual Spotify response — most often this is a 403
+    // because the app is still in Development Mode and the signing-in
+    // Spotify account isn't on the app's User list. The redirect
+    // reason gets propagated to the UI; full detail goes to logs.
+    const status = (e as { status?: number })?.status;
+    const msg = String((e as { message?: string })?.message ?? e);
+    console.error(
+      `[spotify-callback] /me failed status=${status} msg=${msg.slice(0, 400)}`,
+    );
+    // Tag the specific status so the UI can show a useful hint:
+    //   403 → app in Development Mode, user not whitelisted
+    //   401 → token exchange returned bogus token (rare; client_secret typo)
+    //   else → generic
+    if (status === 403) return redirectBack("identify-403-dev-mode");
+    if (status === 401) return redirectBack("identify-401-token");
     return redirectBack("identify");
   }
   const spotifyUserId = meResp.id ?? "";
-  if (!spotifyUserId) return redirectBack("identify");
+  if (!spotifyUserId) {
+    console.error(
+      `[spotify-callback] /me returned no id; payload=${JSON.stringify(meResp).slice(0, 300)}`,
+    );
+    return redirectBack("identify-no-id");
+  }
 
   const expiresAt = new Date(Date.now() + tokenResp.expires_in * 1000);
   // refresh_token usually present on first exchange. Spotify guarantees
