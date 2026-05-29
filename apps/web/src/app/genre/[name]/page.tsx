@@ -10,6 +10,7 @@ import { genreDict } from "@/lib/i18n/genre";
 import { getGenreContent } from "@/data/genre-content";
 import { loadRelatedGenres } from "@/lib/relatedGenres";
 import { loadWorldcupsByTag } from "@/lib/community-stats";
+import { loadWikiSummary } from "@/lib/wikipedia";
 import { PreviewButton } from "../../library/PreviewButton";
 import { AboutBox } from "./AboutBox";
 import { GenreShareButton } from "./GenreShareButton";
@@ -80,7 +81,7 @@ export default async function GenrePage({
       return null;
     }
   })();
-  const [d, related, taggedWorldcups, viewCount] = await Promise.all([
+  const [d, related, taggedWorldcups, viewCount, wiki] = await Promise.all([
     getGenreDetail(userId, name),
     // Related-genres sidebar (R27c). Independent query — failure
     // returns []; the section just hides when empty.
@@ -90,7 +91,23 @@ export default async function GenrePage({
     // info page. Same try/catch fallback.
     loadWorldcupsByTag(name, 3).catch(() => []),
     viewCountPromise,
+    // R32e — Wikipedia REST API + 30d cache. Independent failure
+    // returns { all-null }, page hides the section in that case.
+    loadWikiSummary(name).catch(() => ({
+      extractEn: null,
+      extractKo: null,
+      urlEn: null,
+      urlKo: null,
+    })),
   ]);
+  // Pick the wiki blurb matching the active locale, fall back to
+  // whichever language has content. Same pattern as genre-content.
+  const wikiExtract =
+    (locale === "ko" ? wiki.extractKo : wiki.extractEn) ||
+    wiki.extractEn ||
+    wiki.extractKo;
+  const wikiUrl =
+    (locale === "ko" ? wiki.urlKo : wiki.urlEn) || wiki.urlEn || wiki.urlKo;
   // Pre-baked editorial content (emoji / era / origin / history) lives
   // in apps/web/src/data/genre-content.ts. When a genre isn't covered
   // we fall back to the original behaviour (gradient banner with
@@ -220,6 +237,28 @@ export default async function GenrePage({
           warmingText={t.aboutWarming ?? t.aboutEmpty}
         />
       </Section>
+
+      {/* R32e — Wikipedia summary. Pulled from the REST API and
+          cached in genre_info for 30 days. Renders after the
+          short About blurb so it complements rather than competes.
+          Hidden when both languages 404'd or returned empty. */}
+      {wikiExtract && (
+        <Section title={locale === "ko" ? "Wikipedia 소개" : "From Wikipedia"}>
+          <p className="text-sm leading-relaxed text-neutral-300">
+            {wikiExtract}
+          </p>
+          {wikiUrl && (
+            <a
+              href={wikiUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="self-start text-xs text-sky-300 hover:text-sky-200 hover:underline"
+            >
+              {locale === "ko" ? "Wikipedia에서 더 보기 →" : "Read on Wikipedia →"}
+            </a>
+          )}
+        </Section>
+      )}
 
       {/* Pre-baked editorial history — longer than the one-line About
           box, written by hand or seeded by Gemini through

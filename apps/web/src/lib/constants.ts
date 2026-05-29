@@ -32,6 +32,17 @@ export const MIN_AGE = 16;
 export const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === "true";
 
 /**
+ * Operator-controlled banner shown above /library and /account when
+ * we're about to flip PAYMENTS_ENABLED on. Set via:
+ *   wrangler secret put PAYMENT_DOWNGRADE_NOTICE
+ * with the literal banner text (e.g. "2026-06-15부터 결제 모드로
+ * 전환됩니다. 평소 사용량이 무료 한도를 넘으면 Pro 구독을 고려해
+ * 주세요."). Unset → no banner. R32g.
+ */
+export const PAYMENT_DOWNGRADE_NOTICE =
+  process.env.PAYMENT_DOWNGRADE_NOTICE?.trim() || null;
+
+/**
  * Master kill-switch for the Spotify integration. Defaults ON so the
  * existing feature stays available; flip OFF while waiting for the
  * Spotify Premium subscription / Extended Quota Mode approval to
@@ -44,8 +55,15 @@ export const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === "true";
  *
  * Toggle: wrangler secret put SPOTIFY_ENABLED (input "true" / "false").
  */
+// Default OFF (R32c) — until the operator subscribes to Spotify
+// Premium and explicitly sets SPOTIFY_ENABLED=true. Without the env
+// var the integration stays disabled in prod, surfacing the soft
+// "Coming soon" UX everywhere. Flip to "true" via
+//   wrangler secret put SPOTIFY_ENABLED
+// once Premium has propagated through Spotify's systems (~hours
+// after subscription).
 export const SPOTIFY_ENABLED =
-  (process.env.SPOTIFY_ENABLED ?? "true").toLowerCase() === "true";
+  (process.env.SPOTIFY_ENABLED ?? "false").toLowerCase() === "true";
 
 /**
  * Emails that always get Pro entitlement, regardless of PAYMENTS_ENABLED

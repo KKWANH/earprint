@@ -9,6 +9,7 @@ export const LOCALES: Locale[] = ["en", "ko"];
 const en = {
   nav: {
     library: "Library",
+    genres: "Genres",
     dna: "Taste DNA",
     map: "Artist Map",
     recommend: "Recommend",
@@ -84,6 +85,7 @@ export type Dict = typeof en;
 const ko: Dict = {
   nav: {
     library: "라이브러리",
+    genres: "장르",
     dna: "취향 DNA",
     map: "아티스트 맵",
     recommend: "추천",

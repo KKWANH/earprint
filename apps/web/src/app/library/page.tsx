@@ -20,7 +20,7 @@ import { getLocale } from "@/lib/i18n-server";
 import { libraryDict } from "@/lib/i18n/library";
 import { profileDict } from "@/lib/i18n/profile";
 import type { Locale } from "@/lib/i18n";
-import { CHROME_WEB_STORE_URL } from "@/lib/constants";
+import { CHROME_WEB_STORE_URL, SPOTIFY_ENABLED } from "@/lib/constants";
 import { loadRecentPlays } from "@/lib/recentPlays";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -115,12 +115,20 @@ export default async function LibraryPage({
             </Link>
           </div>
         </section>
-        {/* Spotify-only users (no YT Music account) can onboard by
-            connecting Spotify here without ever installing the
-            extension. After connecting + first sync, stats.total > 0
-            and they fall through to the regular layout below on
-            next visit. */}
+        {/* Spotify-only users can onboard via Spotify here without
+            installing the extension. When SPOTIFY_ENABLED is off
+            (R32g), this card renders the "준비 중" state so users
+            don't expect a Spotify path that's currently disabled.
+            In that case the only viable onboard is the Chrome
+            extension above, which the hero already emphasises. */}
         <SpotifyConnectCard locale={locale} />
+        {!SPOTIFY_ENABLED && (
+          <p className="text-center text-[11px] text-neutral-500">
+            {locale === "ko"
+              ? "👆 지금은 익스텐션이 유일한 동기화 경로입니다. Spotify는 곧 추가돼요."
+              : "👆 The extension is currently the only sync path. Spotify is coming soon."}
+          </p>
+        )}
       </main>
     );
   }

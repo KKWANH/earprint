@@ -328,11 +328,31 @@ export default async function CommunityList({
       </nav>
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-8 text-center text-sm text-neutral-500">
-          {ko
-            ? "아직 만들어진 월드컵이 없습니다. 첫 번째로 만들어 보세요."
-            : "No worldcups yet — be the first to make one."}
-        </p>
+        <div className="flex flex-col gap-3 rounded-md border border-neutral-800 bg-neutral-900 px-4 py-8 text-center text-sm text-neutral-500">
+          {qRaw ? (
+            <>
+              <p>
+                {ko
+                  ? `"${qRaw}" 검색 결과 없음.`
+                  : `No matches for "${qRaw}".`}
+              </p>
+              <Link
+                href={`/worldcup/community/create?tag=${encodeURIComponent(qRaw.toLowerCase())}`}
+                className="self-center rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
+              >
+                {ko
+                  ? `+ "${qRaw}" 키워드로 첫 월드컵 만들기`
+                  : `+ Be the first to make a "${qRaw}" worldcup`}
+              </Link>
+            </>
+          ) : (
+            <p>
+              {ko
+                ? "아직 만들어진 월드컵이 없습니다. 첫 번째로 만들어 보세요."
+                : "No worldcups yet — be the first to make one."}
+            </p>
+          )}
+        </div>
       ) : (
         <ul className="flex flex-col gap-2">
           {rows.map((r) => (

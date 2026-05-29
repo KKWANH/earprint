@@ -1255,6 +1255,14 @@ CREATE TABLE IF NOT EXISTS genre_info (
   generated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- R32e — Wikipedia REST API cache. extract + page URL per language;
+-- fetched lazily on /genre/[name] render and reused for ~30 days.
+ALTER TABLE genre_info ADD COLUMN IF NOT EXISTS wiki_extract_en TEXT;
+ALTER TABLE genre_info ADD COLUMN IF NOT EXISTS wiki_extract_ko TEXT;
+ALTER TABLE genre_info ADD COLUMN IF NOT EXISTS wiki_url_en     TEXT;
+ALTER TABLE genre_info ADD COLUMN IF NOT EXISTS wiki_url_ko     TEXT;
+ALTER TABLE genre_info ADD COLUMN IF NOT EXISTS wiki_fetched_at TIMESTAMPTZ;
+
 -- ── Genre requests (R23d) — two-purpose user feedback queue ──────────
 -- Users can flag two distinct situations from /genres:
 --   kind='catalog'    — "I expected genre X to exist as a tag but it

@@ -13,9 +13,16 @@ type ModeId = "mix" | "song" | "genre" | "unheard" | "indie" | "spotify-top";
 export function ModePicker({
   locale,
   currentMode,
+  spotifyEnabled,
 }: {
   locale: Locale;
   currentMode?: ModeId | null;
+  /** R32c — kill-switch passthrough. When the operator has flipped
+   *  SPOTIFY_ENABLED off (Premium not subscribed yet), the chip
+   *  hides itself so users don't pick a mode that would always
+   *  return zero results. Defaults true so callers without the
+   *  prop don't accidentally hide a working integration. */
+  spotifyEnabled?: boolean;
 }) {
   const t = recommendDict(locale);
   const MODES: { id: ModeId; emoji: string; label: string; hint: string }[] = [
@@ -30,15 +37,17 @@ export function ModePicker({
     // every user (since gating it on connection state would need
     // a server roundtrip), but a no-data user just sees "no new
     // picks" — same UX as any sparse mode.
-    {
-      id: "spotify-top",
-      emoji: "🟢",
-      label: locale === "ko" ? "Spotify TOP" : "Spotify Top",
-      hint:
-        locale === "ko"
-          ? "Spotify에서 자주 듣는 곡 기준 추천 (먼저 라이브러리에 Spotify 연결 필요)"
-          : "Seeds from your Spotify top tracks (requires Spotify connected first)",
-    },
+    ...(spotifyEnabled !== false
+      ? [{
+          id: "spotify-top" as ModeId,
+          emoji: "🟢",
+          label: locale === "ko" ? "Spotify TOP" : "Spotify Top",
+          hint:
+            locale === "ko"
+              ? "Spotify에서 자주 듣는 곡 기준 추천 (먼저 라이브러리에 Spotify 연결 필요)"
+              : "Seeds from your Spotify top tracks (requires Spotify connected first)",
+        }]
+      : []),
   ];
   // Hovered/active mode whose hint is shown in the description bar.
   const [hovered, setHovered] = useState<ModeId | null>(null);

@@ -12,6 +12,7 @@ import { LocaleToggle } from "./LocaleToggle";
 // one "Insights" surface. /dna URL still redirects → /profile.
 const LINKS = [
   { href: "/library", key: "library" },
+  { href: "/genres", key: "genres" },
   { href: "/map", key: "map" },
   { href: "/recommend", key: "recommend" },
   { href: "/worldcup", key: "worldcup" },

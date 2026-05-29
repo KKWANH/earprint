@@ -4,6 +4,7 @@ import { requireOnboarded } from "@/lib/onboarding";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { recommendDict } from "@/lib/i18n/recommend";
+import { SPOTIFY_ENABLED } from "@/lib/constants";
 import { ModePicker } from "./ModePicker";
 import { Tournament, type Rec } from "./Tournament";
 
@@ -198,7 +199,11 @@ export default async function RecommendPage() {
         </section>
       )}
 
-      <ModePicker locale={locale} currentMode={recs[0]?.recType ?? null} />
+      <ModePicker
+        locale={locale}
+        currentMode={recs[0]?.recType ?? null}
+        spotifyEnabled={SPOTIFY_ENABLED}
+      />
       <Tournament
         key={recs[0]?.id ?? "empty"}
         locale={locale}

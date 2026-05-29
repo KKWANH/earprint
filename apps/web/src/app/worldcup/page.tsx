@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn } from "@/auth";
+
+// auth() reads request cookies (NextAuth session) so the page can't
+// be statically prerendered. Force-dynamic also covers the
+// loadCommunityHomeData() + loadMyWorldcups() SQL paths that hit
+// per-user state. R32a — was breaking next build with
+// 'Dynamic server usage: cookies' before this line.
+export const dynamic = "force-dynamic";
 import { requireOnboarded } from "@/lib/onboarding";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
@@ -11,6 +18,7 @@ import { InProgressCard } from "./InProgressCard";
 import { CommunityStatsBar } from "./CommunityStatsBar";
 import { TrendingCommunityRow } from "./TrendingCommunityRow";
 import { MyWorldcupsRow } from "./MyWorldcupsRow";
+import { HomeHeroRow } from "./HomeHeroRow";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = worldcupDict(await getLocale());
@@ -227,78 +235,30 @@ async function renderWorldcupHome() {
           consistent with the dedicated list page. */}
       <TrendingCommunityRow trending={communityTrending} locale={locale} />
 
-      {/* User's own community worldcups (R27h). Hidden when the
-          user hasn't created any — the upstream loadMyWorldcups
-          returns []. */}
+      {/* R32b — Compact 3-hero with inline mode×size pickers via
+          native <details>. Replaces the previous 3-hero + 6-card
+          grid wall (which forced a long scroll past size buttons
+          before reaching the trending feed). */}
+      <HomeHeroRow locale={locale} counts={counts} />
+
+      {/* User's own community worldcups + InProgressCard moved to
+          the BOTTOM (R32b). They're high-context (user-specific)
+          but low-discoverability: a user who's never made one or
+          stopped mid-bracket should see trending + hero cards
+          FIRST, not their own history. */}
       <MyWorldcupsRow
         items={myWorldcups}
         locale={locale}
         ownerHandle={ownerHandle}
       />
-
-      {/* "Continue where you left off" — scans localStorage for any
-          saved-in-progress brackets and surfaces them as amber resume
-          cards. Renders nothing when there's nothing saved. Pass
-          `locale` only (not pre-built label functions) — RSC cannot
-          serialise functions across the server→client boundary, which
-          previously crashed this page mid-stream. */}
       <InProgressCard locale={locale} />
 
-      {/* Three top-level entry points — the roadmap's A/B/C tracks
-          surfaced as a hero band so a returning user can pick the
-          shape of run they want without scrolling through every
-          built-in category. The library/recent/etc. cards still
-          appear below for fine-grained mode picks. */}
-      <section className="grid gap-3 sm:grid-cols-3">
-        <Link
-          href={`/worldcup/curate/16`}
-          className="flex flex-col gap-1.5 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/30 via-neutral-950 to-neutral-900 p-5 transition-colors hover:border-emerald-400/60 hover:bg-emerald-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
-        >
-          <span className="text-2xl">✨</span>
-          <span className="text-sm font-bold text-white">
-            {locale === "ko" ? "AI 큐레이션" : "AI-curated"}
-          </span>
-          <span className="text-xs text-neutral-400">
-            {locale === "ko"
-              ? "내 라이브러리에서 분위기 맞춰 AI가 뽑기"
-              : "Pick a mood, AI picks tracks from your library"}
-          </span>
-        </Link>
-        <Link
-          href="/recommend"
-          className="flex flex-col gap-1.5 rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-950/30 via-neutral-950 to-neutral-900 p-5 transition-colors hover:border-sky-400/60 hover:bg-sky-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40"
-        >
-          <span className="text-2xl">🧭</span>
-          <span className="text-sm font-bold text-white">
-            {locale === "ko" ? "새 곡 디깅" : "Discover new"}
-          </span>
-          <span className="text-xs text-neutral-400">
-            {locale === "ko"
-              ? "취향 밖 추천 곡으로 토너먼트"
-              : "Fresh recommendations to rank"}
-          </span>
-        </Link>
-        <Link
-          href="/worldcup/community"
-          className="flex flex-col gap-1.5 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/30 via-neutral-950 to-neutral-900 p-5 transition-colors hover:border-amber-400/60 hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
-        >
-          <span className="text-2xl">🌐</span>
-          <span className="text-sm font-bold text-white">
-            {locale === "ko" ? "커뮤니티" : "Community"}
-          </span>
-          <span className="text-xs text-neutral-400">
-            {locale === "ko"
-              ? "다른 사람이 만든 토너먼트"
-              : "Tournaments made by others"}
-          </span>
-        </Link>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
-          {t.categoryTitle}
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+      {/* Legacy CategoryCard grid removed in R32b — its content
+          now lives inside HomeHeroRow's first card. Variable left
+          unused below; kept to satisfy the existing TS signature
+          without a wider refactor. */}
+      {false && (
+        <div className="hidden">
           {categories.map((c) => (
             <CategoryCard
               key={c.id}
@@ -313,7 +273,7 @@ async function renderWorldcupHome() {
             />
           ))}
         </div>
-      </section>
+      )}
     </main>
   );
 }

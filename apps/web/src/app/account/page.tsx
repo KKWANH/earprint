@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
-import { PAYMENTS_ENABLED, SPOTIFY_ENABLED } from "@/lib/constants";
+import { PAYMENTS_ENABLED, SPOTIFY_ENABLED, PAYMENT_DOWNGRADE_NOTICE } from "@/lib/constants";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { accountDict } from "@/lib/i18n/account";
 import { getPlanState } from "@/lib/plan";
 import { AiConsentToggle } from "./AiConsentToggle";
+import { SpotifyDisconnectInline } from "./SpotifyDisconnectInline";
 import { DeleteAccountButton } from "./DeleteAccountButton";
 import { RotateSyncTokenButton } from "./RotateSyncTokenButton";
 import { WorldcupHistorySection } from "./WorldcupHistorySection";
@@ -85,6 +86,15 @@ export default async function AccountPage() {
         <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
         <p className="truncate text-xs text-neutral-500">{session.user.email}</p>
       </header>
+
+      {/* R32g — operator-set notice banner. Used to pre-warn users
+          about a payment-mode flip ("free → free-tier limits" coming
+          on date X). Empty string / unset → no banner. */}
+      {PAYMENT_DOWNGRADE_NOTICE && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-xs leading-relaxed text-amber-100">
+          ⚠ {PAYMENT_DOWNGRADE_NOTICE}
+        </div>
+      )}
 
       <Section title={t.profileTitle}>
         <Row label={t.email} value={session.user.email ?? t.unknown} />
@@ -191,6 +201,12 @@ export default async function AccountPage() {
             <span className="rounded-full bg-neutral-700/40 px-2 py-0.5 text-neutral-400">
               {locale === "ko" ? "준비 중 (Premium 대기)" : "Pending (waiting for Premium)"}
             </span>
+          )}
+          {/* R32d — inline per-user Spotify connection state +
+              disconnect button. Hidden when not connected so it
+              doesn't clutter the row for non-Spotify users. */}
+          {SPOTIFY_ENABLED && (
+            <SpotifyDisconnectInline ko={locale === "ko"} />
           )}
           <span className="text-neutral-700">·</span>
           <span className="text-neutral-400">
