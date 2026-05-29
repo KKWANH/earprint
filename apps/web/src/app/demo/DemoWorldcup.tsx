@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Locale } from "@/lib/i18n";
 import { Bracket, type Rec } from "../worldcup/Bracket";
+import { PreviewButton } from "../library/PreviewButton";
 
 /**
  * R38 — interactive demo worldcup. The single biggest onboarding gap
@@ -13,21 +14,23 @@ import { Bracket, type Rec } from "../worldcup/Bracket";
  * /demo — no auth, no DB writes, no localStorage pollution
  * (Bracket only persists when `category` is set, which we omit).
  *
- * Cards are display-only (custom renderCard, no media playback) so
- * the demo has zero dependency on Deezer/YT and never shows a broken
- * play button. The point is the *flow* — pick, advance, champion —
- * which is what convinces someone the product is fun. A note points
- * them to the real app for full-song playback.
+ * Cards carry a real Deezer id (resolved once via the public Deezer
+ * search API — R39) so the ▶ button plays a genuine 30s preview, the
+ * same component the live app uses. Cover art stays an emoji
+ * placeholder (hardcoding CDN URLs would rot); the audio is the part
+ * that sells the loop. The point is the *flow* — pick, advance,
+ * champion — and a note points to the real app for full-song
+ * playback on your own library.
  */
 const SAMPLE: Rec[] = [
-  { id: "d1", artist: "Queen", title: "Bohemian Rhapsody", coverUrl: null, deezerId: null, score: 0.95, recType: "song" },
-  { id: "d2", artist: "Michael Jackson", title: "Billie Jean", coverUrl: null, deezerId: null, score: 0.9, recType: "song" },
-  { id: "d3", artist: "The Beatles", title: "Hey Jude", coverUrl: null, deezerId: null, score: 0.88, recType: "song" },
-  { id: "d4", artist: "Nirvana", title: "Smells Like Teen Spirit", coverUrl: null, deezerId: null, score: 0.86, recType: "song" },
-  { id: "d5", artist: "Daft Punk", title: "Get Lucky", coverUrl: null, deezerId: null, score: 0.84, recType: "song" },
-  { id: "d6", artist: "Adele", title: "Rolling in the Deep", coverUrl: null, deezerId: null, score: 0.82, recType: "song" },
-  { id: "d7", artist: "BTS", title: "Dynamite", coverUrl: null, deezerId: null, score: 0.8, recType: "song" },
-  { id: "d8", artist: "Fleetwood Mac", title: "Dreams", coverUrl: null, deezerId: null, score: 0.78, recType: "song" },
+  { id: "d1", artist: "Queen", title: "Bohemian Rhapsody", coverUrl: null, deezerId: 2347110115, score: 0.95, recType: "song" },
+  { id: "d2", artist: "Michael Jackson", title: "Billie Jean", coverUrl: null, deezerId: 3129779, score: 0.9, recType: "song" },
+  { id: "d3", artist: "The Beatles", title: "Hey Jude", coverUrl: null, deezerId: 116348412, score: 0.88, recType: "song" },
+  { id: "d4", artist: "Nirvana", title: "Smells Like Teen Spirit", coverUrl: null, deezerId: 2179489, score: 0.86, recType: "song" },
+  { id: "d5", artist: "Daft Punk", title: "Get Lucky", coverUrl: null, deezerId: 12166290, score: 0.84, recType: "song" },
+  { id: "d6", artist: "Adele", title: "Rolling in the Deep", coverUrl: null, deezerId: 68496703, score: 0.82, recType: "song" },
+  { id: "d7", artist: "BTS", title: "Dynamite", coverUrl: null, deezerId: 997764782, score: 0.8, recType: "song" },
+  { id: "d8", artist: "Fleetwood Mac", title: "Dreams", coverUrl: null, deezerId: 136284842, score: 0.78, recType: "song" },
 ];
 
 export function DemoWorldcup({ locale }: { locale: Locale }) {
@@ -43,8 +46,8 @@ export function DemoWorldcup({ locale }: { locale: Locale }) {
         </h2>
         <p className="text-xs text-neutral-400">
           {ko
-            ? "8곡으로 토너먼트를 돌려 최애 1곡을 가려보세요. 로그인 없이 체험 — 실제 앱에선 내 라이브러리 곡 + 풀곡 재생으로 돌아갑니다."
-            : "Run an 8-track bracket to crown your #1. No sign-in — in the real app it runs on YOUR library with full-song playback."}
+            ? "8곡으로 토너먼트를 돌려 최애 1곡을 가려보세요. ▶ 30초 미리듣기 지원 · 로그인 불필요 — 실제 앱에선 내 라이브러리 곡으로 돌아갑니다."
+            : "Run an 8-track bracket to crown your #1. ▶ 30s previews · no sign-in — the real app runs on YOUR library."}
         </p>
         <button
           onClick={() => setOpen(true)}
@@ -75,21 +78,30 @@ export function DemoWorldcup({ locale }: { locale: Locale }) {
         likes={0}
         dislikes={0}
         locale={locale}
-        // Display-only cards — no Deezer/YT dependency in the demo.
+        // Pick button + a real 30s-preview button as siblings (nesting
+        // buttons is invalid HTML; PreviewButton stops click
+        // propagation so playing never triggers a pick).
         renderCard={(c, onPick) => (
-          <button
-            type="button"
-            onClick={onPick}
-            className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-900/40 via-neutral-900 to-rose-900/30 p-4 text-center transition-transform hover:scale-[1.02] hover:border-emerald-500/50"
-          >
-            <span className="text-3xl">🎵</span>
-            <span className="line-clamp-2 text-sm font-bold text-white">
-              {c.title}
-            </span>
-            <span className="line-clamp-1 text-xs text-neutral-400">
-              {c.artist}
-            </span>
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={onPick}
+              className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-900/40 via-neutral-900 to-rose-900/30 p-4 text-center transition-transform hover:scale-[1.02] hover:border-emerald-500/50"
+            >
+              <span className="text-3xl">🎵</span>
+              <span className="line-clamp-2 text-sm font-bold text-white">
+                {c.title}
+              </span>
+              <span className="line-clamp-1 text-xs text-neutral-400">
+                {c.artist}
+              </span>
+            </button>
+            <PreviewButton
+              deezerId={c.deezerId}
+              size="md"
+              className="absolute right-2 top-2"
+            />
+          </div>
         )}
         renderChampion={(champion, onRestart) => (
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-amber-400/40 bg-gradient-to-br from-amber-950/40 via-neutral-950 to-neutral-900 p-8 text-center">

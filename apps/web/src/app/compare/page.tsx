@@ -142,8 +142,13 @@ export default async function ComparePage({
     return (
       <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-16 text-center">
         <h1 className="text-xl font-bold">
-          {ko ? "그건 본인이에요 🙂" : "That's you 🙂"}
+          {ko ? "어라, 본인인걸요? 🙂" : "Hey, that's you 🙂"}
         </h1>
+        <p className="text-sm text-neutral-400">
+          {ko
+            ? "친구의 공유 링크를 붙여넣으면 두 사람 취향이 얼마나 닮았는지 볼 수 있어요."
+            : "Paste a friend's share link to see how alike your tastes are."}
+        </p>
         <Link href="/compare" className="text-sm text-emerald-300 hover:underline">
           {ko ? "다른 사람과 비교하기" : "Compare with someone else"}
         </Link>
