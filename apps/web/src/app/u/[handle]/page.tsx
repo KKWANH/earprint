@@ -142,6 +142,32 @@ async function loadCreator(handle: string): Promise<CreatorRow | null> {
   };
 }
 
+/**
+ * R39 — the creator's published taste-share id, if any. Joins the
+ * handle (email local-part) to taste_profiles. A non-null share_id is
+ * the ONLY consent signal: it means they opted into exposing their
+ * aggregate taste. Being a worldcup creator is NOT consent on its
+ * own, so the "compare taste" affordance is gated on this. Returns
+ * null when they haven't published a taste profile.
+ */
+async function loadShareIdByHandle(handle: string): Promise<string | null> {
+  const lc = handle.toLowerCase().trim();
+  if (!/^[a-z0-9._-]{1,30}$/i.test(lc)) return null;
+  const sql = getSql();
+  try {
+    const rows = await sql`
+      SELECT tp.share_id
+      FROM users u
+      JOIN taste_profiles tp ON tp.user_id = u.id
+      WHERE lower(split_part(u.email, '@', 1)) = ${lc}
+        AND tp.share_id IS NOT NULL
+      LIMIT 1`;
+    return (rows[0]?.share_id as string | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function generateMetadata({
   params,
 }: CreatorPageProps): Promise<Metadata> {
@@ -170,6 +196,7 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
   const { handle } = await params;
   const data = await loadCreator(handle);
   if (!data) notFound();
+  const shareId = await loadShareIdByHandle(handle);
   const locale = await getLocale();
   const ko = locale === "ko";
 
@@ -196,6 +223,24 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
           data.recentPlays.some((d) => d.count > 0) && (
             <Sparkline data={data.recentPlays} ko={ko} />
           )}
+        {/* R39 — taste compare, only when this creator has published a
+            taste share (consent). Links to /s/<id> + /compare?with=<id>. */}
+        {shareId && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Link
+              href={`/s/${shareId}`}
+              className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/15"
+            >
+              {ko ? "🎧 취향 보기" : "🎧 View their taste"}
+            </Link>
+            <Link
+              href={`/compare?with=${shareId}`}
+              className="rounded-md bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400"
+            >
+              {ko ? "↔ 내 취향과 비교" : "↔ Compare with mine"}
+            </Link>
+          </div>
+        )}
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2">

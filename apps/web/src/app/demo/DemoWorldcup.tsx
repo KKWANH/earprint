@@ -96,11 +96,9 @@ export function DemoWorldcup({ locale }: { locale: Locale }) {
                 {c.artist}
               </span>
             </button>
-            <PreviewButton
-              deezerId={c.deezerId}
-              size="md"
-              className="absolute right-2 top-2"
-            />
+            <div className="absolute right-2 top-2">
+              <PreviewButton deezerId={c.deezerId} locale={locale} />
+            </div>
           </div>
         )}
         renderChampion={(champion, onRestart) => (
