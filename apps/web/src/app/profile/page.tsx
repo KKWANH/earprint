@@ -76,16 +76,53 @@ export default async function ProfilePage() {
         ?.share_id as string | undefined);
   }
 
-  const [genreMap, stats, percentile] = await Promise.all([
+  const [genreMap, stats, percentile, spotifyState] = await Promise.all([
     getGenreMap(userId),
     getLibraryStats(userId),
     profile ? diggingPercentile(profile.diggingScore) : Promise.resolve(null),
+    // R28l — surface "Spotify connected · synced X" beside the page
+    // title. Cheap one-row read; degrades to null when the table
+    // hasn't been migrated yet, which the badge handles by hiding.
+    (async () => {
+      try {
+        const r = await sql`
+          SELECT last_synced_at FROM spotify_connections
+          WHERE user_id = ${userId}::uuid LIMIT 1`;
+        if (r.length === 0) return null;
+        return {
+          lastSyncedAt: r[0]!.last_synced_at
+            ? new Date(r[0]!.last_synced_at as string)
+            : null,
+        };
+      } catch {
+        return null;
+      }
+    })(),
   ]);
   const zodiac = getMusicZodiac(stats);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
-      <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="text-2xl font-bold">{t.pageTitle}</h1>
+        {/* R28l — Spotify connection badge. Linked to /library where
+            the actual Sync / Disconnect controls live, so users
+            don't try to manage the connection from this surface. */}
+        {spotifyState && (
+          <Link
+            href="/library#spotify"
+            className="flex items-center gap-1.5 rounded-full border border-[#1DB954]/30 bg-[#1DB954]/10 px-2.5 py-0.5 text-[11px] text-[#1DB954] hover:bg-[#1DB954]/20"
+          >
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#1DB954]" />
+            {locale === "ko" ? "Spotify 연결됨" : "Spotify connected"}
+            {spotifyState.lastSyncedAt && (
+              <span className="text-[#1DB954]/70">
+                · {spotifyState.lastSyncedAt.toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}
+              </span>
+            )}
+          </Link>
+        )}
+      </div>
       <LikesDisclaimer locale={locale} />
       <AiPsychologyDisclaimer locale={locale} />
 
@@ -98,7 +135,16 @@ export default async function ProfilePage() {
           </p>
         )}
         {staleLocale && (
-          <AutoTranslateBanner target={locale} t={t} />
+          // R28g — slice down to the exact field the client component
+          // needs. Passing the whole `t` dict here used to crash the
+          // page with React #419 because `profileDict()` includes a
+          // `topPercent: (n) => string` function and RSC can't
+          // serialise functions across the server→client boundary.
+          // Same bug pattern as R22c (InProgressCard).
+          <AutoTranslateBanner
+            target={locale}
+            t={{ localeMismatch: t.localeMismatch }}
+          />
         )}
       </section>
 

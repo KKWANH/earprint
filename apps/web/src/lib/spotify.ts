@@ -31,6 +31,21 @@ export const SPOTIFY_SCOPES = [
   "playlist-read-private",
   "user-top-read",
   "user-read-recently-played",
+  // user-read-email (R28h): lets /me return the user's Spotify-side
+  // email. Two reasons we want it:
+  //   1. Diagnostics for the Dev Mode 403 case — server logs show
+  //      which account is actually signing in so we can verify the
+  //      user list matches.
+  //   2. Future "auto-link by email" — when the user's Spotify email
+  //      equals their Google email, we can skip the explicit
+  //      "Connect" step on next sign-in.
+  // Doesn't grant write access to anything; safe to request.
+  "user-read-email",
+  // user-library-modify (R28i): write scope, lets us hit
+  // PUT /v1/me/tracks?ids=... to actually heart a track in the
+  // user's Spotify library. Powers the "♥ Save to Spotify" button
+  // on community worldcup champions (one-tap from a champion view).
+  "user-library-modify",
 ].join(" ");
 
 export interface SpotifyConnection {

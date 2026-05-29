@@ -519,6 +519,34 @@ export function Bracket({
           </span>
         </div>
       )}
+      {/* R28k — overall progress bar. Counts the number of pair
+          decisions made so far (every pick collapses 2 → 1) versus
+          the total decisions needed to reach a champion (initial
+          length - 1). Gives a piku-style "how close am I to the
+          finish line" feeling without needing the user to count
+          rounds. Hidden on the final because the amber banner
+          already signals "this is the last call". */}
+      {!isFinal && (() => {
+        const totalDecisions = layout.size - 1;
+        const decisionsLeft = bracket.length - 1;
+        const made = Math.max(0, totalDecisions - decisionsLeft);
+        const pct = totalDecisions > 0
+          ? Math.round((made / totalDecisions) * 100)
+          : 0;
+        return (
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-800">
+              <div
+                className="h-full bg-emerald-500 transition-all"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className="shrink-0 text-[10px] tabular-nums text-neutral-500">
+              {made} / {totalDecisions}
+            </span>
+          </div>
+        );
+      })()}
       <p className="text-center text-xs text-neutral-400">
         {t.bracketHint}
         <span className="ml-2 hidden text-neutral-600 sm:inline">
@@ -686,6 +714,12 @@ function ChampionView({
             (`artist` empty) this falls back to the music-home
             search of the genre name itself. */}
         <LikeInYtMusicButton champion={champion} locale={locale} />
+        {/* R28i — "♥ Save to Spotify" button parallel to the YT
+            Music one. Hits POST /api/spotify/like which uses the
+            user-library-modify scope to add the track to their
+            Liked Songs in-place. Hidden when Spotify isn't
+            connected; renders inline error/success state. */}
+        <LikeInSpotifyButton champion={champion} locale={locale} />
         <ShareChampionButton
           champion={champion}
           championId={championId}
@@ -815,6 +849,100 @@ function PromoteToCommunityButton({
         </button>
       </div>
     </div>
+  );
+}
+
+/** "♥ Save to Spotify" — POSTs the champion to /api/spotify/like
+ *  which adds it to the user's Spotify Liked Songs via the
+ *  user-library-modify scope. Unlike the YT Music button (which
+ *  deep-links because YT Music has no write API), this one actually
+ *  performs the action. Auto-hides when:
+ *    - Spotify isn't connected (404 from status endpoint)
+ *    - The champion has no artist (genre champion — no track to save)
+ *  Status fetched once on mount so we don't show the button to
+ *  users who don't have the integration set up. */
+function LikeInSpotifyButton({
+  champion,
+  locale,
+}: {
+  champion: Rec;
+  locale: Locale;
+}) {
+  const ko = locale === "ko";
+  const [connected, setConnected] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/spotify/status");
+        if (cancelled) return;
+        if (!res.ok) {
+          setConnected(false);
+          return;
+        }
+        const d = (await res.json()) as { connected?: boolean };
+        setConnected(!!d.connected);
+      } catch {
+        setConnected(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!connected) return null;
+  if (!champion.artist) return null;
+
+  async function save() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/spotify/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `${champion.artist} ${champion.title}`,
+        }),
+      });
+      const d = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !d.ok) {
+        setError(d.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      setDone(true);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <span className="rounded-md border border-[#1DB954]/40 bg-[#1DB954]/15 px-5 py-2 text-sm font-semibold text-[#1DB954]">
+        ✓ {ko ? "Spotify에 저장됨" : "Saved to Spotify"}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void save()}
+      disabled={busy}
+      title={error ?? undefined}
+      className="rounded-md border border-[#1DB954]/40 bg-[#1DB954]/15 px-5 py-2 text-sm font-semibold text-[#1DB954] hover:bg-[#1DB954]/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1DB954]/60 disabled:opacity-50"
+    >
+      {busy
+        ? ko ? "저장 중…" : "Saving…"
+        : ko ? "♥ Spotify에 저장" : "♥ Save to Spotify"}
+    </button>
   );
 }
 

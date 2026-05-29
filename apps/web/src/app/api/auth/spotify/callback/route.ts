@@ -75,9 +75,23 @@ export async function GET(req: Request) {
     console.error("[spotify-callback] token exchange failed:", e);
     return redirectBack("token-exchange");
   }
-  let meResp: { id?: string };
+  // Log scope grant so the operator can verify the consent screen actually
+  // returned what we requested. A user revoking individual scopes mid-
+  // consent ends up with a token that 403s on later endpoints; this
+  // helps narrow down whether scope mismatch is the cause.
+  console.log(
+    `[spotify-callback] token exchange ok. scope=${tokenResp.scope ?? "(missing)"}`,
+  );
+  let meResp: { id?: string; email?: string; display_name?: string };
   try {
-    meResp = await spotifyFetch<{ id?: string }>(tokenResp.access_token, "/me");
+    meResp = await spotifyFetch<{
+      id?: string;
+      email?: string;
+      display_name?: string;
+    }>(tokenResp.access_token, "/me");
+    console.log(
+      `[spotify-callback] /me ok: id=${meResp.id ?? "?"} name=${meResp.display_name ?? "?"} email=${meResp.email ?? "(scope withheld)"}`,
+    );
   } catch (e) {
     // Surface the actual Spotify response — most often this is a 403
     // because the app is still in Development Mode and the signing-in

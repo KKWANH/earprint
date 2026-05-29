@@ -61,6 +61,37 @@ export async function POST(req: Request) {
 
   const artist = r.artist as string;
   const title = r.title as string;
+
+  // R28j — global cache by canonical key. The same song surfaced as
+  // a different recommendation row (same user re-roll, or another
+  // user landing on the same track) reuses the cached blurb here,
+  // so Gemini cost amortizes across the platform instead of being
+  // per-recommendation-row. Lookup is cheap; failure falls through
+  // to a fresh Gemini call without surfacing.
+  try {
+    const cached = await sql`
+      SELECT description_en, description_ko
+      FROM track_blurbs
+      WHERE canon_key = track_canon_key(${artist}, ${title})
+      LIMIT 1`;
+    if (cached.length > 0) {
+      const en = (cached[0]?.description_en as string | null) ?? null;
+      const ko = (cached[0]?.description_ko as string | null) ?? null;
+      const description = (ko?.trim() || en?.trim() || "") || null;
+      if (description) {
+        // Copy into per-row cache so the next click on this same
+        // recommendation is one-query fast (and we never re-pay
+        // the canon_key join cost).
+        await sql`
+          UPDATE recommendations SET blurb = ${description}
+          WHERE id = ${id}::uuid AND blurb IS NULL`;
+        return json({ description, en, ko, cached: true }, 200);
+      }
+    }
+  } catch {
+    /* track_blurbs missing (pre-R28j migration) — fall through */
+  }
+
   const prompt =
     `곡 "${title}" — ${artist} 에 대해 짧고 정확한 소개를 작성하세요. ` +
     `이 곡의 발매·아티스트 배경·왜 들어볼 만한지(스타일·영향·평가) 를 1~2문장으로 정확하게. ` +
@@ -98,6 +129,27 @@ export async function POST(req: Request) {
         WHERE id = ${id}::uuid AND blurb IS NULL`;
     } catch {
       /* cache write is best-effort */
+    }
+    // R28j — also write to the global track_blurbs cache so future
+    // recommendations of the same canonical track (different user,
+    // different reroll) hit it without burning Gemini. Wrapped in
+    // try/catch so pre-migration deploys still serve the per-row
+    // path correctly.
+    try {
+      await sql`
+        INSERT INTO track_blurbs
+          (canon_key, description_en, description_ko)
+        VALUES (
+          track_canon_key(${artist}, ${title}),
+          ${parsed.en?.trim() || null},
+          ${parsed.ko?.trim() || null}
+        )
+        ON CONFLICT (canon_key) DO UPDATE
+          SET description_en = COALESCE(track_blurbs.description_en, EXCLUDED.description_en),
+              description_ko = COALESCE(track_blurbs.description_ko, EXCLUDED.description_ko),
+              generated_at = now()`;
+    } catch {
+      /* track_blurbs missing — global cache disabled */
     }
   }
   // Return both languages so the client can render whichever matches

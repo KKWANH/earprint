@@ -195,6 +195,19 @@ CREATE TABLE IF NOT EXISTS spotify_synced_playlists (
 CREATE INDEX IF NOT EXISTS idx_spotify_synced_playlists_user
   ON spotify_synced_playlists (user_id);
 
+-- ── Global "why this song matters" blurb cache (R28j) ──────────
+-- Keyed by track_canon_key so the same song surfaced as different
+-- recommendation rows (different user, different reroll) only pays
+-- the Gemini cost once. recommendations.blurb is the per-row copy
+-- (filled from this table when the cache hits); this table is the
+-- platform-wide store.
+CREATE TABLE IF NOT EXISTS track_blurbs (
+  canon_key      TEXT PRIMARY KEY,
+  description_en TEXT,
+  description_ko TEXT,
+  generated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ── Spotify top artists (R28b) ───────────────────────────────────
 -- /me/top/artists per-user snapshot. Useful taste-profile signal
 -- separate from top tracks (a user's top ARTISTS often surface
