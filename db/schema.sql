@@ -195,6 +195,17 @@ CREATE TABLE IF NOT EXISTS spotify_synced_playlists (
 CREATE INDEX IF NOT EXISTS idx_spotify_synced_playlists_user
   ON spotify_synced_playlists (user_id);
 
+-- ── Genre view counter (R31f) ────────────────────────────────────
+-- Per-genre rolling counter incremented on /genre/[name] page hits.
+-- Lower-cased genre key (matches the rest of the genre surface).
+-- We don't store who viewed — anonymous + signed-in users both
+-- count, and we don't keep PII for the read path.
+CREATE TABLE IF NOT EXISTS genre_views (
+  genre        TEXT PRIMARY KEY,
+  view_count   INT NOT NULL DEFAULT 0,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ── Global "why this song matters" blurb cache (R28j) ──────────
 -- Keyed by track_canon_key so the same song surfaced as different
 -- recommendation rows (different user, different reroll) only pays

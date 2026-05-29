@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, signIn, signOut } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
-import { PAYMENTS_ENABLED } from "@/lib/constants";
+import { PAYMENTS_ENABLED, SPOTIFY_ENABLED } from "@/lib/constants";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
 import { accountDict } from "@/lib/i18n/account";
@@ -99,39 +99,60 @@ export default async function AccountPage() {
         />
       </Section>
 
-      {PAYMENTS_ENABLED && (
-        <section
-          className={`flex flex-col gap-3 rounded-xl border p-6 ${
-            planState.isPro
-              ? "border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900"
-              : "border-neutral-800 bg-neutral-900"
-          }`}
-        >
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="font-semibold">{t.planTitle}</h2>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                planState.isPro
-                  ? "bg-emerald-500 text-black"
-                  : "bg-white/10 text-neutral-300"
-              }`}
-            >
-              {planState.isPro ? t.planPro : t.planFree}
-            </span>
-          </div>
-          <p className="text-sm text-neutral-400">
-            {planState.isPro ? t.planProDesc : t.planFreeDesc}
+      {/* Plan + service status panel (R31b). Always visible now —
+          previously gated on PAYMENTS_ENABLED so beta users didn't
+          see any plan state at all. We now surface 'Open Beta — all
+          Pro' when payments are off so users have visibility into
+          their entitlement; allowlisted operators see 'Lifetime'. */}
+      <section
+        className={`flex flex-col gap-3 rounded-xl border p-6 ${
+          planState.isPro
+            ? "border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-neutral-950 to-neutral-900"
+            : "border-neutral-800 bg-neutral-900"
+        }`}
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-semibold">{t.planTitle}</h2>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+              planState.isPro
+                ? "bg-emerald-500 text-black"
+                : "bg-white/10 text-neutral-300"
+            }`}
+          >
+            {planState.isLifetime
+              ? locale === "ko" ? "Lifetime" : "Lifetime"
+              : !PAYMENTS_ENABLED && planState.isPro
+                ? locale === "ko" ? "🎉 오픈 베타 Pro" : "🎉 Open Beta Pro"
+                : planState.isPro
+                  ? t.planPro
+                  : t.planFree}
+          </span>
+        </div>
+        <p className="text-sm text-neutral-400">
+          {!PAYMENTS_ENABLED && planState.isPro && !planState.isLifetime
+            ? locale === "ko"
+              ? "오픈 베타 기간 동안 모든 기능 무료로 사용할 수 있어요. 결제 모드가 켜지면 무료 요금제로 자동 전환됩니다."
+              : "All features free during open beta. You'll move to the free tier when payments turn on."
+            : planState.isLifetime
+              ? locale === "ko"
+                ? "라이프타임 Pro — 결제 모드와 무관하게 모든 기능 사용 가능합니다."
+                : "Lifetime Pro — all features regardless of payment mode."
+              : planState.isPro
+                ? t.planProDesc
+                : t.planFreeDesc}
+        </p>
+        {planState.isPro && planState.planUntil && (
+          <p className="text-xs text-neutral-500">
+            {t.planUntil(planState.planUntil.toLocaleDateString(lang))}
           </p>
-          {planState.isPro && planState.planUntil && (
-            <p className="text-xs text-neutral-500">
-              {t.planUntil(planState.planUntil.toLocaleDateString(lang))}
-            </p>
-          )}
-          {!planState.isPro && (
-            <p className="text-xs text-neutral-400">
-              {t.creditsRemaining(planState.credits)}
-            </p>
-          )}
+        )}
+        {PAYMENTS_ENABLED && !planState.isPro && (
+          <p className="text-xs text-neutral-400">
+            {t.creditsRemaining(planState.credits)}
+          </p>
+        )}
+        {PAYMENTS_ENABLED && (
           <div className="flex flex-wrap gap-2">
             {planState.isPro ? (
               <a
@@ -149,8 +170,43 @@ export default async function AccountPage() {
               </Link>
             )}
           </div>
-        </section>
-      )}
+        )}
+      </section>
+
+      {/* Service-status row (R31b) — Spotify feature flag visibility.
+          Surfaces whether the operator has enabled the integration
+          so beta testers don't wonder why the Connect button is
+          greyed out in /library. */}
+      <section className="flex flex-col gap-2 rounded-xl border border-neutral-800 bg-neutral-900 p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
+          {locale === "ko" ? "서비스 상태" : "Service status"}
+        </h2>
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <span className="text-neutral-400">Spotify:</span>
+          {SPOTIFY_ENABLED ? (
+            <span className="rounded-full bg-[#1DB954]/20 px-2 py-0.5 text-[#1DB954]">
+              {locale === "ko" ? "활성화" : "Enabled"}
+            </span>
+          ) : (
+            <span className="rounded-full bg-neutral-700/40 px-2 py-0.5 text-neutral-400">
+              {locale === "ko" ? "준비 중 (Premium 대기)" : "Pending (waiting for Premium)"}
+            </span>
+          )}
+          <span className="text-neutral-700">·</span>
+          <span className="text-neutral-400">
+            {locale === "ko" ? "결제 모드:" : "Payments:"}
+          </span>
+          {PAYMENTS_ENABLED ? (
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-200">
+              {locale === "ko" ? "활성화" : "Enabled"}
+            </span>
+          ) : (
+            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-200">
+              {locale === "ko" ? "오픈 베타 (무료)" : "Open beta (free)"}
+            </span>
+          )}
+        </div>
+      </section>
 
       <Section title={t.librarySummaryTitle}>
         <p className="text-sm text-neutral-300">
@@ -215,16 +271,34 @@ export default async function AccountPage() {
         </div>
       </Section>
 
-      <Section title={t.exportTitle}>
-        <p className="text-sm text-neutral-400">{t.exportDesc}</p>
+      {/* DSAR / GDPR Article 15+20 data portability. R31d boosted
+          this from the previous muted-border treatment into an
+          emerald-bordered panel — privacy-conscious users see it
+          as a feature, not buried "settings" plumbing. The download
+          link doubles as a button with file-icon hint. */}
+      <section className="flex flex-col gap-3 rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-6">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-semibold text-emerald-200">{t.exportTitle}</h2>
+          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
+            GDPR Art. 15+20
+          </span>
+        </div>
+        <p className="text-sm leading-relaxed text-neutral-300">
+          {t.exportDesc}
+        </p>
+        <p className="text-xs leading-relaxed text-neutral-500">
+          {locale === "ko"
+            ? "내려받기에는 동기화된 곡, AI 프로필, 추천 기록, 평가, Spotify 데이터, 분석 작업 상태 등이 포함됩니다. 토큰·비밀번호는 제외됩니다."
+            : "Includes synced tracks, AI profile, recommendation history, ratings, Spotify data, analysis state. Excludes tokens / passwords."}
+        </p>
         <a
           href="/api/dsar/export"
           download
-          className="self-start rounded-md border border-white/15 px-3 py-1.5 text-sm text-neutral-300 hover:bg-white/5 hover:text-white"
+          className="self-start rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
         >
-          {t.exportButton}
+          📥 {t.exportButton}
         </a>
-      </Section>
+      </section>
 
       <Section title={t.signOutTitle}>
         <p className="text-sm text-neutral-400">{t.signOutDesc}</p>

@@ -62,7 +62,25 @@ export default async function GenrePage({
   }
 
   const { userId } = await requireOnboarded();
-  const [d, related, taggedWorldcups] = await Promise.all([
+  // R31f — viewer counter. Best-effort upsert + select. Failure
+  // returns null and the view chip just hides. Independent from
+  // getGenreDetail to keep the page hot-path light.
+  const viewCountPromise = (async (): Promise<number | null> => {
+    try {
+      const sqlInner = (await import("@/lib/db")).getSql();
+      const rows = await sqlInner`
+        INSERT INTO genre_views (genre, view_count)
+        VALUES (${name.toLowerCase().trim()}, 1)
+        ON CONFLICT (genre) DO UPDATE
+          SET view_count = genre_views.view_count + 1,
+              updated_at = now()
+        RETURNING view_count`;
+      return Number((rows[0]?.view_count as number) ?? 0);
+    } catch {
+      return null;
+    }
+  })();
+  const [d, related, taggedWorldcups, viewCount] = await Promise.all([
     getGenreDetail(userId, name),
     // Related-genres sidebar (R27c). Independent query — failure
     // returns []; the section just hides when empty.
@@ -71,6 +89,7 @@ export default async function GenrePage({
     // surface so the genre page becomes a discovery hub, not just an
     // info page. Same try/catch fallback.
     loadWorldcupsByTag(name, 3).catch(() => []),
+    viewCountPromise,
   ]);
   // Pre-baked editorial content (emoji / era / origin / history) lives
   // in apps/web/src/data/genre-content.ts. When a genre isn't covered
@@ -173,6 +192,18 @@ export default async function GenrePage({
               {origin && (
                 <span className="rounded-full bg-white/10 px-3 py-1 text-white/85">
                   <span className="text-white/55">{t.origin}</span> · {origin}
+                </span>
+              )}
+              {/* R31f — view count chip. Hidden until a real number
+                  lands (table-missing fallback returns null). The
+                  count includes the current view since we increment
+                  before reading. */}
+              {viewCount != null && viewCount > 1 && (
+                <span className="rounded-full bg-white/10 px-3 py-1 text-white/85">
+                  👁{" "}
+                  {locale === "ko"
+                    ? `${viewCount.toLocaleString()}회 조회`
+                    : `${viewCount.toLocaleString()} views`}
                 </span>
               )}
             </div>

@@ -82,6 +82,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     /* community tables not migrated — skip */
   }
 
+  // Tag landing pages (R31h). Distinct tags across public worldcups,
+  // sorted by usage count so frequently-used tags rank higher.
+  // Lowercase regex filtered.
+  try {
+    const tagRows = await sql`
+      SELECT lower(t) AS tag, count(*)::int AS n
+      FROM community_worldcups w,
+           unnest(w.tags) AS t
+      WHERE w.visibility = 'public'
+      GROUP BY lower(t)
+      ORDER BY n DESC
+      LIMIT 100`;
+    for (const r of tagRows) {
+      const tag = (r.tag as string | null) ?? "";
+      if (tag && /^[a-z0-9_-]{1,40}$/.test(tag)) {
+        out.push({
+          url: `${ORIGIN}/worldcup/community/tag/${encodeURIComponent(tag)}`,
+          lastModified: now,
+          changeFrequency: "weekly",
+          priority: 0.55,
+        });
+      }
+    }
+  } catch {
+    /* skip */
+  }
+
   // Creator profiles. Pull distinct owner emails (via JOIN) and emit
   // /u/<handle> for each. Capped at 200 so a popular creator wave
   // doesn't bloat the sitemap to the 50k row limit.

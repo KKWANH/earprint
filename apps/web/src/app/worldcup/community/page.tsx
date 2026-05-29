@@ -341,22 +341,31 @@ export default async function CommunityList({
                 href={`/worldcup/community/${r.id as string}`}
                 className="block rounded-xl border border-neutral-800 bg-neutral-900 p-4 transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/5"
               >
-                <h2 className="text-base font-semibold">{r.title as string}</h2>
+                <h2 className="text-base font-semibold">
+                  {highlight(r.title as string, q)}
+                </h2>
                 {r.description ? (
                   <p className="mt-1 text-xs text-neutral-500 line-clamp-2">
-                    {r.description as string}
+                    {highlight(r.description as string, q)}
                   </p>
                 ) : null}
                 {(r.tags ?? []).length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {(r.tags ?? []).slice(0, 5).map((tg) => (
-                      <span
-                        key={tg}
-                        className="rounded-full bg-white/5 px-1.5 py-0.5 text-[10px] text-neutral-400"
-                      >
-                        #{tg}
-                      </span>
-                    ))}
+                    {(r.tags ?? []).slice(0, 5).map((tg) => {
+                      const tagMatches = q && tg.toLowerCase().includes(q);
+                      return (
+                        <span
+                          key={tg}
+                          className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                            tagMatches
+                              ? "bg-emerald-500/30 text-emerald-100"
+                              : "bg-white/5 text-neutral-400"
+                          }`}
+                        >
+                          #{tg}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-neutral-500">
@@ -370,5 +379,34 @@ export default async function CommunityList({
         </ul>
       )}
     </main>
+  );
+}
+
+/**
+ * R31c — case-insensitive search-term highlighter. Wraps every
+ * match of `term` inside `text` in an emerald <mark> span. When
+ * `term` is empty (no search active) returns the original string
+ * verbatim so non-search renders pay zero cost.
+ *
+ * Escapes regex meta-chars in `term` so a user typing "(" / "$" /
+ * "." doesn't blow up the splitter. The result is React children
+ * (strings + spans), safe to render inline.
+ */
+function highlight(text: string, term: string): React.ReactNode {
+  if (!term) return text;
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(${escaped})`, "gi");
+  const parts = text.split(re);
+  return parts.map((p, i) =>
+    p.toLowerCase() === term.toLowerCase() ? (
+      <mark
+        key={i}
+        className="rounded bg-emerald-500/30 px-0.5 text-emerald-100"
+      >
+        {p}
+      </mark>
+    ) : (
+      <span key={i}>{p}</span>
+    ),
   );
 }

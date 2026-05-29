@@ -24,9 +24,54 @@ export const MIN_AGE = 16;
 /**
  * Master kill-switch for everything paywall-related. Defaults OFF — the
  * /pricing page and all gates stay invisible until the env flag flips ON.
- * Once flipped, the gates honour the user's `plan` column.
+ * Once flipped, the gates honour the user's `plan` column. Allowlisted
+ * emails (PRO_ALLOWLIST_EMAILS) stay free Pro even after this flips.
+ *
+ * Toggle: wrangler secret put PAYMENTS_ENABLED (input "true" / "false").
  */
 export const PAYMENTS_ENABLED = process.env.PAYMENTS_ENABLED === "true";
+
+/**
+ * Master kill-switch for the Spotify integration. Defaults ON so the
+ * existing feature stays available; flip OFF while waiting for the
+ * Spotify Premium subscription / Extended Quota Mode approval to
+ * unblock the /me 403. When OFF:
+ *   - /api/auth/spotify/start returns 503
+ *   - /api/spotify/* return 503
+ *   - SpotifyConnectCard renders a "준비 중" disabled state with a
+ *     hint about why
+ *   - /account shows "Spotify (비활성)" instead of "connected"
+ *
+ * Toggle: wrangler secret put SPOTIFY_ENABLED (input "true" / "false").
+ */
+export const SPOTIFY_ENABLED =
+  (process.env.SPOTIFY_ENABLED ?? "true").toLowerCase() === "true";
+
+/**
+ * Emails that always get Pro entitlement, regardless of PAYMENTS_ENABLED
+ * or the user's stored `plan` column. Used for operator accounts +
+ * any pre-paid early supporters we want to comp without going through
+ * the Lemon Squeezy flow. Entries MUST be lowercased — the runtime
+ * comparison normalises the incoming email but doesn't normalise this
+ * constant, so a "Foo@Bar.com" entry would silently never match.
+ */
+export const PRO_ALLOWLIST_EMAILS = [
+  "kwanho0096@gmail.com",
+  "sspkr1782@gmail.com",
+] as const;
+for (const e of PRO_ALLOWLIST_EMAILS) {
+  if (e !== e.toLowerCase()) {
+    throw new Error(`PRO_ALLOWLIST_EMAILS must be lowercased: "${e}"`);
+  }
+}
+
+/** Predicate matching the lowercased email. */
+export function isProAllowlisted(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return (PRO_ALLOWLIST_EMAILS as readonly string[]).includes(
+    email.toLowerCase(),
+  );
+}
 
 /** Free-tier daily caps. Applied only when PAYMENTS_ENABLED is true. */
 export const FREE_LIMITS = {

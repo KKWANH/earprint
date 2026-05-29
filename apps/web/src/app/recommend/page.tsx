@@ -44,7 +44,7 @@ export default async function RecommendPage() {
   const { userId } = await requireOnboarded();
   const sql = getSql();
 
-  const [unrated, stat, perMode] = await Promise.all([
+  const [unrated, stat, perMode, weeklyQuality] = await Promise.all([
     sql`
       SELECT id, artist, title, album, cover_url, deezer_id, seed_track,
              score, rec_type, blurb AS description
@@ -68,6 +68,24 @@ export default async function RecommendPage() {
       FROM recommendations
       WHERE user_id = ${userId} AND rating IS NOT NULL
       GROUP BY rec_type`,
+    // R31g — week-by-week like rate for the last 8 weeks. Sparkline
+    // companion to the per-mode panel. generate_series ensures every
+    // week renders even when no rating happened, so the trend line
+    // doesn't collapse on quiet weeks.
+    sql`
+      WITH weeks AS (
+        SELECT (date_trunc('week', now()) - (n || ' weeks')::interval) AS w
+        FROM generate_series(0, 7) AS n
+      )
+      SELECT to_char(weeks.w, 'YYYY-MM-DD') AS week,
+             count(r.id) FILTER (WHERE r.rating IS NOT NULL)::int AS rated,
+             count(r.id) FILTER (WHERE r.rating IN ('like', 'superlike'))::int AS likes
+      FROM weeks
+      LEFT JOIN recommendations r
+        ON r.user_id = ${userId}
+        AND date_trunc('week', r.created_at) = weeks.w
+      GROUP BY weeks.w
+      ORDER BY weeks.w ASC`,
   ]);
 
   const recs: Rec[] = unrated.map((r) => ({
@@ -135,6 +153,48 @@ export default async function RecommendPage() {
                 );
               })}
           </div>
+          {/* R31g — week-by-week sparkline tracking like-rate. Hidden
+              when no week had any ratings (would just be flat zero).
+              Bars colored by rate: emerald when ≥ 60%, sky when
+              30-60%, neutral grey otherwise. */}
+          {weeklyQuality.some((w) => Number(w.rated ?? 0) > 0) && (
+            <div className="mt-3 flex flex-col gap-1">
+              <p className="text-[11px] uppercase tracking-wider text-neutral-500">
+                {locale === "ko" ? "주별 좋아요 비율 (8주)" : "Like rate by week (8w)"}
+              </p>
+              <div className="flex h-12 items-end gap-1">
+                {weeklyQuality.map((w) => {
+                  const rated = Number(w.rated ?? 0);
+                  const likes = Number(w.likes ?? 0);
+                  const rate = rated > 0 ? likes / rated : 0;
+                  const h = rated > 0 ? Math.max(8, rate * 100) : 4;
+                  const color = rated === 0
+                    ? "#27272a"
+                    : rate >= 0.6
+                      ? "#10b981"
+                      : rate >= 0.3
+                        ? "#38bdf8"
+                        : "#52525b";
+                  return (
+                    <div
+                      key={String(w.week)}
+                      className="flex flex-1 flex-col items-center"
+                      title={
+                        rated > 0
+                          ? `${(w.week as string).slice(5)} · ${likes}/${rated} (${Math.round(rate * 100)}%)`
+                          : `${(w.week as string).slice(5)} · no ratings`
+                      }
+                    >
+                      <div
+                        className="w-full rounded-t"
+                        style={{ height: `${h}%`, backgroundColor: color }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </section>
       )}
 

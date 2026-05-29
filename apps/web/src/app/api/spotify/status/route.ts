@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { ensureConnection } from "@/lib/connection";
 import { getSql } from "@/lib/db";
 import { json } from "@/lib/http";
+import { SPOTIFY_ENABLED } from "@/lib/constants";
 
 /**
  * GET /api/spotify/status
@@ -26,7 +27,15 @@ export async function GET() {
       WHERE user_id = ${userId}::uuid
       LIMIT 1`;
     if (rows.length === 0) {
-      return json({ connected: false, lastSyncedAt: null, scope: null }, 200);
+      return json(
+        {
+          connected: false,
+          lastSyncedAt: null,
+          scope: null,
+          featureEnabled: SPOTIFY_ENABLED,
+        },
+        200,
+      );
     }
     const r = rows[0]!;
     return json(
@@ -36,12 +45,21 @@ export async function GET() {
         lastSyncedAt: r.last_synced_at
           ? new Date(r.last_synced_at as string).toISOString()
           : null,
+        featureEnabled: SPOTIFY_ENABLED,
       },
       200,
     );
   } catch {
     // Table not yet migrated — same shape as "not connected" so the
     // UI still renders the Connect button without erroring.
-    return json({ connected: false, lastSyncedAt: null, scope: null }, 200);
+    return json(
+      {
+        connected: false,
+        lastSyncedAt: null,
+        scope: null,
+        featureEnabled: SPOTIFY_ENABLED,
+      },
+      200,
+    );
   }
 }

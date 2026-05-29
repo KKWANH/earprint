@@ -29,6 +29,10 @@ interface SpotifyStatus {
   connected: boolean;
   lastSyncedAt: string | null;
   scope: string | null;
+  /** R31a — operator kill-switch. False when the Spotify integration
+   *  is disabled at the env level (SPOTIFY_ENABLED=false), e.g. while
+   *  the Premium subscription hasn't propagated yet. */
+  featureEnabled: boolean;
 }
 
 export function SpotifyConnectCard({ locale }: { locale: Locale }) {
@@ -70,6 +74,13 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
         // introduced the granular identify-* codes so the UI can be
         // specific instead of just saying "unknown".
         const hint = (() => {
+          if (reason === "feature-disabled") {
+            // R31a — kill-switch flipped off mid-flow (e.g. user
+            // clicked Connect right before operator disabled).
+            return ko
+              ? "Spotify 통합이 일시 비활성화돼있어요. 운영자가 재활성화하면 다시 시도할 수 있어요."
+              : "Spotify integration is temporarily disabled. Will be re-enabled by the operator when ready.";
+          }
           if (reason === "identify-403-premium") {
             // Spotify rolled out a new Dev Mode restriction in late
             // 2024: the app OWNER must have an active Premium
@@ -216,6 +227,35 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
     return (
       <section className="rounded-xl border border-white/10 bg-white/5 p-5 text-xs text-neutral-500">
         Spotify…
+      </section>
+    );
+  }
+
+  // R31a — feature flag off (operator hasn't enabled SPOTIFY_ENABLED
+  // yet, typically because Premium subscription is pending). Render
+  // a soft "준비 중" card instead of the active connect button so
+  // users see why the feature is unavailable.
+  if (!status.featureEnabled) {
+    return (
+      <section className="flex flex-col gap-3 rounded-2xl border border-neutral-700 bg-neutral-900/50 p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-sm font-semibold text-neutral-400">
+            {ko ? "Spotify 연결 (준비 중)" : "Spotify (coming soon)"}
+          </h2>
+          <span className="text-[10px] text-neutral-600">v0 · Liked Songs only</span>
+        </div>
+        <p className="text-xs leading-relaxed text-neutral-500">
+          {ko
+            ? "Spotify가 최근에 정책 바꿔서, 우리 쪽 인증을 풀려면 앱 소유자가 Spotify Premium 구독자여야 합니다. 활성화되면 여기서 연결할 수 있어요."
+            : "Spotify recently changed their dev-mode policy — the app owner needs an active Premium subscription to unblock our auth. Will be enabled here when ready."}
+        </p>
+        <button
+          type="button"
+          disabled
+          className="self-start rounded-md bg-neutral-700/40 px-4 py-2 text-sm font-semibold text-neutral-500 cursor-not-allowed"
+        >
+          {ko ? "🚧 준비 중" : "🚧 Coming soon"}
+        </button>
       </section>
     );
   }

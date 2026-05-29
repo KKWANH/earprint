@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { json } from "@/lib/http";
+import { SPOTIFY_ENABLED } from "@/lib/constants";
 import {
   SPOTIFY_AUTHORIZE,
   SPOTIFY_SCOPES,
@@ -19,6 +20,17 @@ import {
  * existing Google identity).
  */
 export async function GET() {
+  // Master kill-switch (R31a). When the operator hasn't flipped the
+  // env flag yet (e.g. Spotify Premium pending), redirect back to
+  // /library with a 'feature-disabled' reason so the card surfaces
+  // the hint instead of starting an OAuth that's guaranteed to fail.
+  if (!SPOTIFY_ENABLED) {
+    const base = process.env.AUTH_URL?.replace(/\/$/, "") ?? "";
+    return new Response(null, {
+      status: 302,
+      headers: { Location: `${base}/library?spotify=error&reason=feature-disabled` },
+    });
+  }
   const session = await auth();
   if (!session?.user?.email) return json({ error: "unauthorized" }, 401);
 

@@ -1,5 +1,5 @@
 import { getSql } from "@/lib/db";
-import { PAYMENTS_ENABLED, FREE_LIMITS } from "@/lib/constants";
+import { PAYMENTS_ENABLED, FREE_LIMITS, isProAllowlisted } from "@/lib/constants";
 
 /**
  * Effective plan for a user. When PAYMENTS_ENABLED is off everyone is
@@ -24,7 +24,7 @@ export interface PlanState {
 export async function getPlanState(userId: string): Promise<PlanState> {
   const sql = getSql();
   const rows = await sql`
-    SELECT plan, plan_until, is_lifetime, credits
+    SELECT plan, plan_until, is_lifetime, credits, email
     FROM users WHERE id = ${userId}`;
   const r = rows[0] as
     | {
@@ -32,6 +32,7 @@ export async function getPlanState(userId: string): Promise<PlanState> {
         plan_until: string | null;
         is_lifetime: boolean;
         credits: number;
+        email: string | null;
       }
     | undefined;
 
@@ -39,6 +40,20 @@ export async function getPlanState(userId: string): Promise<PlanState> {
   const isLifetime = !!r?.is_lifetime; // legacy column; kept for compatibility
   const planUntil = r?.plan_until ? new Date(r.plan_until) : null;
   const credits = r?.credits ?? 0;
+
+  // R31b — operator allowlist. These emails always pass the Pro gate
+  // regardless of PAYMENTS_ENABLED or the user's stored plan column.
+  // Treated as "lifetime" semantically so the UI labels them
+  // consistently with a real lifetime purchase.
+  if (isProAllowlisted(r?.email)) {
+    return {
+      plan: "pro",
+      isLifetime: true,
+      planUntil: null,
+      credits: Infinity,
+      isPro: true,
+    };
+  }
 
   // Master switch off → everyone is Pro. Avoids accidental gating while
   // payments are still in dry-run.

@@ -195,8 +195,17 @@ export async function generateMetadata({
   params: Promise<{ handle: string }>;
 }): Promise<Metadata> {
   const { handle } = await params;
+  // R31e — share OG image lives at opengraph-image.tsx adjacent. The
+  // base /u/[handle] image already covers profile; this dedicated
+  // one shows the 12-month bars + totals for "look at my stats"
+  // share moments.
   return {
     title: `@${handle} stats — Earprint`,
+    description: `${handle}'s worldcup stats — total plays + champions + monthly trend`,
+    openGraph: { title: `@${handle} stats`, type: "profile" },
+    twitter: { card: "summary_large_image" },
+    // Keep noindex — stats page is more about share-link previews
+    // than discoverability via search.
     robots: { index: false, follow: false },
   };
 }

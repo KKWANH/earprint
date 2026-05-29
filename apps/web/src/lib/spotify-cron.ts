@@ -1,4 +1,5 @@
 import { getSql } from "./db";
+import { SPOTIFY_ENABLED } from "./constants";
 import { getActiveSpotifyConnection, spotifyFetch } from "./spotify";
 
 /**
@@ -45,6 +46,10 @@ export interface SpotifyCronSummary {
 }
 
 export async function runSpotifySyncIfDue(): Promise<SpotifyCronSummary | null> {
+  // R31a — kill-switch off → cron skips. Returns null so the tick
+  // response shows `spotify: null` rather than a misleading empty
+  // summary that looks like "0 candidates, all good".
+  if (!SPOTIFY_ENABLED) return null;
   const sql = getSql();
   let due;
   try {
