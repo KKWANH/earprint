@@ -24,14 +24,23 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function CommunityList({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; tag?: string; creator?: string }>;
+  searchParams: Promise<{
+    sort?: string;
+    tag?: string;
+    creator?: string;
+    q?: string;
+  }>;
 }) {
   const locale = await getLocale();
   const ko = locale === "ko";
   const sql = getSql();
-  const { sort, tag: rawTag, creator: rawCreator } = await searchParams;
+  const { sort, tag: rawTag, creator: rawCreator, q: rawQ } = await searchParams;
   const mode = sort === "trending" ? "trending" : sort === "new" ? "new" : "popular";
   const tag = rawTag ? rawTag.toLowerCase().trim() : "";
+  // R30e — text search over title + tags + description. Trimmed,
+  // capped at 100 chars to defang abuse. ilike pattern wraps in %.
+  const qRaw = rawQ?.trim().slice(0, 100) ?? "";
+  const q = qRaw.toLowerCase();
   // R27i — `?creator=<handle>` filter. Same handle resolution
   // /u/[handle] uses (email local-part, regex whitelisted) so a
   // crafted URL can't fire a SQL injection or expand the filter to
@@ -62,6 +71,35 @@ export default async function CommunityList({
         : mode === "new"
           ? sql`w.created_at DESC`
           : sql`w.play_count DESC, w.created_at DESC`;
+    // R30e — when text search is active, fall back to a single
+    // "ilike on title OR description OR exists-in-tags" branch
+    // regardless of other filters. ilike isn't index-friendly but
+    // we LIMIT 100 anyway and the table is small.
+    if (q) {
+      const pat = `%${q}%`;
+      const tagFilter = tag
+        ? sql`AND ${tag} = ANY(w.tags)`
+        : sql``;
+      const creatorFilter = creatorHandle
+        ? sql`AND lower(split_part(u.email, '@', 1)) = ${creatorHandle}`
+        : sql``;
+      return (await sql`
+        SELECT w.id, w.title, w.description, w.play_count, w.created_at, w.tags,
+               (SELECT count(*)::int FROM community_worldcup_items i
+                  WHERE i.worldcup_id = w.id) AS item_count
+        FROM community_worldcups w
+        LEFT JOIN users u ON u.id = w.owner_user_id
+        WHERE w.visibility = 'public'
+          AND (
+            lower(w.title) LIKE ${pat}
+            OR lower(coalesce(w.description, '')) LIKE ${pat}
+            OR EXISTS (SELECT 1 FROM unnest(w.tags) AS t WHERE lower(t) LIKE ${pat})
+          )
+          ${tagFilter}
+          ${creatorFilter}
+        ORDER BY ${orderClause}
+        LIMIT 100`) as Row[];
+    }
     // Three filter axes: tag + creator handle + (always-on) public
     // visibility. Each filter has its own branch because the neon
     // tagged-template driver doesn't compose AND-able WHERE fragments
@@ -211,6 +249,48 @@ export default async function CommunityList({
         </Link>
       </header>
 
+      {/* R30e — text search across title / tags / description. GET
+          form so URL is shareable + bookmarkable. Preserves other
+          filters via hidden inputs so submitting search doesn't
+          erase the user's chosen sort / tag / creator. */}
+      <form
+        method="GET"
+        action="/worldcup/community"
+        className="flex items-center gap-2"
+      >
+        {mode !== "popular" && (
+          <input type="hidden" name="sort" value={mode} />
+        )}
+        {tag && <input type="hidden" name="tag" value={tag} />}
+        {creatorHandle && (
+          <input type="hidden" name="creator" value={creatorHandle} />
+        )}
+        <input
+          type="search"
+          name="q"
+          defaultValue={qRaw}
+          placeholder={ko ? "제목·태그·설명 검색…" : "Search title / tags / description…"}
+          className="flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 py-1.5 text-sm placeholder:text-neutral-600 focus:border-emerald-500 focus:outline-none"
+        />
+        {qRaw && (
+          <Link
+            href={
+              (() => {
+                const qp = new URLSearchParams();
+                if (mode !== "popular") qp.set("sort", mode);
+                if (tag) qp.set("tag", tag);
+                if (creatorHandle) qp.set("creator", creatorHandle);
+                const qs = qp.toString();
+                return qs ? `/worldcup/community?${qs}` : "/worldcup/community";
+              })()
+            }
+            className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400 hover:bg-neutral-800"
+          >
+            {ko ? "지우기" : "Clear"}
+          </Link>
+        )}
+      </form>
+
       {/* Sort tab strip. Three modes ride the same query param so a
           bookmarked tab survives refresh. Active state is the one
           whose querystring matches `mode`; others link to themselves
@@ -227,6 +307,7 @@ export default async function CommunityList({
           if (tab.id !== "popular") qp.set("sort", tab.id);
           if (tag) qp.set("tag", tag);
           if (creatorHandle) qp.set("creator", creatorHandle);
+          if (qRaw) qp.set("q", qRaw);
           const qs = qp.toString();
           const href = qs ? `/worldcup/community?${qs}` : "/worldcup/community";
           const active = mode === tab.id;

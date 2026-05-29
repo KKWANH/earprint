@@ -253,6 +253,16 @@ export default async function CreatorProfile({ params }: CreatorPageProps) {
             : "Showing the first 60 worldcups."}
         </p>
       )}
+
+      {/* R30c — deeper stats companion page. The base profile shows
+          headline counts + sparkline; the stats page has the 12-month
+          chart, hall-of-fame items, per-worldcup breakdowns. */}
+      <Link
+        href={`/u/${encodeURIComponent(handle)}/stats`}
+        className="self-center text-xs text-sky-300 hover:text-sky-200 hover:underline"
+      >
+        {ko ? "📊 상세 통계 보기 →" : "📊 View detailed stats →"}
+      </Link>
     </main>
   );
 }

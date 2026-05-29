@@ -103,10 +103,18 @@ export async function GET(req: Request) {
       `[spotify-callback] /me failed status=${status} msg=${msg.slice(0, 400)}`,
     );
     // Tag the specific status so the UI can show a useful hint:
-    //   403 → app in Development Mode, user not whitelisted
-    //   401 → token exchange returned bogus token (rare; client_secret typo)
+    //   403 → either Dev Mode user-list OR the "owner must have
+    //         Premium" check Spotify rolled out in late 2024.
+    //         Distinguish on the message body so we can hint right.
+    //   401 → token exchange returned bogus token (rare;
+    //         client_secret typo)
     //   else → generic
-    if (status === 403) return redirectBack("identify-403-dev-mode");
+    if (status === 403) {
+      const premiumRequired = /premium subscription required/i.test(msg);
+      return redirectBack(
+        premiumRequired ? "identify-403-premium" : "identify-403-dev-mode",
+      );
+    }
     if (status === 401) return redirectBack("identify-401-token");
     return redirectBack("identify");
   }

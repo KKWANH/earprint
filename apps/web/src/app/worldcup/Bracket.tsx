@@ -559,13 +559,13 @@ export function Bracket({
           each); on sm+ a bit more breathing room, final round gets
           the most. Stacking the cards vertically on mobile would
           force the user to scroll between options every pair, which
-          kills the snap-judgment flow this UI is built for. */}
-      {/* Key on round + pairIdx so React unmounts/remounts the pair
-          row whenever we advance — driving the pa-fade-in keyframe
-          fresh each time. Without the key the children stay in place
-          and the animation only plays on the first mount. */}
-      <div
+          kills the snap-judgment flow this UI is built for.
+          R30g — wraps in a SwipeArea so mobile users can swipe
+          left/right to pick (in addition to tapping). */}
+      <SwipeArea
         key={`pair-${round}-${pairIdx}`}
+        onSwipeLeft={() => pick(right, left)}
+        onSwipeRight={() => pick(left, right)}
         className={`pa-fade-in grid grid-cols-2 ${isFinal ? "gap-2 sm:gap-5" : "gap-2 sm:gap-3"}`}
       >
         {renderCard
@@ -574,7 +574,7 @@ export function Bracket({
         {renderCard
           ? renderCard(right, () => pick(right, left))
           : <BracketCard rec={right} onPick={() => pick(right, left)} locale={locale} finalRound={isFinal} />}
-      </div>
+      </SwipeArea>
 
       <div className="flex items-center justify-between text-xs text-neutral-500">
         <span>
@@ -971,6 +971,88 @@ function LikeInYtMusicButton({
     >
       ♥ {locale === "ko" ? "YT Music에서 좋아요" : "Like in YT Music ↗"}
     </a>
+  );
+}
+
+/** "Share my champion" — uses the Web Share API on mobile / Safari and
+/** R30g — swipe-aware grid wrapper. Tracks lateral pointer drag and
+ *  fires onSwipeLeft/Right when the user releases past the threshold.
+ *  Below the threshold the gesture is treated as a tap and propagates
+ *  to children (so a tap on a BracketCard still picks normally).
+ *
+ *  During drag the whole pair translates with the finger and the
+ *  losing side fades — visually telegraphs which card will win when
+ *  the gesture commits. Doesn't override existing keyboard / button
+ *  interaction. */
+function SwipeArea({
+  onSwipeLeft,
+  onSwipeRight,
+  className,
+  children,
+}: {
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const startX = useRef<number | null>(null);
+  const [dx, setDx] = useState(0);
+  const THRESHOLD = 60;
+
+  function onPointerDown(e: React.PointerEvent) {
+    // Only mouse / touch primary pointer; ignore right-click / middle.
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    startX.current = e.clientX;
+    setDx(0);
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (startX.current == null) return;
+    setDx(e.clientX - startX.current);
+  }
+  function onPointerUp() {
+    const v = dx;
+    startX.current = null;
+    setDx(0);
+    if (v > THRESHOLD) onSwipeRight();       // swipe right → pick left card
+    else if (v < -THRESHOLD) onSwipeLeft();  // swipe left → pick right card
+  }
+
+  // Map the offset into a small translate so the gesture has visible
+  // feedback. Capped at ±80px so the cards don't fly off-screen for
+  // a slow drag.
+  const translate = Math.max(-80, Math.min(80, dx));
+  // Opacity fade on the LOSING side telegraphs the commit. When
+  // dx > 0 user is swiping right → left card wins → right card fades.
+  const leftFade = dx < 0 ? Math.min(1, Math.abs(dx) / 200) : 0;
+  const rightFade = dx > 0 ? Math.min(1, dx / 200) : 0;
+
+  return (
+    <div
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      style={{
+        transform: `translateX(${translate}px)`,
+        transition: startX.current == null ? "transform 0.18s ease-out" : "none",
+        // CSS vars consumed by child opacity fade — set on parent so
+        // children inherit. Cards aren't aware of the swipe state
+        // themselves; this is parent-only feedback.
+        ["--swipe-left-fade" as string]: 1 - leftFade,
+        ["--swipe-right-fade" as string]: 1 - rightFade,
+      }}
+      className={`touch-pan-y select-none ${className ?? ""}`}
+    >
+      {/* Children are the two BracketCards; we fade them via inline
+          style on the wrapping span so the swipe direction shows on
+          screen without rewriting the card component. */}
+      <div style={{ opacity: "var(--swipe-left-fade)" }}>
+        {Array.isArray(children) ? children[0] : children}
+      </div>
+      <div style={{ opacity: "var(--swipe-right-fade)" }}>
+        {Array.isArray(children) ? children[1] : null}
+      </div>
+    </div>
   );
 }
 

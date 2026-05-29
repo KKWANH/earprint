@@ -34,6 +34,19 @@ export async function GET() {
     });
   }
 
+  // Per-section query helper — table-missing on partly-migrated
+  // deploys returns [] rather than poisoning the whole export.
+  // R30b expanded the export to cover Spotify v1/v2 data + the
+  // various journal-style tables introduced in R27/R28.
+  const safeQ = async <T>(label: string, p: Promise<T[]>): Promise<T[]> => {
+    try {
+      return await p;
+    } catch (e) {
+      console.error(`[dsar-export] ${label} failed:`, e);
+      return [];
+    }
+  };
+
   const sql = getSql();
   const [
     user,
@@ -42,6 +55,12 @@ export async function GET() {
     ratings,
     excluded,
     affinity,
+    plays,
+    spotifyConn,
+    spotifyPlaylists,
+    spotifyTopArtists,
+    genreRequests,
+    backgroundJobs,
   ] = await Promise.all([
     sql`
       SELECT id, email, display_name, created_at, updated_at, last_seen_at,
@@ -66,6 +85,31 @@ export async function GET() {
       WHERE user_id = ${userId} AND rating IS NOT NULL`,
     sql`SELECT artist FROM excluded_artists WHERE user_id = ${userId}`,
     sql`SELECT artist, weight, updated_at FROM artist_affinity WHERE user_id = ${userId}`,
+    // R30b — new sections:
+    safeQ("user_plays", sql`
+      SELECT t.title, t.artist, up.played_at, up.source
+      FROM user_plays up
+      JOIN tracks t ON t.id = up.track_id
+      WHERE up.user_id = ${userId}
+      ORDER BY up.played_at DESC
+      LIMIT 10000`),
+    safeQ("spotify_connections", sql`
+      SELECT spotify_user_id, scope, connected_at, last_synced_at
+      FROM spotify_connections WHERE user_id = ${userId}`),
+    safeQ("spotify_synced_playlists", sql`
+      SELECT playlist_id, name, last_synced_at
+      FROM spotify_synced_playlists WHERE user_id = ${userId}`),
+    safeQ("spotify_top_artists", sql`
+      SELECT time_range, rank, artist, refreshed_at
+      FROM spotify_top_artists WHERE user_id = ${userId}
+      ORDER BY time_range, rank`),
+    safeQ("genre_requests", sql`
+      SELECT kind, subject, note, status, created_at, decided_at
+      FROM genre_requests WHERE user_id = ${userId}
+      ORDER BY created_at DESC`),
+    safeQ("background_jobs", sql`
+      SELECT kind, status, updated_at, notified_at
+      FROM background_jobs WHERE user_id = ${userId}`),
   ]);
 
   const out = {
@@ -81,6 +125,13 @@ export async function GET() {
     ratings,
     excludedArtists: excluded.map((r) => r.artist),
     artistAffinity: affinity,
+    // R30b — additions
+    plays,
+    spotifyConnection: spotifyConn[0] ?? null,
+    spotifySyncedPlaylists: spotifyPlaylists,
+    spotifyTopArtists,
+    genreRequests,
+    backgroundJobs,
   };
 
   const filename = `earprint-export-${new Date().toISOString().slice(0, 10)}.json`;

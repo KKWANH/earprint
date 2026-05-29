@@ -12,14 +12,24 @@ import { loadRelatedGenres } from "@/lib/relatedGenres";
 import { loadWorldcupsByTag } from "@/lib/community-stats";
 import { PreviewButton } from "../../library/PreviewButton";
 import { AboutBox } from "./AboutBox";
+import { GenreShareButton } from "./GenreShareButton";
 
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ name: string }>;
 }): Promise<Metadata> {
-  const { name } = await params;
-  return { title: `${decodeURIComponent(name)} — Earprint` };
+  const { name: raw } = await params;
+  const name = decodeURIComponent(raw);
+  // R30f — OG image lives at opengraph-image.tsx adjacent; bump
+  // twitter card to summary_large_image so the dynamic image
+  // renders full-width on X/Twitter share previews.
+  return {
+    title: `${name} — Earprint`,
+    description: `Explore ${name} on Earprint — history, top tracks, your library.`,
+    openGraph: { title: `${name} on Earprint`, type: "website" },
+    twitter: { card: "summary_large_image" },
+  };
 }
 
 /** Shared genre detail page — reachable from the library and artist pages. */
@@ -84,9 +94,15 @@ export default async function GenrePage({
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <div className="flex items-center justify-between gap-3">
         <BackLink label={t.back} fallbackHref="/library" />
-        <Link href="/genres" className="text-xs text-neutral-500 hover:text-white">
-          {t.allGenres}
-        </Link>
+        <div className="flex items-center gap-2">
+          {/* R30f — native share / clipboard fallback. Surfaces
+              the genre's dynamic OG image to Twitter/Discord/Slack
+              previews via the page metadata. */}
+          <GenreShareButton name={d.name} locale={locale} />
+          <Link href="/genres" className="text-xs text-neutral-500 hover:text-white">
+            {t.allGenres}
+          </Link>
+        </div>
       </div>
 
       {/* Cover image (when curated) — full-bleed 16:9 panel above

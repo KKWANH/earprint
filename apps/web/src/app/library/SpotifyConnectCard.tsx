@@ -70,6 +70,18 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
         // introduced the granular identify-* codes so the UI can be
         // specific instead of just saying "unknown".
         const hint = (() => {
+          if (reason === "identify-403-premium") {
+            // Spotify rolled out a new Dev Mode restriction in late
+            // 2024: the app OWNER must have an active Premium
+            // subscription, regardless of who's signing in. This
+            // applies even to read-only scopes like /me. Workarounds:
+            //   1) Owner gets Premium (~$10/mo)
+            //   2) Apply for Extended Quota Mode (production
+            //      approval, takes 2-4 weeks)
+            return ko
+              ? "Spotify가 최근에 정책 바꿨어요 — 앱 소유자가 Spotify Premium 구독자여야 합니다. 가입 후 몇 시간 뒤 자동 활성화. 또는 Spotify Dashboard에서 'Extended Quota Mode'를 신청하면 영구 무료 (검토 2-4주)."
+              : "Spotify recently changed their dev-mode policy: the app owner must have an active Premium subscription. Auto-activates a few hours after subscribing. Alternative: request 'Extended Quota Mode' from Spotify (free, but takes 2-4 weeks for review).";
+          }
           if (reason === "identify-403-dev-mode") {
             return ko
               ? "Spotify 앱이 개발 모드여서 본인 계정이 User 리스트에 없을 때 발생합니다. Spotify Dashboard → User Management 에서 본인 Spotify 가입 이메일을 추가해 주세요."
