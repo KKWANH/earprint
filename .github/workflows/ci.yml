@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# One run per ref; cancel superseded runs on the same branch/PR.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Typecheck + unit tests + production build + the public (no-auth)
+  # Playwright smoke suite. Runs on every push/PR. No secrets needed —
+  # the public pages render against an empty DB (their queries are
+  # wrapped in try/catch and degrade to empty states).
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # Install from the workspace root so the lockfile + workspace
+      # packages resolve; --frozen-lockfile enforces a committed lock.
+      - name: Install
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm exec tsc -p tsconfig.json --noEmit
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm exec next build
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Public smoke suite boots `next dev` itself (see playwright.config.ts).
+      # DATABASE_URL points at nothing real here; public pages still render.
+      - name: Public E2E
+        run: pnpm e2e
+
+  # Authed Playwright suite — logged-in surfaces against a SEEDED test
+  # database. Gated on repo secrets so it runs only on trusted (non-fork)
+  # contexts that provide a throwaway DB; forks/PRs without secrets skip
+  # it cleanly instead of failing. NEVER point E2E_DATABASE_URL at prod.
+  authed-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: verify
+    # Skip unless the test-DB secret is configured for this run.
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    defaults:
+      run:
+        working-directory: apps/web
+    env:
+      # Supplied as repo/environment secrets. A bare run with these unset
+      # is detected below and the job no-ops.
+      DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
+      AUTH_SECRET: ${{ secrets.E2E_AUTH_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for test-DB secret
+        id: gate
+        run: |
+          if [ -n "${DATABASE_URL}" ] && [ -n "${AUTH_SECRET}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Authed E2E skipped — E2E_DATABASE_URL / E2E_AUTH_SECRET secrets not set."
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        if: steps.gate.outputs.ready == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Seed the throwaway DB, then run the authed suite. e2e:authed in
+      # CI doesn't read .dev.vars (absent here) — it uses the env above.
+      - name: Seed test DB
+        if: steps.gate.outputs.ready == 'true'
+        run: pnpm e2e:seed
+
+      - name: Authed E2E
+        if: steps.gate.outputs.ready == 'true'
+        run: pnpm e2e:authed

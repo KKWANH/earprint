@@ -180,12 +180,12 @@ export function SpotifyPlaylistPicker({ ko }: { ko: boolean }) {
                           {p.name}
                           {p.collaborative && (
                             <span className="ml-1 rounded bg-amber-500/20 px-1 text-[9px] text-amber-200">
-                              협업
+                              {t.playlistCollaborative}
                             </span>
                           )}
                         </span>
                         <span className="block truncate text-[10px] text-neutral-500">
-                          {p.trackCount}곡
+                          {t.playlistTrackCount(p.trackCount)}
                           {p.ownerName && !p.isOwn && (
                             <>
                               {" "}· {t.playlistOwnerBy}

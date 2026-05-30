@@ -272,7 +272,7 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
           <h2 className="text-sm font-semibold text-neutral-400">
             {t.spotifyComingSoonTitle}
           </h2>
-          <span className="text-[10px] text-neutral-600">v0 · Liked Songs only</span>
+          <span className="text-[10px] text-neutral-600">{t.spotifyVersionTag}</span>
         </div>
         <p className="text-xs leading-relaxed text-neutral-500">
           {t.spotifyComingSoonDesc}
@@ -300,7 +300,7 @@ export function SpotifyConnectCard({ locale }: { locale: Locale }) {
           <h2 className="text-sm font-semibold text-[#1DB954]">
             {t.spotifyConnectTitle}
           </h2>
-          <span className="text-[10px] text-neutral-600">v0 · Liked Songs only</span>
+          <span className="text-[10px] text-neutral-600">{t.spotifyVersionTag}</span>
         </div>
         <p className="text-xs leading-relaxed text-neutral-400">
           {t.spotifyConnectDesc}

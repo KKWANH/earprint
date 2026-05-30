@@ -100,11 +100,12 @@ function HistoryItem({
   const subject = row.champion.artist
     ? `${row.champion.title ?? "—"} · ${row.champion.artist}`
     : row.champion.title ?? row.champion.id ?? "—";
+  const t = accountDict(locale);
   const catLabel = labelForCategory(row.category, locale);
   return (
     <li className="flex items-baseline gap-3 border-b border-neutral-800/60 py-1.5 text-sm last:border-0">
       <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
-        {row.size}강
+        {t.bracketSizeLabel(row.size)}
       </span>
       <span className="shrink-0 text-xs text-neutral-500">{catLabel}</span>
       <span className="min-w-0 flex-1 truncate text-neutral-200">{subject}</span>

@@ -73,16 +73,16 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        // Public mode loads .dev.vars (prod DB, read-only public pages).
-        // Authed mode inherits the caller's env (test-branch DATABASE_URL
-        // + AUTH_SECRET loaded above) — no --env-file so prod isn't used.
-        command: authed
-          ? "node node_modules/next/dist/bin/next dev"
-          : "node --env-file=.dev.vars node_modules/next/dist/bin/next dev",
+        // Plain `next dev` for both modes. The dev server inherits this
+        // process's env, and the .dev.vars values were already loaded
+        // into process.env at the top of this config (when the file
+        // exists). So we don't pass --env-file — that would hard-fail
+        // in CI where .dev.vars is absent. Local dev: vars come from the
+        // loader above; CI: from the workflow env / secrets.
+        command: "node node_modules/next/dist/bin/next dev",
         url: "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
-        // (Playwright inherits process.env by default — incl. the
-        // AUTH_SECRET we loaded above and the caller's DATABASE_URL.)
+        env: process.env as Record<string, string>,
       },
 });

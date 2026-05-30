@@ -211,6 +211,10 @@ const en = {
     `+${added} of ${scanned} scanned`,
   playlistStopped: "stopped syncing",
   playlistOwnerBy: "by ",
+  playlistCollaborative: "collab",
+  playlistTrackCount: (n: number) => `${n} tracks`,
+  spotifyVersionTag: "v0 · Liked Songs only",
+  bracketSizeLabel: (n: number) => `${n}`,
 };
 
 const ko: typeof en = {
@@ -400,6 +404,10 @@ const ko: typeof en = {
     `${added}곡 추가 (${scanned} 검사)`,
   playlistStopped: "동기화 중단됨",
   playlistOwnerBy: "by ",
+  playlistCollaborative: "협업",
+  playlistTrackCount: (n: number) => `${n}곡`,
+  spotifyVersionTag: "v0 · Liked Songs만",
+  bracketSizeLabel: (n: number) => `${n}강`,
 };
 
 export function accountDict(locale: Locale) {
