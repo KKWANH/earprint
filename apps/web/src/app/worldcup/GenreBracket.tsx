@@ -2,6 +2,7 @@
 
 import { genreHue } from "@/lib/forceGraph";
 import type { Locale } from "@/lib/i18n";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 import { Bracket, ShareChampionButton, type Rec } from "./Bracket";
 import { GenreCard } from "./GenreCard";
 
@@ -55,6 +56,7 @@ function GenreChampionView({
   onRestart: () => void;
   locale: Locale;
 }) {
+  const t = worldcupDict(locale);
   const hue = genreHue(champion.id);
   return (
     <div
@@ -66,7 +68,7 @@ function GenreChampionView({
       }}
     >
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
-        🏆 {locale === "ko" ? "우승 장르" : "Champion genre"}
+        🏆 {t.genreChampionBadge}
       </p>
       <h2 className="text-4xl font-extrabold capitalize leading-tight">
         {champion.id}
@@ -90,7 +92,7 @@ function GenreChampionView({
           onClick={onRestart}
           className="rounded-md bg-emerald-500 px-5 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
         >
-          {locale === "ko" ? "새 토너먼트" : "New tournament"}
+          {t.genreNewTournament}
         </button>
       </div>
     </div>

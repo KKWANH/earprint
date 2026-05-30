@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { TrendingBracket } from "@/lib/community-stats";
 import type { Locale } from "@/lib/i18n";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 
 /**
  * Inline trending strip — 3 community brackets that are picking up
@@ -19,18 +20,18 @@ export function TrendingCommunityRow({
   locale: Locale;
 }) {
   if (trending.length === 0) return null;
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
-          {ko ? "🔥 지금 핫한 커뮤니티 월드컵" : "🔥 Trending community worldcups"}
+          {t.trendingHeading}
         </h2>
         <Link
           href="/worldcup/community?sort=trending"
           className="text-xs text-neutral-500 hover:text-emerald-300"
         >
-          {ko ? "더 보기 →" : "More →"}
+          {t.trendingMore}
         </Link>
       </div>
       {/* R35 — switched from sm:grid-cols-3 (horizontal 3-up) to a
@@ -78,12 +79,12 @@ export function TrendingCommunityRow({
               <div className="flex items-center gap-2 text-[11px] text-neutral-400">
                 <span>
                   {b.itemCount}
-                  {ko ? "강" : "-slot"}
+                  {t.slotSuffix}
                 </span>
                 <span className="text-neutral-700">·</span>
                 <span>
                   {b.playCount.toLocaleString()}
-                  {ko ? "회 진행" : " plays"}
+                  {t.playsSuffixSpace}
                 </span>
               </div>
             </div>

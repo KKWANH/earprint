@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 import { CommunityRunner } from "./CommunityRunner";
 import { EmbedCodeButton } from "./stats/EmbedCodeButton";
 
@@ -58,7 +59,7 @@ export default async function CommunityPlay({
   if (items.length < 4) notFound();
 
   const locale = await getLocale();
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-10">
@@ -67,22 +68,22 @@ export default async function CommunityPlay({
           href="/worldcup/community"
           className="text-xs text-neutral-500 hover:text-white"
         >
-          ← {ko ? "커뮤니티 월드컵" : "Community worldcups"}
+          ← {t.listTitle}
         </Link>
         <h1 className="mt-1 text-xl font-bold sm:text-2xl">{wc.title as string}</h1>
         {wc.description ? (
           <p className="text-sm text-neutral-400">{wc.description as string}</p>
         ) : null}
         <p className="mt-1 text-[11px] text-neutral-600">
-          {items.length}-{ko ? "인 토너먼트 · " : "slot tournament · "}
-          {(wc.play_count as number).toLocaleString()} {ko ? "회 진행" : "plays"}
+          {items.length}-{t.slotTournamentSuffix}
+          {(wc.play_count as number).toLocaleString()} {t.playsSuffix}
           {/* "made by @handle" byline — links to the creator's
               public profile (R26b). Hidden when the owner row was
               deleted (LEFT JOIN above leaves email NULL). */}
           {ownerHandle && (
             <>
               {" · "}
-              {ko ? "메이커 " : "by "}
+              {t.byPrefix}
               <Link
                 href={`/u/${encodeURIComponent(ownerHandle)}`}
                 className="text-neutral-400 hover:text-sky-300 hover:underline"
@@ -106,7 +107,7 @@ export default async function CommunityPlay({
       />
       <div className="flex flex-wrap items-center gap-4 text-xs text-neutral-500">
         <Link href={`/worldcup/community/${id}/stats`} className="hover:text-white hover:underline">
-          {ko ? "통계 보기 →" : "View stats →"}
+          {t.viewStats}
         </Link>
         {/* R29e — embed CTA moved up from stats-only so creators
             can grab the iframe code right after playing without

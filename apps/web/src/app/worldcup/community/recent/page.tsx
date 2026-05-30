@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 import { RecentResultsFeed } from "./RecentResultsFeed";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +84,7 @@ export default async function RecentResults() {
   const { items, nextBefore, nextBeforeId } = await loadInitial();
   const locale = await getLocale();
   const ko = locale === "ko";
+  const t = worldcupDict(locale);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-10">
@@ -90,16 +92,14 @@ export default async function RecentResults() {
         href="/worldcup/community"
         className="text-xs text-neutral-500 hover:text-white"
       >
-        ← {ko ? "커뮤니티" : "Community"}
+        ← {t.recentBack}
       </Link>
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold sm:text-3xl">
-          {ko ? "🏁 최근 결과" : "🏁 Recent results"}
+          {t.recentHeading}
         </h1>
         <p className="text-sm text-neutral-400">
-          {ko
-            ? "방금 끝난 커뮤니티 월드컵의 우승곡 라이브 피드 (스크롤로 더 보기)."
-            : "Live feed of the most recent community worldcup champions (scroll to load more)."}
+          {t.recentIntro}
         </p>
       </header>
       <RecentResultsFeed

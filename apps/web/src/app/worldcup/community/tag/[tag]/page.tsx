@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 
 /**
  * /worldcup/community/tag/[tag] — SEO-friendly canonical landing
@@ -78,7 +79,7 @@ export default async function TagLanding({
   const rows = await loadForTag(lc);
   if (rows.length === 0) notFound();
   const locale = await getLocale();
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-10">
@@ -86,14 +87,12 @@ export default async function TagLanding({
         href="/worldcup/community"
         className="text-xs text-neutral-500 hover:text-white"
       >
-        ← {ko ? "커뮤니티 월드컵" : "Community worldcups"}
+        ← {t.listTitle}
       </Link>
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold sm:text-3xl">#{lc}</h1>
         <p className="text-sm text-neutral-400">
-          {ko
-            ? `이 태그가 달린 커뮤니티 월드컵 ${rows.length}개.`
-            : `${rows.length} community worldcups tagged with this.`}
+          {t.tagCountLine(rows.length)}
         </p>
       </header>
       <ul className="grid gap-3 sm:grid-cols-2">
@@ -126,12 +125,12 @@ export default async function TagLanding({
               <div className="flex flex-wrap gap-2 text-[11px] text-neutral-500">
                 <span>
                   {r.item_count}
-                  {ko ? "강" : "-slot"}
+                  {t.slotSuffixSpace}
                 </span>
                 <span>·</span>
                 <span>
                   {r.play_count.toLocaleString()}
-                  {ko ? "회 진행" : " plays"}
+                  {t.playsSuffixSpace}
                 </span>
               </div>
             </Link>
@@ -143,7 +142,7 @@ export default async function TagLanding({
           href={`/worldcup/community?tag=${encodeURIComponent(lc)}&sort=trending`}
           className="hover:text-emerald-300"
         >
-          {ko ? "정렬·필터 더 보기 →" : "More sort / filter options →"}
+          {t.moreSortFilter}
         </Link>
       </p>
     </main>

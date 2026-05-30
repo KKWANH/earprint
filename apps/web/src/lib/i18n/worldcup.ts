@@ -174,6 +174,89 @@ const en = {
   shareChampion: "Share",
   shareChampionText: (subject: string, url: string) =>
     `🏆 My World Cup champion: ${subject}\n${url}`,
+
+  // ── Wave 3: worldcup tail ────────────────────────────────────────
+  // champion/[id] page
+  championPatternRandom: "🎲 Random",
+  championPatternFavorites: "❤️ Top picks",
+  championPatternOpposites: "⚡ Opposites",
+  championPatternCross: "🔀 Mixed",
+  championBadge: "World Cup champion",
+  slotSuffix: "-slot",
+  championLikeYtMusic: "Like in YT Music ↗",
+  championStartOwn: "Start your own World Cup",
+  championViewReplay: "View full bracket replay →",
+
+  // community/[id] play page
+  slotTournamentSuffix: "slot tournament · ",
+  playsSuffix: "plays",
+  byPrefix: "by ",
+  viewStats: "View stats →",
+
+  // community/tag/[tag]
+  tagCountLine: (n: number) => `${n} community worldcups tagged with this.`,
+  slotSuffixSpace: "-slot",
+  playsSuffixSpace: " plays",
+  moreSortFilter: "More sort / filter options →",
+
+  // community/[id]/stats
+  statsPlayAgain: "Play again",
+  statsPlaysSoFar: "plays so far",
+  statsNoPlays: "No plays yet — be the first.",
+  statsWins: "Wins",
+
+  // TrendingCommunityRow
+  trendingHeading: "🔥 Trending community worldcups",
+  trendingMore: "More →",
+
+  // MyWorldcupsRow
+  myWorldcupsHeading: "📌 My worldcups",
+  myWorldcupsViewAll: "View all →",
+  playsSuffixBare: "",
+
+  // curate/[size]
+  curateSignIn: "Sign in with Google",
+  curateHome: "Worldcup home",
+  curateBracketTitle: (size: number) => `AI-curated ${size}-bracket`,
+  curateIntro:
+    "Pick a lens (or write your own) and AI selects matching tracks from your library to compose the bracket.",
+
+  // community/recent
+  recentBack: "Community",
+  recentHeading: "🏁 Recent results",
+  recentIntro:
+    "Live feed of the most recent community worldcup champions (scroll to load more).",
+
+  // EmbedCodeButton (stats dir)
+  embedCopied: "Copied",
+  embedCopyFailed: "Copy failed",
+  embedCopyCode: "Copy embed code for blogs/forums",
+
+  // champion/[id]/replay
+  replayRoundFinal: "Final",
+  replayRoundSemi: "Semi-final",
+  replayRoundQuarter: "Quarter-final",
+  replayRoundOf: (n: number) => `Round of ${n}`,
+  replayChampionPage: "Champion page",
+  replayFullBracket: "Full bracket replay",
+  replayNoLog:
+    "No replay log saved for this tournament. Run a new one to capture the full bracket.",
+
+  // InProgressCard
+  inProgressClearConfirm:
+    "Clear all in-progress worldcups? This can't be undone.",
+  inProgressClearAll: "Clear all",
+  inProgressShowLess: "Show less",
+  inProgressShowMore: (n: number) => `Show ${n} more`,
+
+  // GenreBracket
+  genreChampionBadge: "Champion genre",
+  genreNewTournament: "New tournament",
+
+  // community/create
+  createPageTitle: "Make a worldcup",
+  createPageIntro:
+    "Paste 4 / 8 / 16 / 32 YouTube URLs to compose a tournament. Once published, anyone can play it and the win-rate stats stack up.",
 };
 
 const ko: typeof en = {
@@ -338,6 +421,88 @@ const ko: typeof en = {
   shareChampion: "공유",
   shareChampionText: (subject: string, url: string) =>
     `🏆 내 월드컵 우승: ${subject}\n${url}`,
+
+  // ── Wave 3: worldcup tail ────────────────────────────────────────
+  // champion/[id] page
+  championPatternRandom: "🎲 무작위",
+  championPatternFavorites: "❤️ 최애끼리",
+  championPatternOpposites: "⚡ 정반대끼리",
+  championPatternCross: "🔀 혼합",
+  championBadge: "월드컵 우승",
+  slotSuffix: "강",
+  championLikeYtMusic: "YT Music에서 좋아요",
+  championStartOwn: "내 월드컵 시작",
+  championViewReplay: "전체 대진 리플레이 보기 →",
+
+  // community/[id] play page
+  slotTournamentSuffix: "인 토너먼트 · ",
+  playsSuffix: "회 진행",
+  byPrefix: "메이커 ",
+  viewStats: "통계 보기 →",
+
+  // community/tag/[tag]
+  tagCountLine: (n: number) => `이 태그가 달린 커뮤니티 월드컵 ${n}개.`,
+  slotSuffixSpace: "강",
+  playsSuffixSpace: "회 진행",
+  moreSortFilter: "정렬·필터 더 보기 →",
+
+  // community/[id]/stats
+  statsPlayAgain: "다시 플레이",
+  statsPlaysSoFar: "회 진행됨",
+  statsNoPlays: "아직 진행된 플레이가 없습니다.",
+  statsWins: "승률",
+
+  // TrendingCommunityRow
+  trendingHeading: "🔥 지금 핫한 커뮤니티 월드컵",
+  trendingMore: "더 보기 →",
+
+  // MyWorldcupsRow
+  myWorldcupsHeading: "📌 내가 만든 월드컵",
+  myWorldcupsViewAll: "전체 보기 →",
+  playsSuffixBare: "회",
+
+  // curate/[size]
+  curateSignIn: "Google 로 로그인",
+  curateHome: "월드컵 홈",
+  curateBracketTitle: (size: number) => `AI 큐레이션 ${size}강`,
+  curateIntro:
+    "라이브러리에서 분위기에 맞는 곡을 AI 가 골라 토너먼트를 만들어줍니다. 렌즈를 고르거나 직접 적어보세요.",
+
+  // community/recent
+  recentBack: "커뮤니티",
+  recentHeading: "🏁 최근 결과",
+  recentIntro:
+    "방금 끝난 커뮤니티 월드컵의 우승곡 라이브 피드 (스크롤로 더 보기).",
+
+  // EmbedCodeButton (stats dir)
+  embedCopied: "복사 완료",
+  embedCopyFailed: "복사 실패",
+  embedCopyCode: "블로그/포럼용 임베드 코드 복사",
+
+  // champion/[id]/replay
+  replayRoundFinal: "결승",
+  replayRoundSemi: "준결승",
+  replayRoundQuarter: "8강",
+  replayRoundOf: (n: number) => `${n}강`,
+  replayChampionPage: "우승 페이지",
+  replayFullBracket: "전체 대진 리플레이",
+  replayNoLog:
+    "이 토너먼트는 리플레이 기록이 없어요. 새 토너먼트를 진행해 보세요.",
+
+  // InProgressCard
+  inProgressClearConfirm: "진행 중인 월드컵을 모두 지울까요? 되돌릴 수 없어요.",
+  inProgressClearAll: "모두 비우기",
+  inProgressShowLess: "접기",
+  inProgressShowMore: (n: number) => `+${n}개 더 보기`,
+
+  // GenreBracket
+  genreChampionBadge: "우승 장르",
+  genreNewTournament: "새 토너먼트",
+
+  // community/create
+  createPageTitle: "월드컵 만들기",
+  createPageIntro:
+    "YouTube 영상 URL 을 4 / 8 / 16 / 32 개 입력해 토너먼트를 만드세요. 만들면 누구든지 플레이할 수 있고, 결과 통계가 쌓입니다.",
 };
 
 export function worldcupDict(locale: Locale) {

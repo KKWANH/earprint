@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { TrendingBracket } from "@/lib/community-stats";
 import type { Locale } from "@/lib/i18n";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 
 /**
  * "📌 내가 만든 월드컵" strip on /worldcup home for signed-in users
@@ -24,19 +25,19 @@ export function MyWorldcupsRow({
   ownerHandle: string | null;
 }) {
   if (items.length === 0) return null;
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500">
-          {ko ? "📌 내가 만든 월드컵" : "📌 My worldcups"}
+          {t.myWorldcupsHeading}
         </h2>
         {ownerHandle && (
           <Link
             href={`/u/${encodeURIComponent(ownerHandle)}`}
             className="text-xs text-neutral-500 hover:text-emerald-300"
           >
-            {ko ? "전체 보기 →" : "View all →"}
+            {t.myWorldcupsViewAll}
           </Link>
         )}
       </div>
@@ -73,12 +74,12 @@ export function MyWorldcupsRow({
               <div className="flex items-center gap-1.5 text-[10px] text-neutral-500">
                 <span>
                   {b.itemCount}
-                  {ko ? "강" : "-slot"}
+                  {t.slotSuffix}
                 </span>
                 <span className="text-neutral-700">·</span>
                 <span>
                   {b.playCount.toLocaleString()}
-                  {ko ? "회" : ""}
+                  {t.playsSuffixBare}
                 </span>
               </div>
             </div>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { auth, signIn } from "@/auth";
 import { getLocale } from "@/lib/i18n-server";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 import { CurateForm } from "./CurateForm";
 
 const ALLOWED_SIZES = new Set([4, 8, 16, 32]);
@@ -36,7 +37,7 @@ export default async function CuratePage({
   if (!ALLOWED_SIZES.has(size)) notFound();
 
   const locale = await getLocale();
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
 
   const session = await auth();
   if (!session?.user) {
@@ -49,7 +50,7 @@ export default async function CuratePage({
           }}
         >
           <button className="rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-900">
-            {ko ? "Google 로 로그인" : "Sign in with Google"}
+            {t.curateSignIn}
           </button>
         </form>
       </main>
@@ -60,15 +61,13 @@ export default async function CuratePage({
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-6 sm:py-10">
       <header className="flex flex-col gap-1">
         <Link href="/worldcup" className="text-xs text-neutral-500 hover:text-white">
-          ← {ko ? "월드컵 홈" : "Worldcup home"}
+          ← {t.curateHome}
         </Link>
         <h1 className="mt-1 text-2xl font-bold sm:text-3xl">
-          {ko ? `AI 큐레이션 ${size}강` : `AI-curated ${size}-bracket`}
+          {t.curateBracketTitle(size)}
         </h1>
         <p className="text-sm text-neutral-400">
-          {ko
-            ? "라이브러리에서 분위기에 맞는 곡을 AI 가 골라 토너먼트를 만들어줍니다. 렌즈를 고르거나 직접 적어보세요."
-            : "Pick a lens (or write your own) and AI selects matching tracks from your library to compose the bracket."}
+          {t.curateIntro}
         </p>
       </header>
       <CurateForm size={size as 4 | 8 | 16 | 32} locale={locale} />

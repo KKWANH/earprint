@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 import { EmbedCodeButton } from "./EmbedCodeButton";
 
 export async function generateMetadata({
@@ -43,7 +44,7 @@ export default async function CommunityStats({
     ORDER BY champion_count DESC, win_count DESC, position`;
 
   const locale = await getLocale();
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
   const totalPlays = wc.play_count as number;
 
   return (
@@ -53,18 +54,18 @@ export default async function CommunityStats({
           href={`/worldcup/community/${id}`}
           className="text-xs text-neutral-500 hover:text-white"
         >
-          ← {ko ? "다시 플레이" : "Play again"}
+          ← {t.statsPlayAgain}
         </Link>
         <h1 className="mt-1 text-xl font-bold sm:text-2xl">{wc.title as string}</h1>
         <p className="text-xs text-neutral-500">
-          {totalPlays.toLocaleString()} {ko ? "회 진행됨" : "plays so far"}
+          {totalPlays.toLocaleString()} {t.statsPlaysSoFar}
         </p>
         <EmbedCodeButton worldcupId={id} locale={locale} />
       </header>
 
       {totalPlays === 0 ? (
         <p className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-6 text-center text-sm text-neutral-500">
-          {ko ? "아직 진행된 플레이가 없습니다." : "No plays yet — be the first."}
+          {t.statsNoPlays}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -108,7 +109,7 @@ export default async function CommunityStats({
                     🏆 {championRate}%
                   </span>
                   <span className="text-neutral-500">
-                    {ko ? "승률" : "Wins"} {winRate}%
+                    {t.statsWins} {winRate}%
                   </span>
                 </div>
               </li>

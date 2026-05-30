@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 
 /**
  * "Copy embed code" button for community-worldcup creators. Emits
@@ -18,6 +19,7 @@ export function EmbedCodeButton({
   worldcupId: string;
   locale: Locale;
 }) {
+  const t = worldcupDict(locale);
   const [note, setNote] = useState<string | null>(null);
   async function copy() {
     const origin =
@@ -29,9 +31,9 @@ export function EmbedCodeButton({
       `style="max-width:100%;border:0;border-radius:12px"></iframe>`;
     try {
       await navigator.clipboard.writeText(html);
-      setNote(locale === "ko" ? "복사 완료" : "Copied");
+      setNote(t.embedCopied);
     } catch {
-      setNote(locale === "ko" ? "복사 실패" : "Copy failed");
+      setNote(t.embedCopyFailed);
     }
   }
   return (
@@ -39,7 +41,7 @@ export function EmbedCodeButton({
       onClick={() => void copy()}
       className="mt-2 self-start rounded-md border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-neutral-300 hover:border-emerald-500/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40"
     >
-      🪟 {note ?? (locale === "ko" ? "블로그/포럼용 임베드 코드 복사" : "Copy embed code for blogs/forums")}
+      🪟 {note ?? t.embedCopyCode}
     </button>
   );
 }

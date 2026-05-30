@@ -1,5 +1,6 @@
 import { auth, signIn } from "@/auth";
 import { getLocale } from "@/lib/i18n-server";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 import { CreateForm } from "./CreateForm";
 import type { Metadata } from "next";
 
@@ -19,6 +20,7 @@ export default async function CreateCommunityWorldcup({
   searchParams: Promise<{ tag?: string }>;
 }) {
   const locale = await getLocale();
+  const t = worldcupDict(locale);
   const session = await auth();
   // R28c — optional `?tag=` pre-seed (linked from /genre/[name]).
   // Whitelisted to short lowercase tokens to avoid an injection
@@ -51,12 +53,10 @@ export default async function CreateCommunityWorldcup({
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold sm:text-3xl">
-          {locale === "ko" ? "월드컵 만들기" : "Make a worldcup"}
+          {t.createPageTitle}
         </h1>
         <p className="text-sm text-neutral-400">
-          {locale === "ko"
-            ? "YouTube 영상 URL 을 4 / 8 / 16 / 32 개 입력해 토너먼트를 만드세요. 만들면 누구든지 플레이할 수 있고, 결과 통계가 쌓입니다."
-            : "Paste 4 / 8 / 16 / 32 YouTube URLs to compose a tournament. Once published, anyone can play it and the win-rate stats stack up."}
+          {t.createPageIntro}
         </p>
       </header>
       <CreateForm locale={locale} initialTag={initialTag} />

@@ -105,7 +105,6 @@ export function InProgressCard({ locale }: { locale: Locale }) {
   const [items, setItems] = useState<SavedBracket[]>([]);
   const [showAll, setShowAll] = useState(false);
   const t = worldcupDict(locale);
-  const ko = locale === "ko";
   // R38 (EC-6) — cap the visible list so a user who abandoned dozens
   // of brackets doesn't get a wall of resume cards. Show top 5
   // (most recent) + a "show all" expander.
@@ -126,14 +125,7 @@ export function InProgressCard({ locale }: { locale: Locale }) {
   }
 
   function clearAll() {
-    if (
-      !window.confirm(
-        ko
-          ? "진행 중인 월드컵을 모두 지울까요? 되돌릴 수 없어요."
-          : "Clear all in-progress worldcups? This can't be undone.",
-      )
-    )
-      return;
+    if (!window.confirm(t.inProgressClearConfirm)) return;
     for (const it of items) {
       try {
         window.localStorage.removeItem(it.key);
@@ -171,7 +163,7 @@ export function InProgressCard({ locale }: { locale: Locale }) {
             onClick={clearAll}
             className="text-[11px] text-neutral-500 hover:text-rose-300"
           >
-            {ko ? "모두 비우기" : "Clear all"}
+            {t.inProgressClearAll}
           </button>
         )}
       </div>
@@ -225,10 +217,8 @@ export function InProgressCard({ locale }: { locale: Locale }) {
           className="self-start text-xs text-neutral-500 hover:text-amber-300"
         >
           {showAll
-            ? ko ? "접기" : "Show less"
-            : ko
-              ? `+${items.length - VISIBLE_CAP}개 더 보기`
-              : `Show ${items.length - VISIBLE_CAP} more`}
+            ? t.inProgressShowLess
+            : t.inProgressShowMore(items.length - VISIBLE_CAP)}
         </button>
       )}
     </section>

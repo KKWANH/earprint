@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getSql } from "@/lib/db";
 import { getLocale } from "@/lib/i18n-server";
+import { worldcupDict } from "@/lib/i18n/worldcup";
 
 interface ReplayCard {
   id?: string;
@@ -67,7 +68,7 @@ export default async function ChampionReplay({
   if (!row) notFound();
 
   const locale = await getLocale();
-  const ko = locale === "ko";
+  const t = worldcupDict(locale);
   const path = (row.bracket_path as PairOutcome[] | null) ?? null;
   // Group by round.
   const byRound = new Map<number, PairOutcome[]>();
@@ -83,16 +84,10 @@ export default async function ChampionReplay({
   const totalRounds = rounds.length;
   const roundLabel = (round: number, total: number): string => {
     const remaining = total - round;
-    if (ko) {
-      if (remaining <= 1) return "결승";
-      if (remaining === 2) return "준결승";
-      if (remaining === 3) return "8강";
-      return `${2 ** remaining}강`;
-    }
-    if (remaining <= 1) return "Final";
-    if (remaining === 2) return "Semi-final";
-    if (remaining === 3) return "Quarter-final";
-    return `Round of ${2 ** remaining}`;
+    if (remaining <= 1) return t.replayRoundFinal;
+    if (remaining === 2) return t.replayRoundSemi;
+    if (remaining === 3) return t.replayRoundQuarter;
+    return t.replayRoundOf(2 ** remaining);
   };
 
   const champ = row.champion as ReplayCard;
@@ -107,13 +102,13 @@ export default async function ChampionReplay({
           href={`/worldcup/champion/${id}`}
           className="text-xs text-neutral-500 hover:text-white"
         >
-          ← {ko ? "우승 페이지" : "Champion page"}
+          ← {t.replayChampionPage}
         </Link>
         <h1 className="text-xl font-bold sm:text-2xl">
           🏆 {champSubject}
         </h1>
         <p className="text-xs text-neutral-500">
-          {ko ? "전체 대진 리플레이" : "Full bracket replay"}
+          {t.replayFullBracket}
         </p>
       </header>
 
@@ -171,9 +166,7 @@ export default async function ChampionReplay({
         </div>
       ) : (
         <p className="rounded-md border border-neutral-800 bg-neutral-900 px-4 py-8 text-center text-sm text-neutral-500">
-          {ko
-            ? "이 토너먼트는 리플레이 기록이 없어요. 새 토너먼트를 진행해 보세요."
-            : "No replay log saved for this tournament. Run a new one to capture the full bracket."}
+          {t.replayNoLog}
         </p>
       )}
     </main>
