@@ -1,16 +1,45 @@
 import { defineConfig, devices } from "@playwright/test";
+import fs from "node:fs";
 
 /**
- * E2E config (R39). Smoke-tests that public pages render without
- * runtime crashes — the class of bug unit tests + tsc don't catch
- * (RSC serialization breaks, null-deref in render, a client component
- * that throws on mount). Auth-gated flows (login → sync → analyze →
- * worldcup → share) need a seeded test DB + a test auth path; see
- * e2e/README.md for the Phase-2 plan.
+ * E2E config (R39 public smoke + R40b authed suite).
  *
- * Run: `pnpm e2e`. Boots `next dev` automatically unless E2E_BASE_URL
- * points at an already-running server (e.g. a preview deploy).
+ * Two modes, selected by E2E_AUTHED:
+ *  - default (`pnpm e2e`): PUBLIC smoke suite (e2e/smoke.spec.ts). No
+ *    auth, no seeding. Boots `next dev` with --env-file=.dev.vars so
+ *    DB-backed public pages render.
+ *  - authed (`pnpm e2e:authed`): logged-in suite (e2e/authed/*). A
+ *    setup project mints a session cookie (auth.setup.ts) for the
+ *    seeded test user; the dev server runs against a DATABASE_URL the
+ *    caller supplies (a throwaway Neon branch — NEVER production).
+ *
+ * .dev.vars is parsed into process.env here so the setup project can
+ * read AUTH_SECRET. In authed mode we deliberately DO NOT pull
+ * DATABASE_URL from .dev.vars — the caller must pass a test-branch URL,
+ * so a bare `pnpm e2e:authed` fails safe instead of seeding production.
  */
+const authed = !!process.env.E2E_AUTHED;
+
+try {
+  for (const line of fs.readFileSync(".dev.vars", "utf8").split("\n")) {
+    const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*)\s*$/);
+    if (!m) continue;
+    const key = m[1];
+    if (process.env[key]) continue; // caller-provided env wins
+    if (authed && key === "DATABASE_URL") continue; // force explicit test DB
+    let v = m[2].trim();
+    if (
+      (v.startsWith('"') && v.endsWith('"')) ||
+      (v.startsWith("'") && v.endsWith("'"))
+    ) {
+      v = v.slice(1, -1);
+    }
+    process.env[key] = v;
+  }
+} catch {
+  /* no .dev.vars (e.g. CI) — rely on the ambient env */
+}
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -21,17 +50,39 @@ export default defineConfig({
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: authed
+    ? [
+        { name: "setup", testMatch: /auth\.setup\.ts/ },
+        {
+          name: "authed",
+          testMatch: /authed\/.*\.spec\.ts/,
+          dependencies: ["setup"],
+          use: {
+            ...devices["Desktop Chrome"],
+            storageState: "e2e/.auth/user.json",
+          },
+        },
+      ]
+    : [
+        {
+          name: "chromium",
+          testMatch: /smoke\.spec\.ts/,
+          use: { ...devices["Desktop Chrome"] },
+        },
+      ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        // Load .dev.vars (DATABASE_URL, AUTH_SECRET, …) the same way the
-        // local node scripts do — plain `next dev` doesn't read it, so
-        // DB-backed pages would 500. --env-file parses dotenv properly
-        // (handles quoted values), unlike sourcing in a shell.
-        command: "node --env-file=.dev.vars node_modules/next/dist/bin/next dev",
+        // Public mode loads .dev.vars (prod DB, read-only public pages).
+        // Authed mode inherits the caller's env (test-branch DATABASE_URL
+        // + AUTH_SECRET loaded above) — no --env-file so prod isn't used.
+        command: authed
+          ? "node node_modules/next/dist/bin/next dev"
+          : "node --env-file=.dev.vars node_modules/next/dist/bin/next dev",
         url: "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
+        // (Playwright inherits process.env by default — incl. the
+        // AUTH_SECRET we loaded above and the caller's DATABASE_URL.)
       },
 });

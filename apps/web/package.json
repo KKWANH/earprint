@@ -16,7 +16,9 @@
     "analyze:local": "node --env-file=.dev.vars scripts/analyze-local.mjs",
     "backfill:years": "node --env-file=.dev.vars scripts/backfill-mb-years.mjs",
     "import:takeout": "node --env-file=.dev.vars scripts/import-takeout.mjs",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:seed": "node scripts/e2e-seed.mjs",
+    "e2e:authed": "E2E_AUTHED=1 playwright test"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
