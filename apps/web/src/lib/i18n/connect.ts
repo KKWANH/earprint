@@ -40,6 +40,16 @@ const en = {
   ],
   privacyNote:
     "The extension runs inside your tab as you. We never receive your YouTube session cookies, Authorization headers, or SAPISID hash. The only thing the server ever sees is the same per-song fields the UI already shows you: title, artist, album, videoId, like-position.",
+
+  // LastSyncBadge / formatRelative
+  lastSyncHeaderHint: (expected: string) =>
+    ` · header showed ${expected} (re-sync to pick up the rest)`,
+  lastSyncLine: (captured: string, headerHint: string, ago: string) =>
+    `✓ Last sync — ${captured} songs sent${headerHint} · ${ago}`,
+  relJustNow: "just now",
+  relMinAgo: (n: number) => `${n} min ago`,
+  relHrAgo: (n: number) => `${n}h ago`,
+  relDayAgo: (n: number) => `${n}d ago`,
 };
 
 const ko: typeof en = {
@@ -68,6 +78,15 @@ const ko: typeof en = {
   ],
   privacyNote:
     "확장은 본인 탭에서 본인 자격으로 실행됩니다. 서버는 YouTube 세션 쿠키 · Authorization 헤더 · SAPISID 해시를 받지 않습니다. 서버가 보는 것은 화면에 이미 표시되는 곡당 정보 — title · artist · album · videoId · 좋아요-위치 뿐입니다.",
+
+  lastSyncHeaderHint: (expected: string) =>
+    ` · 페이지 헤더는 ${expected}곡 표시 (다시 동기화하면 누락분 추가)`,
+  lastSyncLine: (captured: string, headerHint: string, ago: string) =>
+    `✓ 마지막 동기화 — ${captured}곡 전송됨${headerHint} · ${ago}`,
+  relJustNow: "방금",
+  relMinAgo: (n: number) => `${n}분 전`,
+  relHrAgo: (n: number) => `${n}시간 전`,
+  relDayAgo: (n: number) => `${n}일 전`,
 };
 
 export function connectDict(locale: Locale) {

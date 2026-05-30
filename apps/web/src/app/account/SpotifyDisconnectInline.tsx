@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { accountDict } from "@/lib/i18n/account";
 
 /**
  * R32d — small connection status chip + disconnect button rendered
@@ -15,6 +16,7 @@ import { useRouter } from "next/navigation";
  */
 export function SpotifyDisconnectInline({ ko }: { ko: boolean }) {
   const router = useRouter();
+  const t = accountDict(ko ? "ko" : "en");
   const [state, setState] = useState<
     "loading" | "not-connected" | "connected" | "disconnecting"
   >("loading");
@@ -46,14 +48,7 @@ export function SpotifyDisconnectInline({ ko }: { ko: boolean }) {
 
   async function disconnect() {
     if (state === "disconnecting") return;
-    if (
-      !window.confirm(
-        ko
-          ? "Spotify 연결을 해제할까요? 가져온 곡은 그대로 남아있어요."
-          : "Disconnect Spotify? Already-imported tracks stay in your library.",
-      )
-    )
-      return;
+    if (!window.confirm(t.spotifyDisconnectConfirm)) return;
     setState("disconnecting");
     try {
       const res = await fetch("/api/auth/spotify/disconnect", { method: "POST" });
@@ -72,10 +67,10 @@ export function SpotifyDisconnectInline({ ko }: { ko: boolean }) {
     <>
       <span className="text-neutral-700">·</span>
       <span className="text-neutral-400">
-        {ko ? "내 연결:" : "Mine:"}
+        {t.spotifyMine}
       </span>
       <span className="rounded-full bg-[#1DB954]/20 px-2 py-0.5 text-[#1DB954]">
-        {ko ? "연결됨" : "Connected"}
+        {t.connBoardSpotifyConnected}
       </span>
       {lastSyncedAt && (
         <span className="text-[10px] text-neutral-500">
@@ -91,9 +86,7 @@ export function SpotifyDisconnectInline({ ko }: { ko: boolean }) {
         disabled={state === "disconnecting"}
         className="rounded-md border border-rose-500/40 px-2 py-0.5 text-[11px] text-rose-200 hover:bg-rose-950/30 disabled:opacity-50"
       >
-        {state === "disconnecting"
-          ? "…"
-          : ko ? "연결 해제" : "Disconnect"}
+        {state === "disconnecting" ? "…" : t.spotifyDisconnect}
       </button>
     </>
   );

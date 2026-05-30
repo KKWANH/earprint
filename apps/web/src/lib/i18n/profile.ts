@@ -66,6 +66,7 @@ const en = {
   shareCtaLine: "Made with Earprint — discover your own music taste.",
   shareCtaButton: "Analyze my taste →",
   shareNotFound: "This shared profile doesn't exist.",
+  spotifyConnected: "Spotify connected",
 };
 
 const ko: typeof en = {
@@ -134,6 +135,7 @@ const ko: typeof en = {
   shareCtaLine: "Earprint 가 분석한 결과. 내 음악 취향도 알아볼까요?",
   shareCtaButton: "내 취향 분석하기 →",
   shareNotFound: "존재하지 않는 공유 페이지.",
+  spotifyConnected: "Spotify 연결됨",
 };
 
 export function profileDict(locale: Locale) {

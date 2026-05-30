@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSql } from "@/lib/db";
 import type { Locale } from "@/lib/i18n";
+import { accountDict } from "@/lib/i18n/account";
 
 interface HistoryRow {
   id: string;
@@ -56,11 +57,9 @@ export async function WorldcupHistorySection({
     return null;
   }
 
-  const title = locale === "ko" ? "월드컵 기록" : "World Cup history";
-  const emptyText =
-    locale === "ko"
-      ? "토너먼트를 진행한 적이 없습니다. /worldcup 에서 시작해 보세요."
-      : "No tournaments yet. Head to /worldcup to start one.";
+  const t = accountDict(locale);
+  const title = t.worldcupHistoryTitle;
+  const emptyText = t.worldcupHistoryEmpty;
   const lang = locale === "ko" ? "ko-KR" : "en-US";
 
   return (
@@ -117,16 +116,10 @@ function HistoryItem({
 }
 
 function labelForCategory(cat: string, locale: Locale): string {
-  if (locale === "ko") {
-    if (cat === "liked") return "좋아요";
-    if (cat === "discover") return "취향 찾기";
-    if (cat === "mix") return "섞기";
-    if (cat === "genre") return "장르";
-    return cat;
-  }
-  if (cat === "liked") return "Liked";
-  if (cat === "discover") return "Discover";
-  if (cat === "mix") return "Mix";
-  if (cat === "genre") return "Genre";
+  const t = accountDict(locale);
+  if (cat === "liked") return t.wcCatLiked;
+  if (cat === "discover") return t.wcCatDiscover;
+  if (cat === "mix") return t.wcCatMix;
+  if (cat === "genre") return t.wcCatGenre;
   return cat;
 }

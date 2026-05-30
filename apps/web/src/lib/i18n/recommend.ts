@@ -68,6 +68,9 @@ const en = {
   modeUnheardHint: "New genres outside your taste",
   modeIndieLabel: "Hidden gems",
   modeIndieHint: "Great tracks below the big listener counts",
+  modeSpotifyTopLabel: "Spotify Top",
+  modeSpotifyTopHint:
+    "Seeds from your Spotify top tracks (requires Spotify connected first)",
 
   // Mode toggle between swipe (Tinder) and bracket (이상형월드컵) layouts
   layoutToggleSwipe: "Swipe",
@@ -163,6 +166,9 @@ const ko: typeof en = {
   modeUnheardHint: "취향 밖의 새 장르",
   modeIndieLabel: "숨은 명곡",
   modeIndieHint: "청취자가 적은, 덜 알려진 좋은 곡",
+  modeSpotifyTopLabel: "Spotify TOP",
+  modeSpotifyTopHint:
+    "Spotify에서 자주 듣는 곡 기준 추천 (먼저 라이브러리에 Spotify 연결 필요)",
 
   layoutToggleSwipe: "스와이프",
   layoutToggleBracket: "이상형 월드컵",

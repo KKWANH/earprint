@@ -2,6 +2,8 @@ import type { Locale } from "../i18n";
 
 const en = {
   pageTitle: "Sample analysis",
+  metaDescription:
+    "Sample Earprint dashboard — see what your Music Zodiac, Taste DNA, and recommendations look like before signing up.",
   bannerLabel: "Sample data",
   bannerBody:
     "This is what an Earprint analysis looks like — based on a fictional listener. Sign in to run yours on your real YouTube Music likes.",
@@ -45,6 +47,8 @@ const en = {
 
 const ko: typeof en = {
   pageTitle: "분석 미리보기",
+  metaDescription:
+    "Earprint 분석 결과 샘플 — 음악 별자리, Taste DNA, 추천이 어떻게 보이는지 가입 없이 미리 확인하세요.",
   bannerLabel: "샘플 데이터",
   bannerBody:
     "Earprint 분석이 어떻게 보이는지 — 가상의 청취자 데이터로 보여드립니다. 본인 YouTube Music 좋아요로 직접 돌리려면 로그인하세요.",

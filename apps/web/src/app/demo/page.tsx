@@ -17,10 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
   // search "music taste analysis sample" / "음악 취향 분석 샘플". Strong
   // social cards because shared-on-social is how this page gets clicked.
   const title = `${t.pageTitle} — Earprint`;
-  const description =
-    locale === "ko"
-      ? "Earprint 분석 결과 샘플 — 음악 별자리, Taste DNA, 추천이 어떻게 보이는지 가입 없이 미리 확인하세요."
-      : "Sample Earprint dashboard — see what your Music Zodiac, Taste DNA, and recommendations look like before signing up.";
+  const description = t.metaDescription;
   return {
     title,
     description,

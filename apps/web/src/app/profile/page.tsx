@@ -114,7 +114,7 @@ export default async function ProfilePage() {
             className="flex items-center gap-1.5 rounded-full border border-[#1DB954]/30 bg-[#1DB954]/10 px-2.5 py-0.5 text-[11px] text-[#1DB954] hover:bg-[#1DB954]/20"
           >
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#1DB954]" />
-            {locale === "ko" ? "Spotify 연결됨" : "Spotify connected"}
+            {t.spotifyConnected}
             {spotifyState.lastSyncedAt && (
               <span className="text-[#1DB954]/70">
                 · {spotifyState.lastSyncedAt.toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", { month: "short", day: "numeric" })}

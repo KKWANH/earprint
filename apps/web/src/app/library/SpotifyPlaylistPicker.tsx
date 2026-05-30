@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { accountDict } from "@/lib/i18n/account";
 
 /**
  * Expandable playlist picker that hangs off SpotifyConnectCard. Lists
@@ -33,6 +34,7 @@ interface Playlist {
 }
 
 export function SpotifyPlaylistPicker({ ko }: { ko: boolean }) {
+  const t = accountDict(ko ? "ko" : "en");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,15 +100,13 @@ export function SpotifyPlaylistPicker({ ko }: { ko: boolean }) {
       );
       if (want) {
         const msg = d.skipped
-          ? ko ? "변경 없음 (스킵)" : "no change (skipped)"
-          : ko
-            ? `${d.added ?? 0}곡 추가 (${d.scanned ?? 0} 검사)`
-            : `+${d.added ?? 0} of ${d.scanned ?? 0} scanned`;
+          ? t.playlistNoChange
+          : t.playlistAddedScanned(d.added ?? 0, d.scanned ?? 0);
         setRowMessages((m) => ({ ...m, [p.id]: msg }));
       } else {
         setRowMessages((m) => ({
           ...m,
-          [p.id]: ko ? "동기화 중단됨" : "stopped syncing",
+          [p.id]: t.playlistStopped,
         }));
       }
     } catch (e) {
@@ -128,7 +128,7 @@ export function SpotifyPlaylistPicker({ ko }: { ko: boolean }) {
         className="flex items-center justify-between gap-2 text-left text-xs text-neutral-300 hover:text-white"
       >
         <span>
-          {ko ? "📂 플레이리스트 선택해서 가져오기" : "📂 Pick playlists to import"}
+          {t.pickPlaylists}
         </span>
         <span className="text-neutral-500">{open ? "▾" : "▸"}</span>
       </button>
@@ -136,7 +136,7 @@ export function SpotifyPlaylistPicker({ ko }: { ko: boolean }) {
         <div className="flex flex-col gap-2">
           {loading && (
             <p className="text-[11px] text-neutral-500">
-              {ko ? "플레이리스트 불러오는 중…" : "Loading playlists…"}
+              {t.loadingPlaylists}
             </p>
           )}
           {error && (
@@ -146,7 +146,7 @@ export function SpotifyPlaylistPicker({ ko }: { ko: boolean }) {
           )}
           {!loading && !error && playlists.length === 0 && (
             <p className="text-[11px] text-neutral-500">
-              {ko ? "공개 플레이리스트가 없습니다." : "No playlists found."}
+              {t.noPlaylists}
             </p>
           )}
           {playlists.length > 0 && (
@@ -188,7 +188,7 @@ export function SpotifyPlaylistPicker({ ko }: { ko: boolean }) {
                           {p.trackCount}곡
                           {p.ownerName && !p.isOwn && (
                             <>
-                              {" "}· {ko ? "by " : "by "}
+                              {" "}· {t.playlistOwnerBy}
                               {p.ownerName}
                             </>
                           )}

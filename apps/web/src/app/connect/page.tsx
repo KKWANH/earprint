@@ -142,33 +142,31 @@ function LastSyncBadge({
   status: import("@/lib/connection").LastSyncStatus;
   locale: Locale;
 }) {
+  const t = connectDict(locale);
   const ago = formatRelative(status.at, locale);
   const captured = status.captured ?? 0;
   const expected = status.expected;
   const short =
     expected != null && captured < Math.floor(expected * 0.99);
   const headerHint = short
-    ? locale === "ko"
-      ? ` · 페이지 헤더는 ${expected!.toLocaleString()}곡 표시 (다시 동기화하면 누락분 추가)`
-      : ` · header showed ${expected!.toLocaleString()} (re-sync to pick up the rest)`
+    ? t.lastSyncHeaderHint(expected!.toLocaleString())
     : "";
   return (
     <p className="rounded-md border border-emerald-500/30 bg-emerald-950/30 px-3 py-1.5 text-xs text-emerald-200">
-      {locale === "ko"
-        ? `✓ 마지막 동기화 — ${captured.toLocaleString()}곡 전송됨${headerHint} · ${ago}`
-        : `✓ Last sync — ${captured.toLocaleString()} songs sent${headerHint} · ${ago}`}
+      {t.lastSyncLine(captured.toLocaleString(), headerHint, ago)}
     </p>
   );
 }
 
 /** "12 minutes ago" / "12분 전" — coarse, no need for a date library. */
 function formatRelative(iso: string, locale: Locale): string {
+  const t = connectDict(locale);
   const ms = Date.now() - new Date(iso).getTime();
   const min = Math.round(ms / 60_000);
-  if (min < 1) return locale === "ko" ? "방금" : "just now";
-  if (min < 60) return locale === "ko" ? `${min}분 전` : `${min} min ago`;
+  if (min < 1) return t.relJustNow;
+  if (min < 60) return t.relMinAgo(min);
   const hours = Math.round(min / 60);
-  if (hours < 24) return locale === "ko" ? `${hours}시간 전` : `${hours}h ago`;
+  if (hours < 24) return t.relHrAgo(hours);
   const days = Math.round(hours / 24);
-  return locale === "ko" ? `${days}일 전` : `${days}d ago`;
+  return t.relDayAgo(days);
 }

@@ -41,11 +41,8 @@ export function ModePicker({
       ? [{
           id: "spotify-top" as ModeId,
           emoji: "🟢",
-          label: locale === "ko" ? "Spotify TOP" : "Spotify Top",
-          hint:
-            locale === "ko"
-              ? "Spotify에서 자주 듣는 곡 기준 추천 (먼저 라이브러리에 Spotify 연결 필요)"
-              : "Seeds from your Spotify top tracks (requires Spotify connected first)",
+          label: t.modeSpotifyTopLabel,
+          hint: t.modeSpotifyTopHint,
         }]
       : []),
   ];

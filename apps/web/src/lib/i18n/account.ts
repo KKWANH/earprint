@@ -190,6 +190,27 @@ const en = {
   spotifyRelMinAgo: (n: number) => `${n} min ago`,
   spotifyRelHrAgo: (n: number) => `${n} hr ago`,
   spotifyRelDayAgo: (n: number) => `${n} day${n === 1 ? "" : "s"} ago`,
+
+  // ── Worldcup history section (WorldcupHistorySection.tsx) ──
+  worldcupHistoryTitle: "World Cup history",
+  worldcupHistoryEmpty: "No tournaments yet. Head to /worldcup to start one.",
+  wcCatLiked: "Liked",
+  wcCatDiscover: "Discover",
+  wcCatMix: "Mix",
+  wcCatGenre: "Genre",
+
+  // ── Spotify inline disconnect chip (SpotifyDisconnectInline.tsx) ──
+  spotifyMine: "Mine:",
+
+  // ── Spotify playlist picker (SpotifyPlaylistPicker.tsx) ──
+  pickPlaylists: "📂 Pick playlists to import",
+  loadingPlaylists: "Loading playlists…",
+  noPlaylists: "No playlists found.",
+  playlistNoChange: "no change (skipped)",
+  playlistAddedScanned: (added: number, scanned: number) =>
+    `+${added} of ${scanned} scanned`,
+  playlistStopped: "stopped syncing",
+  playlistOwnerBy: "by ",
 };
 
 const ko: typeof en = {
@@ -361,6 +382,24 @@ const ko: typeof en = {
   spotifyRelMinAgo: (n: number) => `${n}분 전`,
   spotifyRelHrAgo: (n: number) => `${n}시간 전`,
   spotifyRelDayAgo: (n: number) => `${n}일 전`,
+
+  worldcupHistoryTitle: "월드컵 기록",
+  worldcupHistoryEmpty: "토너먼트를 진행한 적이 없습니다. /worldcup 에서 시작해 보세요.",
+  wcCatLiked: "좋아요",
+  wcCatDiscover: "취향 찾기",
+  wcCatMix: "섞기",
+  wcCatGenre: "장르",
+
+  spotifyMine: "내 연결:",
+
+  pickPlaylists: "📂 플레이리스트 선택해서 가져오기",
+  loadingPlaylists: "플레이리스트 불러오는 중…",
+  noPlaylists: "공개 플레이리스트가 없습니다.",
+  playlistNoChange: "변경 없음 (스킵)",
+  playlistAddedScanned: (added: number, scanned: number) =>
+    `${added}곡 추가 (${scanned} 검사)`,
+  playlistStopped: "동기화 중단됨",
+  playlistOwnerBy: "by ",
 };
 
 export function accountDict(locale: Locale) {

@@ -41,6 +41,10 @@ const en = {
   reasonFamily: "same family",
   reasonEra: "same era",
   reasonCoOccurs: "co-occurs",
+  shareText: (name: string) =>
+    `🎧 ${name} on Earprint — history, top tracks, your library`,
+  shareCopied: "✓ Copied",
+  share: "🔗 Share",
 };
 
 const ko: typeof en = {
@@ -83,6 +87,10 @@ const ko: typeof en = {
   reasonFamily: "같은 패밀리",
   reasonEra: "같은 시기",
   reasonCoOccurs: "함께 등장",
+  shareText: (name: string) =>
+    `🎧 Earprint에서 "${name}" 둘러보기 — 역사·대표곡·내 라이브러리`,
+  shareCopied: "✓ 링크 복사됨",
+  share: "🔗 공유",
 };
 
 export function genreDict(locale: Locale) {

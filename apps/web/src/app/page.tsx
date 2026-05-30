@@ -120,9 +120,7 @@ export default async function LandingPage() {
             demo instead of bouncing at the auth wall. */}
         {!signedIn && (
           <p className="mt-3 text-xs text-neutral-500">
-            {locale === "ko"
-              ? "무료 · 신용카드 불필요 · 데모는 가입 없이 둘러볼 수 있어요"
-              : "Free · no credit card · the demo needs no sign-up"}
+            {t.heroTrustLine}
           </p>
         )}
         {signedIn && (
